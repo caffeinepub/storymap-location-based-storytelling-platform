@@ -1,0 +1,18 @@
+{
+  "frontend/src/App.tsx": "Main application component that handles authentication state, profile setup modal, and renders the home page with theme provider and toast notifications.",
+  "frontend/src/hooks/useQueries.ts": "Custom React Query hooks for all backend operations with optimistic updates for like/unlike/pin/unpin mutations, proper authentication state checks, and real-time UI synchronization via cache updates and invalidations.",
+  "frontend/src/components/Header.tsx": "Application header with StoryMap branding, theme toggle, and authentication controls.",
+  "frontend/src/components/Footer.tsx": "Simple footer with attribution to caffeine.ai.",
+  "frontend/src/components/ProfileSetupModal.tsx": "Modal dialog for first-time users to set up their username after authentication, now includes the seenIntro field in the user profile.",
+  "frontend/src/pages/HomePage.tsx": "Main page component with view toggle between feed and map, comprehensive geolocation handling with permission requests and retry functionality, filters, story list/map display, floating create story button, auto-open create dialog for first-time users, and location permission status management.",
+  "frontend/src/components/StoryFeed.tsx": "Grid layout displaying story cards with loading states and empty state messaging, passing click handlers to open story detail dialogs.",
+  "frontend/src/components/StoryCard.tsx": "Individual story card component with fully functional Like, Pin, Comment, and Share buttons that connect to backend with optimistic UI updates, authentication awareness, and proper loading states.",
+  "frontend/src/components/MapView.tsx": "Fully interactive map component using Leaflet with dynamic CDN loading, displaying story markers with clustering-ready structure, user location marker with pulsing animation, clickable markers with story previews in popups, and real-time synchronization with filters and feed.",
+  "frontend/src/components/FilterBar.tsx": "Search input and category filter buttons using enum values for filtering stories.",
+  "frontend/src/components/CreateStoryFAB.tsx": "Floating action button with gradient styling for creating new stories.",
+  "frontend/src/components/CreateStoryDialog.tsx": "Story creation dialog with robust authentication state handling that distinguishes between actor initialization and genuine authentication failures, showing appropriate loading indicators and only displaying login-required messages when user is truly unauthenticated.",
+  "frontend/src/components/StoryDetailDialog.tsx": "Full story detail dialog with scrollable content, fully functional Like/Pin/Comment/Share/Delete buttons with real-time backend integration, optimistic updates, authentication-aware interactions, and comprehensive loading states using the delete-story-icon asset.",
+  "frontend/src/lib/categories.ts": "Helper functions for category labels and color styling using Category enum as keys.",
+  "frontend/src/lib/utils.ts": "Utility functions including distance calculation using Haversine formula and distance formatting.",
+  "frontend/src/index.css": "Global styles with OKLCH color system featuring purple/blue gradient theme for light and dark modes."
+}

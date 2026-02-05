@@ -1,0 +1,48 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-05T06:01:09.085Z",
+  "summary": "MapView was updated to handle map clicks and track a selected lat/lng with a temporary Leaflet marker ref, but the diff excerpt does not clearly show a user-visible coordinate display or logic ensuring map clicks exclude existing story markers. Several unrelated documentation/state files and an unrelated auth hook change were also included.",
+  "missing_requirements": [
+    {
+      "id": "REQ-1",
+      "requirement": "When the user clicks on the map (not on an existing story marker), a temporary pin appears at the clicked location; clicking elsewhere moves the same temporary pin; story marker click behavior continues to work.",
+      "reason": "The diff shows a global `map.on('click', ...)` handler that will run on any map click, but the provided excerpt does not show logic that prevents the handler from running when clicking an existing story marker (e.g., stopping propagation / checking click target). The excerpt also does not show story-marker click handling to confirm it remains unchanged.",
+      "evidence": [
+        "frontend/src/components/MapView.tsx"
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "requirement": "Show the clicked coordinates to the user after dropping the temporary pin, and update when the user clicks a different location, using English user-facing text.",
+      "reason": "The excerpt shows `selectedLatLng` state being set on click, but does not include any rendered UI (popup or element under the map) that displays latitude/longitude with English text.",
+      "evidence": [
+        "frontend/src/components/MapView.tsx"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "Modified Internet Identity hook behavior/options unrelated to map pin dropping or coordinate display.",
+      "reason": "BuildRequest only targets MapView map interactions; no auth-related changes were requested.",
+      "evidence": [
+        "frontend/src/hooks/useInternetIdentity.ts"
+      ]
+    },
+    {
+      "description": "Added/updated project documentation/state summary files (project_state.json, frontend-file-summaries.txt).",
+      "reason": "BuildRequest does not request generating or modifying project meta/state summary files.",
+      "evidence": [
+        "project_state.json",
+        "frontend-file-summaries.txt"
+      ]
+    }
+  ],
+  "confidence": 0.62,
+  "changed_files": [
+    "frontend-file-summaries.txt",
+    "frontend/src/components/MapView.tsx",
+    "frontend/src/hooks/useInternetIdentity.ts",
+    "project_state.json"
+  ]
+}

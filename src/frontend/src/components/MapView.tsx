@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getCategoryLabel, getCategoryColor } from '../lib/categories';
 import { calculateDistance, formatDistance } from '../lib/utils';
+import { MapPin } from 'lucide-react';
 
 interface MapViewProps {
   stories: Story[];
@@ -16,7 +17,9 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const userMarkerRef = useRef<any>(null);
+  const tempMarkerRef = useRef<any>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [selectedLatLng, setSelectedLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [L, setL] = useState<any>(null);
 
@@ -80,6 +83,38 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
       maxZoom: 19,
     }).addTo(map);
 
+    // Add map click handler for temporary pin
+    map.on('click', (e: any) => {
+      const { lat, lng } = e.latlng;
+      setSelectedLatLng({ lat, lng });
+
+      // Create or update temporary marker
+      if (tempMarkerRef.current) {
+        tempMarkerRef.current.setLatLng([lat, lng]);
+      } else {
+        const tempIcon = L.divIcon({
+          html: `
+            <div class="relative w-10 h-10 flex items-center justify-center">
+              <div class="absolute inset-0 flex items-center justify-center">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white shadow-lg flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          `,
+          className: 'custom-temp-marker',
+          iconSize: [40, 40],
+          iconAnchor: [20, 40],
+        });
+
+        tempMarkerRef.current = L.marker([lat, lng], { icon: tempIcon }).addTo(map);
+        tempMarkerRef.current.bindPopup('<div class="p-2 text-sm font-semibold">Selected Location</div>');
+      }
+    });
+
     mapInstanceRef.current = map;
 
     return () => {
@@ -96,7 +131,7 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
 
     const map = mapInstanceRef.current;
 
-    // Clear existing markers
+    // Clear existing markers (but not temp marker)
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
     if (userMarkerRef.current) {
@@ -164,7 +199,9 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
         className: 'custom-popup',
       });
 
-      marker.on('click', () => {
+      // Stop propagation to prevent map click when clicking story marker
+      marker.on('click', (e: any) => {
+        L.DomEvent.stopPropagation(e);
         setSelectedStory(story);
       });
 
@@ -192,6 +229,11 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
       }).addTo(map);
 
       userMarkerRef.current.bindPopup('<div class="p-2 text-sm font-semibold">Your Location</div>');
+      
+      // Stop propagation for user marker too
+      userMarkerRef.current.on('click', (e: any) => {
+        L.DomEvent.stopPropagation(e);
+      });
     }
 
     // Fit map to bounds if we have markers
@@ -239,6 +281,31 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
         )}
       </div>
 
+      {selectedLatLng && (
+        <Card className="animate-in slide-in-from-bottom-4 duration-300 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-md">
+                <MapPin className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg mb-2 text-green-900 dark:text-green-100">Selected Location</h3>
+                <div className="space-y-1 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-green-800 dark:text-green-200">Latitude:</span>
+                    <span className="text-green-700 dark:text-green-300 font-mono">{selectedLatLng.lat.toFixed(6)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-green-800 dark:text-green-200">Longitude:</span>
+                    <span className="text-green-700 dark:text-green-300 font-mono">{selectedLatLng.lng.toFixed(6)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {selectedStory && (
         <Card className="animate-in slide-in-from-bottom-4 duration-300">
           <CardContent className="pt-6">
@@ -272,6 +339,10 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
           border: none;
         }
         .custom-user-marker {
+          background: transparent;
+          border: none;
+        }
+        .custom-temp-marker {
           background: transparent;
           border: none;
         }

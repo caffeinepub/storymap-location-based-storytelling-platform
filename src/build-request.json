@@ -1,0 +1,54 @@
+{
+  "kind": "build_request",
+  "title": "Add Google-Maps-like map click pin dropping in MapView",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "Update the MapView (Leaflet map) so that clicking anywhere on the map drops a temporary pin/marker at the clicked latitude/longitude, providing immediate visual feedback similar to Google Maps.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "When I click on any location it does not pin it or do something like in google map."
+        ]
+      },
+      "acceptanceCriteria": [
+        "When the user clicks on the map (not on an existing story marker), a pin appears at the clicked location.",
+        "Clicking a different location moves the same temporary pin to the new location (does not leave multiple temporary pins behind).",
+        "The existing story marker behavior continues to work (clicking a story marker still selects the story and its popup still works)."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Show the clicked coordinates to the user after dropping the temporary pin (e.g., in a small Leaflet popup or a compact UI element under the map) using English user-facing text.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "When I click on any location it does not pin it or do something like in google map."
+        ]
+      },
+      "acceptanceCriteria": [
+        "After the user clicks the map and the pin is dropped, the UI shows latitude and longitude for the selected point.",
+        "The coordinate display updates when the user clicks a different location."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not modify files under frontend/src/components/ui (read-only UI components).",
+    "Do not modify any frontend files listed in SYSTEM_CONTEXT.frontend.immutablePaths."
+  ],
+  "nonGoals": [
+    "Do not add a new backend API or persist the clicked pin location to the backend.",
+    "Do not change the existing story pin/like feature semantics (the temporary map pin is only a map interaction affordance)."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

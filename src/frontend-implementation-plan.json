@@ -1,0 +1,38 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Leaflet MapView click-to-drop temporary pin with coordinate display",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "summary": "Add a single temporary pin that appears/moves to the clicked map location without breaking existing story marker interactions.",
+      "acceptanceCriteria": [
+        "When the user clicks on the map (not on an existing story marker), a pin appears at the clicked location.",
+        "Clicking a different location moves the same temporary pin to the new location (does not leave multiple temporary pins behind).",
+        "The existing story marker behavior continues to work (clicking a story marker still selects the story and its popup still works)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/MapView.tsx",
+          "operation": "modify",
+          "description": "Implement Leaflet map click handling to place a single temporary marker at the clicked latitude/longitude. Add internal state/refs (e.g., selectedLatLng and tempMarkerRef), register a map click listener after map initialization, and ensure marker clicks do not also trigger the map click handler (stop event propagation on story markers as needed) so existing story marker selection/popup behavior remains unchanged."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Display the clicked latitude/longitude in English after dropping the temporary pin and keep it updated as the user clicks new locations.",
+      "acceptanceCriteria": [
+        "After the user clicks the map and the pin is dropped, the UI shows latitude and longitude for the selected point.",
+        "The coordinate display updates when the user clicks a different location."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/MapView.tsx",
+          "operation": "modify",
+          "description": "Add a compact coordinate readout in the MapView UI (e.g., a small section under the map) that renders when a temporary pin exists. Format and label values with English user-facing text (e.g., \"Selected location:\", \"Latitude:\", \"Longitude:\") and update it whenever the map click changes the selected point."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-update-the-mapview-leaflet-map-so-that-clicking-anywhere-on-the-map-drops-a-temporary-pin-marker-at-the-clicked-latitude-longitude-providing-immediate-visual-feedback-similar-to-google-maps",
+      "featureTitle": "Update the MapView (Leaflet map) so that clicking anywhere on the map drops a temporary pin/marker at the clicked latitude/longitude, providing immediate visual feedback similar to Google Maps.",
+      "files": [
+        "frontend/src/components/MapView.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-show-the-clicked-coordinates-to-the-user-after-dropping-the-temporary-pin-e-g-in-a-small-leaflet-popup-or-a-compact-ui-element-under-the-map-using-english-user-facing-text",
+      "featureTitle": "Show the clicked coordinates to the user after dropping the temporary pin (e.g., in a small Leaflet popup or a compact UI element under the map) using English user-facing text.",
+      "files": [
+        "frontend/src/components/MapView.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

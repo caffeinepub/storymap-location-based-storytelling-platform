@@ -2,7 +2,7 @@ import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsCallerAdmin } from '../hooks/useQueries';
 import { Button } from '@/components/ui/button';
-import { MapPin, Moon, Sun, User, Shield } from 'lucide-react';
+import { MapPin, Moon, Sun, User, Shield, Radio } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import {
   DropdownMenu,
@@ -16,9 +16,10 @@ interface HeaderProps {
   onNavigateProfile: () => void;
   onNavigateHome: () => void;
   onNavigateAdmin?: () => void;
+  onNavigateLocalUpdates?: () => void;
 }
 
-export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAdmin }: HeaderProps) {
+export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAdmin, onNavigateLocalUpdates }: HeaderProps) {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
@@ -63,6 +64,18 @@ export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAd
         </button>
 
         <div className="flex items-center gap-2">
+          {onNavigateLocalUpdates && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onNavigateLocalUpdates}
+              className="gap-2"
+            >
+              <Radio className="h-4 w-4" />
+              <span className="hidden sm:inline">Local Updates</span>
+            </Button>
+          )}
+
           <Button
             variant="ghost"
             size="icon"

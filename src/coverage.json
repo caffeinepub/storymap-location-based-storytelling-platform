@@ -1,55 +1,90 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T08:58:09.194Z",
+  "generatedAt": "2026-02-06T11:13:56.380Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 2,
-    "implemented": 2,
+    "total": 5,
+    "implemented": 4,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Update the story feed cards to display a human-readable location name for each story based on its latitude/longitude, and when user location is available also show the distance formatted as \"<X>km away from <Place Name>\" (or \"<X>m away from <Place Name>\" for sub-1km), falling back gracefully when either value is unavailable.",
+        "summary": "Identify and fix the root cause of the current deployment failure, ensuring the project builds and deploys successfully in a production configuration (frontend TypeScript/Vite build and backend Motoko canister build).",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/StoryCard.tsx",
-          "frontend/src/lib/utils.ts",
-          "frontend/src/components/StoryFeed.tsx"
+          "frontend/src/hooks/useLocalUpdates.ts",
+          "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/components/StoryCard.tsx",
-          "frontend/src/lib/utils.ts"
+          "frontend/src/hooks/useLocalUpdates.ts",
+          "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx"
         ]
       },
       {
         "id": "REQ-2",
-        "summary": "Implement client-side reverse geocoding for story coordinates using OpenStreetMap Nominatim reverse endpoint, including caching to avoid repeated requests for the same coordinates and safe request cancellation when cards unmount or coordinates change.",
+        "summary": "Extend the backend Local Update model and APIs to support an optional uploaded image, using the existing blob storage approach already used for Story images (i.e., an optional Storage.ExternalBlob on LocalUpdate and in addLocalUpdate parameters).",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Add an image upload UI to the Local Updates creation flow in the \"Post Local Update\" dialog, including file selection, validation, preview, remove option, and submitting the optional image along with the update.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/lib/reverseGeocode.ts",
-          "frontend/src/hooks/useReverseGeocodedPlace.ts",
-          "frontend/src/components/StoryCard.tsx"
+          "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/lib/reverseGeocode.ts",
-          "frontend/src/hooks/useReverseGeocodedPlace.ts",
-          "frontend/src/components/StoryCard.tsx"
+          "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx"
+        ]
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Update Local Update display surfaces to render the optional image when present (at minimum in the Local Update detail dialog; additionally in the list and map popup/preview if those views currently show rich content).",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
+          "frontend/src/components/local-updates/LocalUpdatesList.tsx",
+          "frontend/src/components/local-updates/LocalUpdatesMapView.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
+          "frontend/src/components/local-updates/LocalUpdatesList.tsx",
+          "frontend/src/components/local-updates/LocalUpdatesMapView.tsx"
+        ]
+      },
+      {
+        "id": "REQ-5",
+        "summary": "Update Local Update React Query hooks and mutations to support the new optional image field and to send the correct parameter type to the backend (including BigInt radius and the updated addLocalUpdate signature).",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useLocalUpdates.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useLocalUpdates.ts"
         ]
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
+    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/components/StoryCard.tsx",
-    "frontend/src/hooks/useReverseGeocodedPlace.ts",
-    "frontend/src/lib/reverseGeocode.ts",
-    "frontend/src/lib/utils.ts",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx",
+    "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
+    "frontend/src/components/local-updates/LocalUpdatesList.tsx",
+    "frontend/src/components/local-updates/LocalUpdatesMapView.tsx",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useLocalUpdates.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

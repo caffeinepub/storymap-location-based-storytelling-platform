@@ -24,7 +24,25 @@ export interface Comment {
   'timestamp' : bigint,
 }
 export type ExternalBlob = Uint8Array;
+export type LocalCategory = { 'nature' : null } |
+  { 'event' : null } |
+  { 'traffic' : null } |
+  { 'general' : null } |
+  { 'power' : null } |
+  { 'police' : null };
+export interface LocalUpdate {
+  'id' : bigint,
+  'latitude' : number,
+  'content' : string,
+  'author' : Principal,
+  'longitude' : number,
+  'timestamp' : bigint,
+  'category' : LocalCategory,
+  'radius' : bigint,
+  'image' : [] | [ExternalBlob],
+}
 export interface Location { 'latitude' : number, 'longitude' : number }
+export interface ProximityQuery { 'latitude' : number, 'longitude' : number }
 export interface Report {
   'id' : bigint,
   'storyId' : string,
@@ -126,6 +144,10 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addComment' : ActorMethod<[string, string, bigint, boolean], bigint>,
+  'addLocalUpdate' : ActorMethod<
+    [string, number, number, bigint, LocalCategory, [] | [ExternalBlob]],
+    bigint
+  >,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createDraft' : ActorMethod<
     [string, string, Category, [] | [Location], boolean, [] | [ExternalBlob]],
@@ -136,12 +158,22 @@ export interface _SERVICE {
     string
   >,
   'deleteDraft' : ActorMethod<[string], undefined>,
+  'getActiveLocalUpdatesByProximity' : ActorMethod<
+    [Location],
+    Array<LocalUpdate>
+  >,
+  'getAllActiveLocalUpdates' : ActorMethod<[], Array<LocalUpdate>>,
   'getAllStories' : ActorMethod<[], Array<Story>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComments' : ActorMethod<[string], Array<Comment>>,
   'getDraft' : ActorMethod<[string], [] | [StoryDraft]>,
   'getLikedStoriesByUser' : ActorMethod<[Principal], Array<StoryView>>,
+  'getLocalUpdateById' : ActorMethod<[bigint], LocalUpdate>,
+  'getLocalUpdatesByCategory' : ActorMethod<
+    [LocalCategory],
+    Array<LocalUpdate>
+  >,
   'getPinnedStoriesByUser' : ActorMethod<[Principal], Array<StoryView>>,
   'getReports' : ActorMethod<[], Array<Report>>,
   'getStoriesByCategory' : ActorMethod<[Category, SortOption], Array<Story>>,
@@ -156,6 +188,8 @@ export interface _SERVICE {
   'markIntroSeen' : ActorMethod<[], undefined>,
   'pinStory' : ActorMethod<[string], undefined>,
   'publishDraft' : ActorMethod<[string], string>,
+  'queryByProximity' : ActorMethod<[ProximityQuery], Array<LocalUpdate>>,
+  'removeLocalUpdate' : ActorMethod<[bigint], undefined>,
   'removeReport' : ActorMethod<[bigint], undefined>,
   'removeStory' : ActorMethod<[string], undefined>,
   'reportStory' : ActorMethod<[string, string, bigint], bigint>,

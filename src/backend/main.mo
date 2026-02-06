@@ -1,5 +1,4 @@
 import Map "mo:core/Map";
-import Set "mo:core/Set";
 import Array "mo:core/Array";
 import Text "mo:core/Text";
 import Iter "mo:core/Iter";
@@ -10,12 +9,15 @@ import Int "mo:core/Int";
 import Float "mo:core/Float";
 import List "mo:core/List";
 import Nat "mo:core/Nat";
+import Set "mo:core/Set";
 import Time "mo:core/Time";
 import AccessControl "authorization/access-control";
-import MixinAuthorization "authorization/MixinAuthorization";
 import Storage "blob-storage/Storage";
+import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   include MixinStorage();
 
@@ -183,6 +185,32 @@ actor {
     createdAt : Int;
     updatedAt : Int;
   };
+
+  // Local Updates
+  public type LocalCategory = {
+    #traffic;
+    #power;
+    #police;
+    #event;
+    #nature;
+    #general;
+  };
+
+  public type LocalUpdate = {
+    id : Nat;
+    content : Text;
+    latitude : Float;
+    longitude : Float;
+    radius : Nat; // meters
+    timestamp : Int;
+    category : LocalCategory;
+    author : Principal;
+    image : ?Storage.ExternalBlob; // Now supports optional image
+  };
+
+  var nextLocalUpdateId = 0;
+  let localUpdates = Map.empty<Nat, LocalUpdate>();
+  stable var lastCleanupTimestamp : Time.Time = 0;
 
   let stories = Map.empty<StoryId, StoryWithViewers>();
   let userProfiles = Map.empty<Principal, UserProfile>();
@@ -1101,5 +1129,162 @@ actor {
       func(draft) { draft.author == caller }
     );
     userDrafts.toArray();
+  };
+
+  ///////////////////////////////////
+  // Local Updates Functionality
+  ///////////////////////////////////
+
+  public shared ({ caller }) func addLocalUpdate(
+    content : Text,
+    latitude : Float,
+    longitude : Float,
+    radius : Nat,
+    category : LocalCategory,
+    image : ?Storage.ExternalBlob // Accept image as part of local update
+  ) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can add local updates");
+    };
+
+    if (radius < 200 or radius > 1000) {
+      Runtime.trap("Invalid radius: Must be between 200-1000 meters");
+    };
+
+    let updateId = nextLocalUpdateId;
+    nextLocalUpdateId += 1;
+
+    let update : LocalUpdate = {
+      id = updateId;
+      content;
+      latitude;
+      longitude;
+      radius;
+      timestamp = Time.now();
+      category;
+      author = caller;
+      image; // Store image in local update
+    };
+
+    localUpdates.add(updateId, update);
+    updateId;
+  };
+
+  public shared ({ caller }) func removeLocalUpdate(id : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can remove local updates");
+    };
+
+    switch (localUpdates.get(id)) {
+      case (null) { Runtime.trap("Local update does not exist") };
+      case (?update) {
+        if (caller != update.author and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Only the update author or admins can remove local updates");
+        };
+        localUpdates.remove(id);
+      };
+    };
+  };
+
+  public query ({ caller }) func getLocalUpdateById(id : Nat) : async LocalUpdate {
+    switch (localUpdates.get(id)) {
+      case (null) { Runtime.trap("Local update does not exist") };
+      case (?update) { update };
+    };
+  };
+
+  public type ProximityQuery = {
+    latitude : Float;
+    longitude : Float;
+  };
+
+  public query ({ caller }) func queryByProximity(proximityQuery : ProximityQuery) : async [LocalUpdate] {
+    localUpdates.filter(
+      func(_id, update) {
+        isLocalUpdateActive(update) and isWithinLocalRadius(update, proximityQuery.latitude, proximityQuery.longitude);
+      }
+    ).values().toArray();
+  };
+
+  public query ({ caller }) func getLocalUpdatesByCategory(category : LocalCategory) : async [LocalUpdate] {
+    localUpdates.filter(
+      func(_id, update) {
+        update.category == category and isLocalUpdateActive(update);
+      }
+    ).values().toArray();
+  };
+
+  public query ({ caller }) func getAllActiveLocalUpdates() : async [LocalUpdate] {
+    localUpdates.filter(
+      func(_id, update) {
+        isLocalUpdateActive(update);
+      }
+    ).values().toArray();
+  };
+
+  public query ({ caller }) func getActiveLocalUpdatesByProximity(location : Location) : async [LocalUpdate] {
+    let activeUpdates = localUpdates.values().filter(
+      func(update) {
+        isLocalUpdateActive(update) and isWithinLocalRadius(update, location.latitude, location.longitude)
+      }
+    );
+    Array.fromIter(activeUpdates);
+  };
+
+  func calculateDistance(lat1 : Float, lon1 : Float, lat2 : Float, lon2 : Float) : Float {
+    let earthRadiusKm : Float = 6371.0;
+
+    func degreesToRadians(degrees : Float) : Float {
+      degrees * (Float.pi / 180.0);
+    };
+
+    func haversine(lat1 : Float, lon1 : Float, lat2 : Float, lon2 : Float) : Float {
+      let lat1Rad = degreesToRadians(lat1);
+      let lon1Rad = degreesToRadians(lon1);
+      let lat2Rad = degreesToRadians(lat2);
+      let lon2Rad = degreesToRadians(lon2);
+
+      let dLat = lat2Rad - lat1Rad;
+      let dLon = lon2Rad - lon1Rad;
+
+      let a = Float.sin(dLat / 2.0) ** 2 +
+              Float.cos(lat1Rad) * Float.cos(lat2Rad) *
+              (Float.sin(dLon / 2.0) ** 2);
+      let c = 2.0 * Float.arctan2(Float.sqrt(a), Float.sqrt(1.0 - a));
+      earthRadiusKm * c * 1000.0;
+    };
+
+    haversine(lat1, lon1, lat2, lon2);
+  };
+
+  func isWithinLocalRadius(update : LocalUpdate, userLat : Float, userLon : Float) : Bool {
+    let distance = calculateDistance(userLat, userLon, update.latitude, update.longitude);
+    distance <= update.radius.toFloat();
+  };
+
+  func isLocalUpdateActive(update : LocalUpdate) : Bool {
+    let currentTime = Time.now();
+    let age = currentTime - update.timestamp;
+    let hours24 = 24 * 60 * 60 * 1000000000; // 24 hours in nanoseconds
+    let hours12 = 12 * 60 * 60 * 1000000000;
+    let days3 = 3 * 24 * 60 * 60 * 1000000000;
+    let days7 = 7 * 24 * 60 * 60 * 1000000000;
+
+    switch (update.category) {
+      case (#traffic) {
+        age <= hours12; // Traffic updates last up to 12 hours
+      };
+      case (#power) {
+        age <= days7; // Power updates last up to 7 days
+      };
+      case (#police) {
+        age <= hours12;
+      };
+      case (#event) {
+        age <= days3; // Event updates last up to 3 days
+      };
+      case (#nature) { age <= hours24 }; // Nature updates last 24 hours
+      case (#general) { age <= hours24 }; // General updates last 24 hours
+    };
   };
 };

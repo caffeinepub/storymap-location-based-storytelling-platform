@@ -1,51 +1,54 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T08:58:09.190Z",
-  "summary": "REQ-2 is largely implemented via a new reverse-geocode lib and hook with caching and abort-on-unmount. REQ-1 appears partially implemented (distance/place formatting utilities added and StoryCard now fetches placeName), but the fallback behavior for failed reverse geocoding does not match the requested/AC behavior based on the shown code.",
+  "generatedAt": "2026-02-06T11:13:56.377Z",
+  "summary": "The diff clearly implements frontend image selection/preview/removal and passes an optional image to the addLocalUpdate mutation (with BigInt radius), and updates Local Update detail + list UIs to render an image when present. However, the backend changes required by REQ-2 (LocalUpdate type + addLocalUpdate signature + query return shapes + updated candid bindings) are not evidenced in the provided backend/main.mo truncation, and the deployment-failure root-cause fix (REQ-1) is not clearly evidenced. The diff also introduces unrequested behavior such as dynamically loading Leaflet assets from a CDN in LocalUpdatesMapView, and includes a large “frontend-file-summaries” description of many unrelated features not requested.",
   "missing_requirements": [
     {
       "id": "REQ-1",
-      "requirement": "If reverse geocoding fails (or is loading), StoryCard should keep current behavior (distance-only if available, otherwise nothing) until/if a name becomes available, without surfacing an incorrect placeholder location name.",
-      "reason": "The reverseGeocode() helper returns the literal string 'Unknown location' on non-abort errors, which would cause the UI to display a place label even when reverse geocoding failed, instead of falling back to the current behavior until a real name is available.",
+      "requirement": "Identify and fix the root cause of the current deployment failure, ensuring the project builds and deploys successfully in a production configuration (frontend TypeScript/Vite build and backend Motoko canister build).",
+      "reason": "The diff shows feature work (image support) and a migration hook, but does not provide explicit evidence of fixing the stated deployment failure or of build/deploy stability changes addressing a specific root cause.",
       "evidence": [
-        "frontend/src/lib/reverseGeocode.ts",
-        "frontend/src/lib/utils.ts",
-        "frontend/src/components/StoryCard.tsx"
+        "backend/main.mo",
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "requirement": "Extend the backend Local Update model and APIs to support an optional uploaded image (LocalUpdate.image and addLocalUpdate optional image parameter) and ensure all query methods return the updated LocalUpdate shape; update candid bindings accordingly.",
+      "reason": "A migration module defines NewLocalUpdate with an image field, and backend/main.mo references a migration hook, but the provided backend/main.mo excerpt is truncated before any LocalUpdate type/API definitions. There is no direct diff evidence that main.mo’s LocalUpdate type includes image, that addLocalUpdate accepts/persists image, or that the relevant query methods now return the new shape / candid is updated.",
+      "evidence": [
+        "backend/migration.mo",
+        "backend/main.mo"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Reverse geocoding returns a hardcoded fallback place name string ('Unknown location') on errors instead of indicating failure via null/empty and letting the UI fall back.",
-      "reason": "The BuildRequest/AC specifies graceful fallback to existing behavior when reverse geocoding fails; it does not ask to display an 'Unknown location' label.",
+      "description": "Dynamically loading Leaflet JS/CSS from unpkg CDN within LocalUpdatesMapView (injecting <link> and <script> tags at runtime).",
+      "reason": "The BuildRequest did not request changing map implementation details or adding dynamic CDN loading behavior; it only requested rendering optional images on existing Local Update surfaces.",
       "evidence": [
-        "frontend/src/lib/reverseGeocode.ts"
+        "frontend/src/components/local-updates/LocalUpdatesMapView.tsx"
       ]
     },
     {
-      "description": "Attempt to set a custom 'User-Agent' header on a browser fetch to Nominatim.",
-      "reason": "Not requested in the BuildRequest; also typically not settable by browsers (may be ignored/blocked), making it an unrequested implementation detail.",
+      "description": "Introduced/claimed broad unrelated frontend feature work (e.g., story edit mode, optimistic Like/Pin, enhanced geocoding race-condition handling, admin dashboard nav, profile setup modal pointer-events fixes, etc.) as described in the changed summary file.",
+      "reason": "These features are not requested by REQ-1 through REQ-5. While this file is a summary and may not prove code changes, the diff does show this file being modified to include these unrequested feature descriptions.",
       "evidence": [
-        "frontend/src/lib/reverseGeocode.ts"
-      ]
-    },
-    {
-      "description": "Updated documentation/state summary files describing unrelated features such as admin dashboard, moderation, story editing, and map search changes.",
-      "reason": "These are not part of the requested scope (location name/distance in story feed + reverse geocoding).",
-      "evidence": [
-        "frontend-file-summaries.txt",
-        "project_state.json"
+        "frontend-file-summaries.txt"
       ]
     }
   ],
-  "confidence": 0.66,
+  "confidence": 0.58,
   "changed_files": [
+    "backend/main.mo",
+    "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/StoryCard.tsx",
-    "frontend/src/hooks/useReverseGeocodedPlace.ts",
-    "frontend/src/lib/reverseGeocode.ts",
-    "frontend/src/lib/utils.ts",
+    "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx",
+    "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
+    "frontend/src/components/local-updates/LocalUpdatesList.tsx",
+    "frontend/src/components/local-updates/LocalUpdatesMapView.tsx",
+    "frontend/src/hooks/useLocalUpdates.ts",
     "project_state.json"
   ]
 }

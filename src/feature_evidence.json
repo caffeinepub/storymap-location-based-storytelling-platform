@@ -2,11 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-update-the-story-feed-cards-to-display-a-human-readable-location-name-for-each-story-based-on-its-latitude-longitude-and-when-user-location-is-available-also-show-the-distance-formatted-as-x-km-away-from-place-name-or-x-m-away-from-place-name-for-sub-1km-falling-back-gracefully-when-either-value-is-unavailable",
-      "featureTitle": "Update the story feed cards to display a human-readable location name for each story based on its latitude/longitude, and when user location is available also show the distance formatted as \"<X>km away from <Place Name>\" (or \"<X>m away from <Place Name>\" for sub-1km), falling back gracefully when either value is unavailable.",
+      "featureId": "feature-identify-and-fix-the-root-cause-of-the-current-deployment-failure-ensuring-the-project-builds-and-deploys-successfully-in-a-production-configuration-frontend-typescript-vite-build-and-backend-motoko-canister-build",
+      "featureTitle": "Identify and fix the root cause of the current deployment failure, ensuring the project builds and deploys successfully in a production configuration (frontend TypeScript/Vite build and backend Motoko canister build).",
       "files": [
-        "frontend/src/components/StoryCard.tsx",
-        "frontend/src/lib/utils.ts"
+        "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx",
+        "frontend/src/hooks/useLocalUpdates.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -23,12 +23,10 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-implement-client-side-reverse-geocoding-for-story-coordinates-using-openstreetmap-nominatim-reverse-endpoint-including-caching-to-avoid-repeated-requests-for-the-same-coordinates-and-safe-request-cancellation-when-cards-unmount-or-coordinates-change",
-      "featureTitle": "Implement client-side reverse geocoding for story coordinates using OpenStreetMap Nominatim reverse endpoint, including caching to avoid repeated requests for the same coordinates and safe request cancellation when cards unmount or coordinates change.",
+      "featureId": "feature-add-an-image-upload-ui-to-the-local-updates-creation-flow-in-the-post-local-update-dialog-including-file-selection-validation-preview-remove-option-and-submitting-the-optional-image-along-with-the-update",
+      "featureTitle": "Add an image upload UI to the Local Updates creation flow in the \"Post Local Update\" dialog, including file selection, validation, preview, remove option, and submitting the optional image along with the update.",
       "files": [
-        "frontend/src/components/StoryCard.tsx",
-        "frontend/src/hooks/useReverseGeocodedPlace.ts",
-        "frontend/src/lib/reverseGeocode.ts"
+        "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -40,7 +38,49 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-2"
+        "REQ-3"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-local-update-display-surfaces-to-render-the-optional-image-when-present-at-minimum-in-the-local-update-detail-dialog-additionally-in-the-list-and-map-popup-preview-if-those-views-currently-show-rich-content",
+      "featureTitle": "Update Local Update display surfaces to render the optional image when present (at minimum in the Local Update detail dialog; additionally in the list and map popup/preview if those views currently show rich content).",
+      "files": [
+        "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
+        "frontend/src/components/local-updates/LocalUpdatesList.tsx",
+        "frontend/src/components/local-updates/LocalUpdatesMapView.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-4"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-local-update-react-query-hooks-and-mutations-to-support-the-new-optional-image-field-and-to-send-the-correct-parameter-type-to-the-backend-including-bigint-radius-and-the-updated-addlocalupdate-signature",
+      "featureTitle": "Update Local Update React Query hooks and mutations to support the new optional image field and to send the correct parameter type to the backend (including BigInt radius and the updated addLocalUpdate signature).",
+      "files": [
+        "frontend/src/hooks/useLocalUpdates.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-5"
       ],
       "confidence": "high"
     }

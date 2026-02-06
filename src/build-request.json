@@ -1,54 +1,115 @@
 {
   "kind": "build_request",
-  "title": "Show location name and/or distance in the story feed",
-  "priority": "normal",
+  "title": "Fix deployment failure and add image upload to Local Updates",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Update the story feed cards to display a human-readable location name for each story based on its latitude/longitude, and when user location is available also show the distance formatted as \"<X>km away from <Place Name>\" (or \"<X>m away from <Place Name>\" for sub-1km), falling back gracefully when either value is unavailable.",
-      "target": "frontend",
+      "text": "Identify and fix the root cause of the current deployment failure, ensuring the project builds and deploys successfully in a production configuration (frontend TypeScript/Vite build and backend Motoko canister build).",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-1",
+          "msg-2",
+          "msg-3"
         ],
         "quotes": [
-          "In story feed it should show the location name, or some KM away from that place \"name\""
+          "🙏 Something went wrong with the deployment\n\n Deployment error",
+          "Please fix the deployment error and add upload image feature in \"Local update\""
         ]
       },
       "acceptanceCriteria": [
-        "In the Story Feed grid, each StoryCard shows a location label derived from the story coordinates (e.g., a city/neighborhood/address string) when it can be resolved.",
-        "When userLocation is available, StoryCard shows distance + place name in English using the pattern \"<distance> away from <place name>\".",
-        "When userLocation is not available, StoryCard can still show the place name alone (no distance).",
-        "If reverse geocoding fails or is loading, StoryCard continues to render without errors and shows the current behavior (distance-only if available, otherwise nothing) until/if the name becomes available."
+        "A clean production build completes successfully for the frontend (no TypeScript errors, missing imports/exports, or build-time crashes).",
+        "A clean canister build completes successfully for the backend (no Motoko compile errors, no Candid/interface generation errors).",
+        "A full deploy succeeds (no unspecified deployment error remains).",
+        "Any fixes made for deployment stability do not modify files under the declared immutable frontend paths (e.g., frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui/*)."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Implement client-side reverse geocoding for story coordinates using OpenStreetMap Nominatim reverse endpoint, including caching to avoid repeated requests for the same coordinates and safe request cancellation when cards unmount or coordinates change.",
-      "target": "frontend",
+      "text": "Extend the backend Local Update model and APIs to support an optional uploaded image, using the existing blob storage approach already used for Story images (i.e., an optional Storage.ExternalBlob on LocalUpdate and in addLocalUpdate parameters).",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-3"
         ],
         "quotes": [
-          "In story feed it should show the location name, or some KM away from that place \"name\""
+          "add upload image feature in \"Local update\""
         ]
       },
       "acceptanceCriteria": [
-        "Reverse geocoding is performed from the frontend via HTTPS using Nominatim reverse geocoding (lat/lon -> place string).",
-        "Requests are cached (e.g., in-memory map and/or localStorage) using a stable key (coordinates rounded to a reasonable precision) so scrolling/re-rendering the feed does not spam the endpoint.",
-        "In-flight reverse-geocode requests are aborted/ignored when no longer relevant (e.g., component unmount) to prevent setting state after unmount and to reduce wasted work.",
-        "No backend changes are required to resolve location names."
+        "backend/main.mo: LocalUpdate includes an optional image field compatible with the existing blob-storage types used by Story (e.g., ?Storage.ExternalBlob).",
+        "backend/main.mo: addLocalUpdate accepts an optional image parameter and persists it with the LocalUpdate record.",
+        "All Local Update query methods that return LocalUpdate (e.g., getLocalUpdateById, getAllActiveLocalUpdates, getActiveLocalUpdatesByProximity, getLocalUpdatesByCategory, queryByProximity) continue to compile and return the new LocalUpdate shape including the optional image.",
+        "Candid bindings used by the frontend are updated accordingly so the frontend compiles against the new interface."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Add an image upload UI to the Local Updates creation flow in the \"Post Local Update\" dialog, including file selection, validation, preview, remove option, and submitting the optional image along with the update.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "add upload image feature in \"Local update\""
+        ]
+      },
+      "acceptanceCriteria": [
+        "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx includes an optional image input (accept=image/*) with user-friendly validation errors for non-image files and oversized files.",
+        "The dialog shows a preview of the selected image and provides a clear action to remove/clear the selected image before posting.",
+        "On submit, the dialog passes the optional image to the Local Update create mutation, using the same ExternalBlob conversion pattern used in frontend/src/components/CreateStoryDialog.tsx (ArrayBuffer -> Uint8Array -> ExternalBlob).",
+        "If no image is selected, Local Updates can still be posted successfully.",
+        "All user-facing text added/changed is in English."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Update Local Update display surfaces to render the optional image when present (at minimum in the Local Update detail dialog; additionally in the list and map popup/preview if those views currently show rich content).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "add upload image feature in \"Local update\""
+        ]
+      },
+      "acceptanceCriteria": [
+        "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx renders the image when update.image is present, using the blob's direct URL method (consistent with how Story images/draft images are rendered).",
+        "The UI remains clean when update.image is null/undefined (no broken image placeholders).",
+        "Local Updates list/map views continue to function without runtime errors after the LocalUpdate type change."
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "Update Local Update React Query hooks and mutations to support the new optional image field and to send the correct parameter type to the backend (including BigInt radius and the updated addLocalUpdate signature).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "add upload image feature in \"Local update\""
+        ]
+      },
+      "acceptanceCriteria": [
+        "frontend/src/hooks/useLocalUpdates.ts: useAddLocalUpdate mutationFn accepts an optional image parameter and forwards it to the backend addLocalUpdate call in the correct argument position/type.",
+        "TypeScript types for LocalUpdate and the addLocalUpdate call site match the generated backend declarations (no any-casts required to make the build pass).",
+        "Posting a Local Update with an image succeeds and the posted update, when re-fetched, includes a usable image reference."
       ]
     }
   ],
   "constraints": [
-    "Do not modify any files under frontend/src/components/ui (Shadcn components must be composed, not edited).",
-    "Do not edit frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx."
+    "Backend must remain a single Motoko actor with all logic in backend/main.mo; only add a migration file if a stable-state upgrade requires it.",
+    "Do not edit frontend files in the immutable paths list (frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui/*). Compose UI components rather than modifying shadcn sources.",
+    "Do not introduce external databases or third-party storage; use the existing blob-storage mixin already included in backend/main.mo."
   ],
   "nonGoals": [
-    "Adding or changing story creation fields to store a location name in the backend.",
-    "Adding paid/third-party map SDK integrations or real-time location tracking."
+    "Adding new authentication providers beyond Internet Identity.",
+    "Adding real-time updates (WebSockets/push) for Local Updates beyond the existing polling/query behavior.",
+    "Implementing image editing/cropping/compression tools (only upload, preview, remove, and display)."
   ],
   "imageRequirements": {
     "required": [],

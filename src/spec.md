@@ -1,12 +1,14 @@
 # Specification
 
 ## Summary
-**Goal:** Show a human-readable place name in each story feed card, and optionally display the distance from the user to that place when user location is available.
+**Goal:** Restore successful production deployment and add optional image upload support to Local Updates end-to-end (backend model/API + frontend create and display flows).
 
 **Planned changes:**
-- Update Story Feed cards to render a location label resolved from each story’s latitude/longitude, and when user location is available format it as “<X>km away from <Place Name>” (or “<X>m away from <Place Name>” under 1km).
-- Add client-side reverse geocoding via OpenStreetMap Nominatim reverse endpoint to turn story coordinates into a place string.
-- Implement caching for reverse-geocode lookups (using a stable rounded-coordinates key) and cancel/ignore in-flight requests when cards unmount or coordinates change to avoid wasted work and state updates after unmount.
-- Ensure graceful fallback: if geocoding is loading/fails or user location is unavailable, cards continue rendering without errors and show the prior behavior (distance-only if available, otherwise nothing) until/if the place name becomes available.
+- Identify and fix the root cause(s) of the current production deployment failure so both the frontend TypeScript/Vite build and backend Motoko canister build/deploy succeed.
+- Extend the backend LocalUpdate data model and addLocalUpdate API to include an optional image using the same ExternalBlob/blob-storage approach used for Story images, and update all Local Update query methods to return the new shape.
+- Update generated Candid bindings so the frontend compiles against the updated backend interface.
+- Add an optional image picker to the “Post Local Update” dialog with validation (image-only + size limit messaging), preview, and remove/clear before posting; submit the image using the same ArrayBuffer -> Uint8Array -> ExternalBlob conversion pattern as Story posting.
+- Update Local Update UI surfaces to render the optional image when present (at minimum the Local Update detail dialog), while keeping layouts clean when no image exists.
+- Update Local Update React Query hooks/mutations to accept/forward the optional image and match the updated addLocalUpdate signature/types (including BigInt radius handling where applicable).
 
-**User-visible outcome:** In the Story Feed grid, each story card can show a readable location name, and when your location is available it also shows how far away the story is (e.g., “2.3km away from Downtown”).
+**User-visible outcome:** Deployments succeed again, and users can optionally attach an image when posting a Local Update, preview/remove it before submitting, and see the image displayed on Local Updates where supported (including the detail view).

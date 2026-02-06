@@ -12,8 +12,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heart, MapPin as PinIcon, MessageCircle, Share2, Loader2, Eye } from 'lucide-react';
 import type { Story } from '../backend';
-import { calculateDistance, formatDistance } from '../lib/utils';
+import { calculateDistance, formatLocationWithDistance } from '../lib/utils';
 import { getCategoryLabel, getCategoryColor } from '../lib/categories';
+import { useReverseGeocodedPlace } from '../hooks/useReverseGeocodedPlace';
 import { toast } from 'sonner';
 
 interface StoryCardProps {
@@ -30,6 +31,12 @@ export default function StoryCard({ story, userLocation, onClick }: StoryCardPro
   const unlikeMutation = useUnlikeStory();
   const pinMutation = usePinStory();
   const unpinMutation = useUnpinStory();
+
+  // Fetch place name for story location
+  const { placeName, isLoading: placeLoading } = useReverseGeocodedPlace(
+    story.location.latitude,
+    story.location.longitude
+  );
 
   useEffect(() => {
     if (story.image) {
@@ -133,6 +140,9 @@ export default function StoryCard({ story, userLocation, onClick }: StoryCardPro
     }
   };
 
+  // Build location display string
+  const locationText = formatLocationWithDistance(distance, placeName);
+
   return (
     <Card
       className="cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col"
@@ -215,21 +225,21 @@ export default function StoryCard({ story, userLocation, onClick }: StoryCardPro
           </Button>
         </div>
         <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-          {distance !== null && (
-            <div className="flex items-center gap-1">
-              <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+          {locationText && (
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <svg className="h-3 w-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
                   clipRule="evenodd"
                 />
               </svg>
-              <span>{formatDistance(distance)}</span>
+              <span className="truncate">{locationText}</span>
             </div>
           )}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <Eye className="h-3 w-3" />
-            <span>{Number(story.viewCount)} Views</span>
+            <span>{Number(story.viewCount)}</span>
           </div>
         </div>
       </CardFooter>

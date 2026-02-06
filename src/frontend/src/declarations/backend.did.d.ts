@@ -175,6 +175,10 @@ export interface _SERVICE {
     ],
     undefined
   >,
+  'updateStory' : ActorMethod<
+    [string, string, string, Category, Location, boolean, [] | [ExternalBlob]],
+    undefined
+  >,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

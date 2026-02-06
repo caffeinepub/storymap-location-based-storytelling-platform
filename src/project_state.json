@@ -1,32 +1,24 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Project includes a wallpaper feature; background wallpaper option has been requested for removal.",
+  "summary": "New project",
   "architectural_notes": [],
   "known_issues": [],
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-remove-the-user-facing-background-wallpaper-control-from-the-app-header-so-users-no-longer-see-an-option-to-choose-apply-remove-a-background-wallpaper",
-      "title": "Remove the user-facing \"Background wallpaper\" control from the app header so users no longer see an option to choose/apply/remove a background wallpaper.",
+      "id": "feature-update-the-story-feed-cards-to-display-a-human-readable-location-name-for-each-story-based-on-its-latitude-longitude-and-when-user-location-is-available-also-show-the-distance-formatted-as-x-km-away-from-place-name-or-x-m-away-from-place-name-for-sub-1km-falling-back-gracefully-when-either-value-is-unavailable",
+      "title": "Update the story feed cards to display a human-readable location name for each story based on its latitude/longitude, and when user location is available also show the distance formatted as \"<X>km away from <Place Name>\" (or \"<X>m away from <Place Name>\" for sub-1km), falling back gracefully when either value is unavailable.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-disable-applying-and-rendering-a-custom-wallpaper-background-across-the-app-layout-including-clearing-any-previously-persisted-wallpaper-in-localstorage-so-older-wallpapers-do-not-continue-to-appear",
-      "title": "Disable applying and rendering a custom wallpaper background across the app layout, including clearing any previously persisted wallpaper in localStorage so older wallpapers do not continue to appear.",
+      "id": "feature-implement-client-side-reverse-geocoding-for-story-coordinates-using-openstreetmap-nominatim-reverse-endpoint-including-caching-to-avoid-repeated-requests-for-the-same-coordinates-and-safe-request-cancellation-when-cards-unmount-or-coordinates-change",
+      "title": "Implement client-side reverse geocoding for story coordinates using OpenStreetMap Nominatim reverse endpoint, including caching to avoid repeated requests for the same coordinates and safe request cancellation when cards unmount or coordinates change.",
       "reqIds": [
         "REQ-2"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-clean-up-unused-wallpaper-related-frontend-code-and-styles-after-the-feature-is-removed-components-hooks-and-css-to-avoid-dead-code-and-unused-tailwind-css-selectors",
-      "title": "Clean up unused wallpaper-related frontend code and styles after the feature is removed (components, hooks, and CSS) to avoid dead code and unused Tailwind/CSS selectors.",
-      "reqIds": [
-        "REQ-3"
       ],
       "version": 1
     }
@@ -34,12 +26,13 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Remove the Background wallpaper option from the wallpaper feature.",
+      "summary": "Story feed should display the story's location name and/or distance (e.g., X km away from <place name>)",
       "reqIds": [],
       "status": "pending"
     }
   ],
-  "projectName": "Remove Background wallpaper option and disable wallpaper feature",
+  "gameProjectType": "none",
+  "projectName": "Show location name and/or distance in the story feed",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

@@ -2,10 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-remove-the-user-facing-background-wallpaper-control-from-the-app-header-so-users-no-longer-see-an-option-to-choose-apply-remove-a-background-wallpaper",
-      "featureTitle": "Remove the user-facing \"Background wallpaper\" control from the app header so users no longer see an option to choose/apply/remove a background wallpaper.",
+      "featureId": "feature-update-the-story-feed-cards-to-display-a-human-readable-location-name-for-each-story-based-on-its-latitude-longitude-and-when-user-location-is-available-also-show-the-distance-formatted-as-x-km-away-from-place-name-or-x-m-away-from-place-name-for-sub-1km-falling-back-gracefully-when-either-value-is-unavailable",
+      "featureTitle": "Update the story feed cards to display a human-readable location name for each story based on its latitude/longitude, and when user location is available also show the distance formatted as \"<X>km away from <Place Name>\" (or \"<X>m away from <Place Name>\" for sub-1km), falling back gracefully when either value is unavailable.",
       "files": [
-        "frontend/src/components/Header.tsx"
+        "frontend/src/components/StoryCard.tsx",
+        "frontend/src/lib/utils.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -22,10 +23,12 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-disable-applying-and-rendering-a-custom-wallpaper-background-across-the-app-layout-including-clearing-any-previously-persisted-wallpaper-in-localstorage-so-older-wallpapers-do-not-continue-to-appear",
-      "featureTitle": "Disable applying and rendering a custom wallpaper background across the app layout, including clearing any previously persisted wallpaper in localStorage so older wallpapers do not continue to appear.",
+      "featureId": "feature-implement-client-side-reverse-geocoding-for-story-coordinates-using-openstreetmap-nominatim-reverse-endpoint-including-caching-to-avoid-repeated-requests-for-the-same-coordinates-and-safe-request-cancellation-when-cards-unmount-or-coordinates-change",
+      "featureTitle": "Implement client-side reverse geocoding for story coordinates using OpenStreetMap Nominatim reverse endpoint, including caching to avoid repeated requests for the same coordinates and safe request cancellation when cards unmount or coordinates change.",
       "files": [
-        "frontend/src/App.tsx"
+        "frontend/src/components/StoryCard.tsx",
+        "frontend/src/hooks/useReverseGeocodedPlace.ts",
+        "frontend/src/lib/reverseGeocode.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -38,29 +41,6 @@
       ],
       "testIds": [
         "REQ-2"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-clean-up-unused-wallpaper-related-frontend-code-and-styles-after-the-feature-is-removed-components-hooks-and-css-to-avoid-dead-code-and-unused-tailwind-css-selectors",
-      "featureTitle": "Clean up unused wallpaper-related frontend code and styles after the feature is removed (components, hooks, and CSS) to avoid dead code and unused Tailwind/CSS selectors.",
-      "files": [
-        "frontend/src/components/WallpaperSettingsDialog.tsx",
-        "frontend/src/hooks/useWallpaper.ts",
-        "frontend/src/index.css",
-        "frontend/src/lib/wallpaperValidation.ts"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "blob-storage@4.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-3"
       ],
       "confidence": "high"
     }

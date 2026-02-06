@@ -1,7 +1,8 @@
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { useQueryClient } from '@tanstack/react-query';
+import { useIsCallerAdmin } from '../hooks/useQueries';
 import { Button } from '@/components/ui/button';
-import { MapPin, Moon, Sun, User } from 'lucide-react';
+import { MapPin, Moon, Sun, User, Shield } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import {
   DropdownMenu,
@@ -14,12 +15,14 @@ import {
 interface HeaderProps {
   onNavigateProfile: () => void;
   onNavigateHome: () => void;
+  onNavigateAdmin?: () => void;
 }
 
-export default function Header({ onNavigateProfile, onNavigateHome }: HeaderProps) {
+export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAdmin }: HeaderProps) {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
+  const { data: isAdmin } = useIsCallerAdmin();
 
   const isAuthenticated = !!identity;
   const disabled = loginStatus === 'logging-in';
@@ -84,6 +87,15 @@ export default function Header({ onNavigateProfile, onNavigateHome }: HeaderProp
                 <DropdownMenuItem onClick={onNavigateProfile}>
                   Profile
                 </DropdownMenuItem>
+                {isAdmin && onNavigateAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onNavigateAdmin}>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Admin Dashboard
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleAuth}>
                   Logout

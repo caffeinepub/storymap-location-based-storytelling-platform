@@ -154,4 +154,5 @@ export interface backendInterface {
     unlikeStory(storyId: string): Promise<void>;
     unpinStory(storyId: string): Promise<void>;
     updateDraft(draftId: string, title: string, content: string, category: Category, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
+    updateStory(storyId: string, title: string, content: string, category: Category, location: Location, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
 }

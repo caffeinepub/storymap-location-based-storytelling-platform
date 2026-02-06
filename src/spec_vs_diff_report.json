@@ -1,53 +1,51 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T05:09:23.498Z",
-  "summary": "Diff removes the wallpaper control from the Header and adds a mount-time localStorage cleanup for a wallpaper key, but wallpaper-related modules still exist and additional unrelated UI interactivity guard/CSS changes were introduced.",
+  "generatedAt": "2026-02-06T08:58:09.190Z",
+  "summary": "REQ-2 is largely implemented via a new reverse-geocode lib and hook with caching and abort-on-unmount. REQ-1 appears partially implemented (distance/place formatting utilities added and StoryCard now fetches placeName), but the fallback behavior for failed reverse geocoding does not match the requested/AC behavior based on the shown code.",
   "missing_requirements": [
     {
-      "id": "REQ-2",
-      "requirement": "Disable applying and rendering a custom wallpaper background across the app layout, including clearing any previously persisted wallpaper in localStorage so older wallpapers do not continue to appear.",
-      "reason": "The diff shows localStorage cleanup on mount, but does not provide clear evidence that wallpaper background layers (e.g., app-wallpaper/app-wallpaper-overlay elements) are removed from the rendered layout everywhere; App.tsx is truncated and other potential render locations are not shown.",
+      "id": "REQ-1",
+      "requirement": "If reverse geocoding fails (or is loading), StoryCard should keep current behavior (distance-only if available, otherwise nothing) until/if a name becomes available, without surfacing an incorrect placeholder location name.",
+      "reason": "The reverseGeocode() helper returns the literal string 'Unknown location' on non-abort errors, which would cause the UI to display a place label even when reverse geocoding failed, instead of falling back to the current behavior until a real name is available.",
       "evidence": [
-        "frontend/src/App.tsx (truncated)"
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "requirement": "Clean up unused wallpaper-related frontend code and styles after the feature is removed (components, hooks, and CSS) to avoid dead code and unused Tailwind/CSS selectors.",
-      "reason": "Wallpaper-related files are still present and were modified rather than removed; without their contents it is not evident that the wallpaper feature code paths were fully deleted or that these modules are no longer dead code.",
-      "evidence": [
-        "frontend/src/components/WallpaperSettingsDialog.tsx",
-        "frontend/src/hooks/useWallpaper.ts",
-        "frontend/src/lib/wallpaperValidation.ts"
+        "frontend/src/lib/reverseGeocode.ts",
+        "frontend/src/lib/utils.ts",
+        "frontend/src/components/StoryCard.tsx"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Runtime guard that periodically checks and restores UI interactivity by forcing pointer-events to auto and removing inert attributes on body/root.",
-      "reason": "Not requested by the BuildRequest (which focuses on removing wallpaper UI/behavior and cleanup).",
+      "description": "Reverse geocoding returns a hardcoded fallback place name string ('Unknown location') on errors instead of indicating failure via null/empty and letting the UI fall back.",
+      "reason": "The BuildRequest/AC specifies graceful fallback to existing behavior when reverse geocoding fails; it does not ask to display an 'Unknown location' label.",
       "evidence": [
-        "frontend/src/App.tsx (truncated)"
+        "frontend/src/lib/reverseGeocode.ts"
       ]
     },
     {
-      "description": "Global CSS changes to force pointer-events: auto for Radix dialog and alert-dialog overlays/content.",
-      "reason": "Not requested by the BuildRequest and unrelated to wallpaper removal/disablement.",
+      "description": "Attempt to set a custom 'User-Agent' header on a browser fetch to Nominatim.",
+      "reason": "Not requested in the BuildRequest; also typically not settable by browsers (may be ignored/blocked), making it an unrequested implementation detail.",
       "evidence": [
-        "frontend/src/index.css"
+        "frontend/src/lib/reverseGeocode.ts"
+      ]
+    },
+    {
+      "description": "Updated documentation/state summary files describing unrelated features such as admin dashboard, moderation, story editing, and map search changes.",
+      "reason": "These are not part of the requested scope (location name/distance in story feed + reverse geocoding).",
+      "evidence": [
+        "frontend-file-summaries.txt",
+        "project_state.json"
       ]
     }
   ],
-  "confidence": 0.62,
+  "confidence": 0.66,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/App.tsx",
-    "frontend/src/components/Header.tsx",
-    "frontend/src/components/WallpaperSettingsDialog.tsx",
-    "frontend/src/hooks/useWallpaper.ts",
-    "frontend/src/index.css",
-    "frontend/src/lib/wallpaperValidation.ts",
+    "frontend/src/components/StoryCard.tsx",
+    "frontend/src/hooks/useReverseGeocodedPlace.ts",
+    "frontend/src/lib/reverseGeocode.ts",
+    "frontend/src/lib/utils.ts",
     "project_state.json"
   ]
 }

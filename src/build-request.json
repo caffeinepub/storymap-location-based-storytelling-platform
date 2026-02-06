@@ -1,80 +1,57 @@
 {
   "kind": "build_request",
-  "title": "Remove Background wallpaper option and disable wallpaper feature",
+  "title": "Show location name and/or distance in the story feed",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Remove the user-facing \"Background wallpaper\" control from the app header so users no longer see an option to choose/apply/remove a background wallpaper.",
+      "text": "Update the story feed cards to display a human-readable location name for each story based on its latitude/longitude, and when user location is available also show the distance formatted as \"<X>km away from <Place Name>\" (or \"<X>m away from <Place Name>\" for sub-1km), falling back gracefully when either value is unavailable.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "recent-messages-4"
+          "msg-1"
         ],
         "quotes": [
-          "You can remove Background wallpaper option."
+          "In story feed it should show the location name, or some KM away from that place \"name\""
         ]
       },
       "acceptanceCriteria": [
-        "The header no longer renders the WallpaperSettingsDialog trigger/button.",
-        "No UI in the app shows the text \"Background wallpaper\" or offers wallpaper selection/removal."
+        "In the Story Feed grid, each StoryCard shows a location label derived from the story coordinates (e.g., a city/neighborhood/address string) when it can be resolved.",
+        "When userLocation is available, StoryCard shows distance + place name in English using the pattern \"<distance> away from <place name>\".",
+        "When userLocation is not available, StoryCard can still show the place name alone (no distance).",
+        "If reverse geocoding fails or is loading, StoryCard continues to render without errors and shows the current behavior (distance-only if available, otherwise nothing) until/if the name becomes available."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Disable applying and rendering a custom wallpaper background across the app layout, including clearing any previously persisted wallpaper in localStorage so older wallpapers do not continue to appear.",
+      "text": "Implement client-side reverse geocoding for story coordinates using OpenStreetMap Nominatim reverse endpoint, including caching to avoid repeated requests for the same coordinates and safe request cancellation when cards unmount or coordinates change.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "recent-messages-4"
+          "msg-1"
         ],
         "quotes": [
-          "You can remove Background wallpaper option."
+          "In story feed it should show the location name, or some KM away from that place \"name\""
         ]
       },
       "acceptanceCriteria": [
-        "The app no longer renders the wallpaper background layers (e.g., the elements using the app-wallpaper/app-wallpaper-overlay styling) even if a prior wallpaper exists in localStorage.",
-        "On load, any value stored under the wallpaper storage key is removed so wallpapers do not persist across sessions."
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Clean up unused wallpaper-related frontend code and styles after the feature is removed (components, hooks, and CSS) to avoid dead code and unused Tailwind/CSS selectors.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "recent-messages-4"
-        ],
-        "quotes": [
-          "You can remove Background wallpaper option."
-        ]
-      },
-      "acceptanceCriteria": [
-        "The project builds without unused-import errors related to wallpaper code.",
-        "Wallpaper-specific CSS (e.g., app wallpaper background selectors) is removed if no longer referenced anywhere."
+        "Reverse geocoding is performed from the frontend via HTTPS using Nominatim reverse geocoding (lat/lon -> place string).",
+        "Requests are cached (e.g., in-memory map and/or localStorage) using a stable key (coordinates rounded to a reasonable precision) so scrolling/re-rendering the feed does not spam the endpoint.",
+        "In-flight reverse-geocode requests are aborted/ignored when no longer relevant (e.g., component unmount) to prevent setting state after unmount and to reduce wasted work.",
+        "No backend changes are required to resolve location names."
       ]
     }
   ],
   "constraints": [
-    "Do not modify any files under frontend/src/components/ui (read-only shadcn components).",
-    "Do not change immutable hook files listed by the system context (do not edit frontend/src/hooks/useInternetIdentity.ts / useActor.ts / frontend/src/main.tsx)."
+    "Do not modify any files under frontend/src/components/ui (Shadcn components must be composed, not edited).",
+    "Do not edit frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx."
   ],
   "nonGoals": [
-    "Adding replacement theming/background customization options.",
-    "Changing backend behavior or data models."
+    "Adding or changing story creation fields to store a location name in the backend.",
+    "Adding paid/third-party map SDK integrations or real-time location tracking."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
-  },
-  "userProfileUpdate": {
-    "goalsToAdd": [],
-    "goalsToRemove": [],
-    "preferencesToAdd": [],
-    "preferencesToRemove": [],
-    "miscToAdd": [],
-    "miscToRemove": [],
-    "fieldsToSet": {},
-    "fieldsToDelete": []
   }
 }

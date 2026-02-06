@@ -8,8 +8,9 @@ import Footer from './components/Footer';
 import ProfileSetupModal from './components/ProfileSetupModal';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
+import AdminModerationPage from './pages/AdminModerationPage';
 
-type View = 'home' | 'profile';
+type View = 'home' | 'profile' | 'admin';
 
 const WALLPAPER_STORAGE_KEY = 'storymap-wallpaper';
 
@@ -68,9 +69,9 @@ export default function App() {
     return () => clearInterval(intervalId);
   }, [isAuthenticated, isInitializing]);
 
-  // Guard: redirect to home if trying to access profile while unauthenticated
+  // Guard: redirect to home if trying to access profile/admin while unauthenticated
   useEffect(() => {
-    if (currentView === 'profile' && !isAuthenticated) {
+    if ((currentView === 'profile' || currentView === 'admin') && !isAuthenticated) {
       setCurrentView('home');
     }
   }, [currentView, isAuthenticated]);
@@ -92,7 +93,11 @@ export default function App() {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <div className="app-container">
         <div className="app-content">
-          <Header onNavigateProfile={() => setCurrentView('profile')} onNavigateHome={() => setCurrentView('home')} />
+          <Header 
+            onNavigateProfile={() => setCurrentView('profile')} 
+            onNavigateHome={() => setCurrentView('home')}
+            onNavigateAdmin={() => setCurrentView('admin')}
+          />
           <main className="flex-1">
             {currentView === 'home' && <HomePage />}
             {currentView === 'profile' && isAuthenticated && (
@@ -104,6 +109,7 @@ export default function App() {
                 <p className="text-muted-foreground">You need to be authenticated to access this page.</p>
               </div>
             )}
+            {currentView === 'admin' && <AdminModerationPage />}
           </main>
           <Footer />
           {showProfileSetup && <ProfileSetupModal />}

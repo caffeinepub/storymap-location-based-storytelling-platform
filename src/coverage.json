@@ -1,52 +1,42 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T05:09:23.500Z",
+  "generatedAt": "2026-02-06T08:58:09.194Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
-    "implemented": 3,
+    "total": 2,
+    "implemented": 2,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Remove the user-facing \"Background wallpaper\" control from the app header so users no longer see an option to choose/apply/remove a background wallpaper.",
+        "summary": "Update the story feed cards to display a human-readable location name for each story based on its latitude/longitude, and when user location is available also show the distance formatted as \"<X>km away from <Place Name>\" (or \"<X>m away from <Place Name>\" for sub-1km), falling back gracefully when either value is unavailable.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/Header.tsx"
+          "frontend/src/components/StoryCard.tsx",
+          "frontend/src/lib/utils.ts",
+          "frontend/src/components/StoryFeed.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/components/Header.tsx"
+          "frontend/src/components/StoryCard.tsx",
+          "frontend/src/lib/utils.ts"
         ]
       },
       {
         "id": "REQ-2",
-        "summary": "Disable applying and rendering a custom wallpaper background across the app layout, including clearing any previously persisted wallpaper in localStorage so older wallpapers do not continue to appear.",
+        "summary": "Implement client-side reverse geocoding for story coordinates using OpenStreetMap Nominatim reverse endpoint, including caching to avoid repeated requests for the same coordinates and safe request cancellation when cards unmount or coordinates change.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/App.tsx"
+          "frontend/src/lib/reverseGeocode.ts",
+          "frontend/src/hooks/useReverseGeocodedPlace.ts",
+          "frontend/src/components/StoryCard.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/App.tsx"
-        ]
-      },
-      {
-        "id": "REQ-3",
-        "summary": "Clean up unused wallpaper-related frontend code and styles after the feature is removed (components, hooks, and CSS) to avoid dead code and unused Tailwind/CSS selectors.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/components/WallpaperSettingsDialog.tsx",
-          "frontend/src/hooks/useWallpaper.ts",
-          "frontend/src/lib/wallpaperValidation.ts",
-          "frontend/src/index.css"
-        ],
-        "matchedFiles": [
-          "frontend/src/components/WallpaperSettingsDialog.tsx",
-          "frontend/src/hooks/useWallpaper.ts",
-          "frontend/src/lib/wallpaperValidation.ts",
-          "frontend/src/index.css"
+          "frontend/src/lib/reverseGeocode.ts",
+          "frontend/src/hooks/useReverseGeocodedPlace.ts",
+          "frontend/src/components/StoryCard.tsx"
         ]
       }
     ]
@@ -56,12 +46,10 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/App.tsx",
-    "frontend/src/components/Header.tsx",
-    "frontend/src/components/WallpaperSettingsDialog.tsx",
-    "frontend/src/hooks/useWallpaper.ts",
-    "frontend/src/index.css",
-    "frontend/src/lib/wallpaperValidation.ts",
+    "frontend/src/components/StoryCard.tsx",
+    "frontend/src/hooks/useReverseGeocodedPlace.ts",
+    "frontend/src/lib/reverseGeocode.ts",
+    "frontend/src/lib/utils.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

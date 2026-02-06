@@ -236,6 +236,19 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updateStory' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        Category,
+        Location,
+        IDL.Bool,
+        IDL.Opt(ExternalBlob),
+      ],
+      [],
+      [],
+    ),
 });
 
 export const idlInitArgs = [];
@@ -463,6 +476,19 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           Category,
           IDL.Opt(Location),
+          IDL.Bool,
+          IDL.Opt(ExternalBlob),
+        ],
+        [],
+        [],
+      ),
+    'updateStory' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          Category,
+          Location,
           IDL.Bool,
           IDL.Opt(ExternalBlob),
         ],

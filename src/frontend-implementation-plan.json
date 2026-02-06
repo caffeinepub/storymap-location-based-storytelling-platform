@@ -1,65 +1,59 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Remove wallpaper UI and fully disable wallpaper feature",
+  "title": "Story feed location names + distance via client-side reverse geocoding",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Remove the \"Background wallpaper\" control from the header so users cannot access wallpaper selection/removal UI.",
+      "summary": "Show a resolved place name on each StoryCard, and when user location is available show formatted distance \"<X>km/m away from <Place Name>\" with graceful fallbacks.",
       "acceptanceCriteria": [
-        "The header no longer renders the WallpaperSettingsDialog trigger/button.",
-        "No UI in the app shows the text \"Background wallpaper\" or offers wallpaper selection/removal."
+        "In the Story Feed grid, each StoryCard shows a location label derived from the story coordinates (e.g., a city/neighborhood/address string) when it can be resolved.",
+        "When userLocation is available, StoryCard shows distance + place name in English using the pattern \"<distance> away from <place name>\".",
+        "When userLocation is not available, StoryCard can still show the place name alone (no distance).",
+        "If reverse geocoding fails or is loading, StoryCard continues to render without errors and shows the current behavior (distance-only if available, otherwise nothing) until/if the name becomes available."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/Header.tsx",
+          "path": "frontend/src/components/StoryCard.tsx",
           "operation": "modify",
-          "description": "Remove the WallpaperSettingsDialog import and its render so the header no longer exposes any wallpaper control (and no longer displays the text \"Background wallpaper\")."
+          "description": "Integrate a reverse-geocoded place label for the story's coordinates and render the location line with these fallbacks: (1) if placeName resolved and userLocation present, show \"<X>km/m away from <Place Name>\"; (2) if placeName resolved and no userLocation, show placeName only; (3) if placeName missing/loading/failed, preserve current behavior (distance-only when available, otherwise render nothing) without runtime errors."
+        },
+        {
+          "path": "frontend/src/lib/utils.ts",
+          "operation": "modify",
+          "description": "Add a distance formatting helper that returns only the unitized value (\"123m\" or \"1.2km\") and a helper to build the combined string \"<distance> away from <place name>\" while keeping the existing distance-only formatter for fallback behavior."
+        },
+        {
+          "path": "frontend/src/components/StoryFeed.tsx",
+          "operation": "modify",
+          "description": "Ensure StoryFeed continues passing userLocation to StoryCard so the new location label can conditionally include distance; verify no changes to loading/empty rendering behavior."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Disable wallpaper application/rendering across the app and clear any previously persisted wallpaper from localStorage on load.",
+      "summary": "Add client-side reverse geocoding via OpenStreetMap Nominatim with caching and safe cancellation for StoryCard location lookups.",
       "acceptanceCriteria": [
-        "The app no longer renders the wallpaper background layers (e.g., the elements using the app-wallpaper/app-wallpaper-overlay styling) even if a prior wallpaper exists in localStorage.",
-        "On load, any value stored under the wallpaper storage key is removed so wallpapers do not persist across sessions."
+        "Reverse geocoding is performed from the frontend via HTTPS using Nominatim reverse geocoding (lat/lon -> place string).",
+        "Requests are cached (e.g., in-memory map and/or localStorage) using a stable key (coordinates rounded to a reasonable precision) so scrolling/re-rendering the feed does not spam the endpoint.",
+        "In-flight reverse-geocode requests are aborted/ignored when no longer relevant (e.g., component unmount) to prevent setting state after unmount and to reduce wasted work.",
+        "No backend changes are required to resolve location names."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/App.tsx",
+          "path": "frontend/src/lib/reverseGeocode.ts",
+          "operation": "create",
+          "description": "Create a small Nominatim reverse-geocoding client that fetches a human-readable place string for given lat/lon over HTTPS, uses a stable cache key based on rounded coordinates, and supports AbortController to cancel in-flight requests."
+        },
+        {
+          "path": "frontend/src/hooks/useReverseGeocodedPlace.ts",
+          "operation": "create",
+          "description": "Create a React hook that wraps reverseGeocode() to provide { placeName, isLoading, error } for a coordinate input, reads/writes cache (in-memory and/or localStorage), and aborts requests on unmount or when coordinates change."
+        },
+        {
+          "path": "frontend/src/components/StoryCard.tsx",
           "operation": "modify",
-          "description": "Remove useWallpaper usage and remove the wallpaper background layer rendering (app-wallpaper/app-wallpaper-overlay). Add a lightweight on-mount cleanup that removes the existing wallpaper localStorage key so previously persisted wallpapers never reappear."
-        }
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "summary": "Remove unused wallpaper-related components/hooks/styles after disabling the feature to avoid dead code and unused selectors.",
-      "acceptanceCriteria": [
-        "The project builds without unused-import errors related to wallpaper code.",
-        "Wallpaper-specific CSS (e.g., app wallpaper background selectors) is removed if no longer referenced anywhere."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/WallpaperSettingsDialog.tsx",
-          "operation": "delete",
-          "description": "Delete the wallpaper settings dialog component since the wallpaper feature and its UI are being removed."
-        },
-        {
-          "path": "frontend/src/hooks/useWallpaper.ts",
-          "operation": "delete",
-          "description": "Delete the wallpaper hook that managed persisted wallpaper state, since wallpaper is no longer supported."
-        },
-        {
-          "path": "frontend/src/lib/wallpaperValidation.ts",
-          "operation": "delete",
-          "description": "Delete wallpaper validation utilities that were only used by the wallpaper dialog."
-        },
-        {
-          "path": "frontend/src/index.css",
-          "operation": "modify",
-          "description": "Remove wallpaper-specific CSS selectors (e.g., .app-wallpaper, .app-wallpaper-overlay and any wallpaper-only rules). Keep non-wallpaper layout styling (e.g., app-container/app-content) as needed for the app layout."
+          "description": "Use the new useReverseGeocodedPlace hook to request and display the place label for story.location; ensure hook cleanup prevents state updates after unmount and that cached results avoid repeated requests while scrolling."
         }
       ]
     }

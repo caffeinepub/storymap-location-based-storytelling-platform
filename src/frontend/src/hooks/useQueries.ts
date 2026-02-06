@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import { useInternetIdentity } from './useInternetIdentity';
-import type { Story, UserProfile, Comment, Category, Location, ExternalBlob, SearchParams, StoryView } from '../backend';
+import type { Story, UserProfile, Comment, Category, Location, ExternalBlob, SearchParams, StoryView, Report } from '../backend';
 import type { SortOption } from '../lib/storySorting';
 import { sortStories, toBackendSortOption } from '../lib/storySorting';
 import { toast } from 'sonner';
@@ -229,20 +229,9 @@ export function useSearchStories(params: {
           
           const allStories = await actor.searchStories(fallbackParams);
           
-          // Apply client-side keyword and category filtering
+          // Apply client-side category filtering
           const filtered = allStories.filter((story) => {
             if (params.category && story.category !== params.category) return false;
-            
-            if (params.keywords) {
-              const query = params.keywords.toLowerCase();
-              if (
-                !story.title.toLowerCase().includes(query) &&
-                !story.content.toLowerCase().includes(query)
-              ) {
-                return false;
-              }
-            }
-            
             return true;
           });
 
@@ -341,6 +330,58 @@ export function useCreateStory() {
     onError: (error: Error) => {
       const message = error.message || 'Failed to create story';
       if (message.includes('not available') || message.includes('connection')) {
+        toast.error('Connection issue. Please check your authentication and try again.');
+      } else {
+        toast.error(message);
+      }
+    },
+  });
+}
+
+export function useUpdateStory() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      storyId: string;
+      title: string;
+      content: string;
+      category: Category;
+      location: Location;
+      isAnonymous: boolean;
+      image: ExternalBlob | null;
+    }) => {
+      if (!identity) {
+        throw new Error('Please log in to update a story');
+      }
+      
+      const readyActor = await waitForActor(() => actor);
+      
+      return readyActor.updateStory(
+        params.storyId,
+        params.title,
+        params.content,
+        params.category,
+        params.location,
+        params.isAnonymous,
+        params.image
+      );
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['story', variables.storyId] });
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['postedStories'] });
+      toast.success('Story updated successfully!');
+    },
+    onError: (error: Error) => {
+      const message = error.message || 'Failed to update story';
+      if (message.includes('Unauthorized') || message.includes('author') || message.includes('permission')) {
+        toast.error('You do not have permission to edit this story');
+      } else if (message.includes('does not exist')) {
+        toast.error('Story not found');
+      } else if (message.includes('not available') || message.includes('connection')) {
         toast.error('Connection issue. Please check your authentication and try again.');
       } else {
         toast.error(message);
@@ -657,6 +698,7 @@ export function useRemoveStory() {
       queryClient.invalidateQueries({ queryKey: ['postedStories'] });
       queryClient.invalidateQueries({ queryKey: ['likedStories'] });
       queryClient.invalidateQueries({ queryKey: ['pinnedStories'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       toast.success('Story deleted successfully');
     },
     onError: (error: Error, storyId, context) => {
@@ -737,6 +779,55 @@ export function useReportStory() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to report story');
+    },
+  });
+}
+
+// Admin Moderation Queries
+export function useGetReports() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity, isInitializing } = useInternetIdentity();
+
+  return useQuery<Report[]>({
+    queryKey: ['reports'],
+    queryFn: async () => {
+      if (!actor) return [];
+      try {
+        return await actor.getReports();
+      } catch (error: any) {
+        // Handle authorization errors gracefully
+        if (error.message?.includes('Unauthorized') || error.message?.includes('admin')) {
+          console.warn('User is not authorized to view reports');
+          return [];
+        }
+        throw error;
+      }
+    },
+    enabled: !!actor && !actorFetching && !!identity && !isInitializing,
+    retry: false,
+  });
+}
+
+export function useRemoveReport() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reportId: bigint) => {
+      const readyActor = await waitForActor(() => actor);
+      return readyActor.removeReport(reportId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      toast.success('Report dismissed');
+    },
+    onError: (error: Error) => {
+      const message = error.message || 'Failed to dismiss report';
+      if (message.includes('Unauthorized') || message.includes('admin')) {
+        toast.error('You do not have permission to dismiss reports');
+      } else {
+        toast.error(message);
+      }
     },
   });
 }

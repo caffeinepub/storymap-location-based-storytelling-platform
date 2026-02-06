@@ -247,6 +247,7 @@ export interface backendInterface {
     unlikeStory(storyId: string): Promise<void>;
     unpinStory(storyId: string): Promise<void>;
     updateDraft(draftId: string, title: string, content: string, category: Category, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
+    updateStory(storyId: string, title: string, content: string, category: Category, location: Location, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
 }
 import type { Category as _Category, ExternalBlob as _ExternalBlob, Location as _Location, SearchParams as _SearchParams, SortOption as _SortOption, Story as _Story, StoryDraft as _StoryDraft, StoryView as _StoryView, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -808,6 +809,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateDraft(arg0, arg1, arg2, to_candid_Category_n10(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n12(this._uploadFile, this._downloadFile, arg4), arg5, await to_candid_opt_n13(this._uploadFile, this._downloadFile, arg6));
+            return result;
+        }
+    }
+    async updateStory(arg0: string, arg1: string, arg2: string, arg3: Category, arg4: Location, arg5: boolean, arg6: ExternalBlob | null): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateStory(arg0, arg1, arg2, to_candid_Category_n10(this._uploadFile, this._downloadFile, arg3), arg4, arg5, await to_candid_opt_n13(this._uploadFile, this._downloadFile, arg6));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateStory(arg0, arg1, arg2, to_candid_Category_n10(this._uploadFile, this._downloadFile, arg3), arg4, arg5, await to_candid_opt_n13(this._uploadFile, this._downloadFile, arg6));
             return result;
         }
     }

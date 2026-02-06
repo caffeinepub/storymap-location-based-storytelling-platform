@@ -16,8 +16,6 @@ import MixinAuthorization "authorization/MixinAuthorization";
 import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 
-
-
 actor {
   include MixinStorage();
 
@@ -252,6 +250,9 @@ actor {
   };
 
   public query ({ caller }) func hasSeenIntro() : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can check intro status");
+    };
     switch (userProfiles.get(caller)) {
       case (null) { false };
       case (?profile) { profile.seenIntro };
@@ -265,7 +266,42 @@ actor {
     };
   };
 
+  public shared ({ caller }) func updateStory(
+    storyId : Text,
+    title : Text,
+    content : Text,
+    category : Category,
+    location : Location,
+    isAnonymous : Bool,
+    image : ?Storage.ExternalBlob,
+  ) : async () {
+    switch (stories.get(storyId)) {
+      case (null) {
+        Runtime.trap("Story does not exist");
+      };
+      case (?existingStory) {
+        if (caller != existingStory.author and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Only the story author or admins can update stories");
+        };
+
+        let updatedStory : StoryWithViewers = {
+          existingStory with
+          title = title;
+          content = content;
+          category = category;
+          location = location;
+          isAnonymous = isAnonymous;
+          image = image;
+        };
+        stories.add(storyId, updatedStory);
+      };
+    };
+  };
+
   public shared ({ caller }) func incrementStoryViewCount(id : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can increment view count");
+    };
     switch (stories.get(id)) {
       case (null) { Runtime.trap("Story does not exist") };
       case (?storyWithViewers) {
@@ -1034,13 +1070,17 @@ actor {
           };
         };
 
-        drafts.remove(draftId); // Delete draft after publishing
+        drafts.remove(draftId);
         storyId;
       };
     };
   };
 
   public query ({ caller }) func getDraft(draftId : Text) : async ?StoryDraft {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can access drafts");
+    };
+
     switch (drafts.get(draftId)) {
       case (null) { null };
       case (?draft) {

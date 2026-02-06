@@ -15,7 +15,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { List, Map as MapIcon, MapPin, X, Info } from 'lucide-react';
 import type { Category, Story } from '../backend';
 import type { SortOption } from '../lib/storySorting';
-import { toast } from 'sonner';
 import { LOCATION_FILTER_RADIUS_KM } from '../lib/locationFilter';
 import { getLocationCopy } from '../lib/locationPermissionCopy';
 
@@ -24,7 +23,6 @@ export default function HomePage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [hasCheckedFirstTime, setHasCheckedFirstTime] = useState(false);
   const [mapSelectedLocation, setMapSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [hasShownDenialToast, setHasShownDenialToast] = useState(false);
@@ -96,7 +94,7 @@ export default function HomePage() {
 
   // Use backend-powered search with sort option
   const { data: stories = [], isLoading } = useSearchStories({
-    keywords: searchQuery || null,
+    keywords: null,
     category: selectedCategory,
     radius: activeFilterCenter ? radiusKm : null,
     coordinates: activeFilterCenter,
@@ -108,7 +106,6 @@ export default function HomePage() {
   const handleRequestLocation = async () => {
     try {
       await requestLocation();
-      toast.success('Location access granted!');
     } catch (error) {
       // Error already handled by hook with diagnostics
       // Don't show additional toast to avoid duplication
@@ -131,13 +128,11 @@ export default function HomePage() {
 
   const handleMapBackgroundClick = (latitude: number, longitude: number) => {
     setMapSelectedLocation({ latitude, longitude });
-    setView('feed');
-    toast.success(`Showing stories within ${radiusKm}km of selected location`);
+    // Keep user in map view - don't auto-switch to feed
   };
 
   const clearLocationFilter = () => {
     setMapSelectedLocation(null);
-    toast.info('Map selection cleared, using your location');
   };
 
   const handleStoryDeleted = () => {
@@ -224,8 +219,6 @@ export default function HomePage() {
             <FilterBar
               selectedCategory={selectedCategory}
               onCategoryChange={setSelectedCategory}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
             />
 
             {mapSelectedLocation && (
@@ -313,6 +306,7 @@ export default function HomePage() {
               userLocation={userLocation}
               onStoryClick={setSelectedStory}
               onMapBackgroundClick={handleMapBackgroundClick}
+              selectedLocation={mapSelectedLocation}
             />
           )}
         </div>

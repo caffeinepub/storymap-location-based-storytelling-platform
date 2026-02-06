@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import { useInternetIdentity } from './useInternetIdentity';
-import type { Story, UserProfile, Comment, Category, Location, ExternalBlob } from '../backend';
+import type { Story, UserProfile, Comment, Category, Location, ExternalBlob, SearchParams, StoryView } from '../backend';
+import type { SortOption } from '../lib/storySorting';
+import { sortStories, toBackendSortOption } from '../lib/storySorting';
 import { toast } from 'sonner';
 
 // Helper function to wait for actor with timeout
@@ -92,17 +94,176 @@ export function useSaveCallerUserProfile() {
   });
 }
 
+// Admin check with stable state during loading
+export function useIsCallerAdmin() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity, isInitializing } = useInternetIdentity();
+
+  return useQuery<boolean>({
+    queryKey: ['isCallerAdmin'],
+    queryFn: async () => {
+      if (!actor) return false;
+      try {
+        return await actor.isCallerAdmin();
+      } catch {
+        return false;
+      }
+    },
+    enabled: !!actor && !actorFetching && !!identity && !isInitializing,
+    retry: false,
+    staleTime: 5 * 60 * 1000, // Keep admin status stable for 5 minutes
+    gcTime: 10 * 60 * 1000, // Cache for 10 minutes
+    placeholderData: (previousData) => previousData, // Preserve last known value during refetch
+  });
+}
+
+// Profile Story Queries
+export function useGetPostedStories() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity, isInitializing } = useInternetIdentity();
+
+  return useQuery<StoryView[]>({
+    queryKey: ['postedStories', identity?.getPrincipal().toString()],
+    queryFn: async () => {
+      if (!actor || !identity) return [];
+      try {
+        return await actor.getStoriesByUser(identity.getPrincipal());
+      } catch (error) {
+        console.error('Failed to fetch posted stories:', error);
+        return [];
+      }
+    },
+    enabled: !!actor && !actorFetching && !!identity && !isInitializing,
+    retry: false,
+  });
+}
+
+export function useGetLikedStories() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity, isInitializing } = useInternetIdentity();
+
+  return useQuery<StoryView[]>({
+    queryKey: ['likedStories', identity?.getPrincipal().toString()],
+    queryFn: async () => {
+      if (!actor || !identity) return [];
+      try {
+        return await actor.getLikedStoriesByUser(identity.getPrincipal());
+      } catch (error) {
+        console.error('Failed to fetch liked stories:', error);
+        return [];
+      }
+    },
+    enabled: !!actor && !actorFetching && !!identity && !isInitializing,
+    retry: false,
+  });
+}
+
+export function useGetPinnedStories() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { identity, isInitializing } = useInternetIdentity();
+
+  return useQuery<StoryView[]>({
+    queryKey: ['pinnedStories', identity?.getPrincipal().toString()],
+    queryFn: async () => {
+      if (!actor || !identity) return [];
+      try {
+        return await actor.getPinnedStoriesByUser(identity.getPrincipal());
+      } catch (error) {
+        console.error('Failed to fetch pinned stories:', error);
+        return [];
+      }
+    },
+    enabled: !!actor && !actorFetching && !!identity && !isInitializing,
+    retry: false,
+  });
+}
+
 // Story Queries
-export function useGetRecentStories(amount: number = 50) {
+export function useSearchStories(params: {
+  keywords: string | null;
+  category: Category | null;
+  radius: number | null;
+  coordinates: Location | null;
+  sortOption: SortOption;
+  nearestOrigin?: Location | null;
+}) {
   const { actor, isFetching } = useActor();
 
+  // Build search params for backend
+  const searchParams: SearchParams | null = params.coordinates
+    ? {
+        keywords: params.keywords || undefined,
+        category: params.category || undefined,
+        radius: params.radius || undefined,
+        coordinates: params.coordinates,
+        sort: toBackendSortOption(params.sortOption, params.nearestOrigin),
+      }
+    : null;
+
+  // Create stable query key that includes sort option
+  const queryKey = [
+    'stories',
+    'search',
+    params.keywords,
+    params.category,
+    params.radius,
+    params.coordinates,
+    params.sortOption,
+    params.nearestOrigin,
+  ];
+
   return useQuery<Story[]>({
-    queryKey: ['stories', 'recent', amount],
+    queryKey,
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getRecentStories(BigInt(amount));
+      
+      // If no coordinates, use a default center point (0,0) with large radius to get all stories
+      // Then apply client-side filtering and sorting
+      if (!searchParams) {
+        try {
+          const fallbackParams: SearchParams = {
+            coordinates: { latitude: 0, longitude: 0 },
+            radius: 20000, // Large radius to get all stories
+            sort: toBackendSortOption(params.sortOption, params.nearestOrigin),
+          };
+          
+          const allStories = await actor.searchStories(fallbackParams);
+          
+          // Apply client-side keyword and category filtering
+          const filtered = allStories.filter((story) => {
+            if (params.category && story.category !== params.category) return false;
+            
+            if (params.keywords) {
+              const query = params.keywords.toLowerCase();
+              if (
+                !story.title.toLowerCase().includes(query) &&
+                !story.content.toLowerCase().includes(query)
+              ) {
+                return false;
+              }
+            }
+            
+            return true;
+          });
+
+          // Apply client-side sorting (nearest will be unavailable/disabled in UI when no coordinates)
+          return sortStories(filtered, params.sortOption, params.nearestOrigin);
+        } catch (error) {
+          console.error('Fallback search failed:', error);
+          return [];
+        }
+      }
+      
+      try {
+        return await actor.searchStories(searchParams);
+      } catch (error) {
+        // Graceful degradation: return empty array on search failure
+        console.error('Search failed:', error);
+        return [];
+      }
     },
     enabled: !!actor && !isFetching,
+    retry: false,
   });
 }
 
@@ -123,14 +284,15 @@ export function useGetStoryById(id: string | null) {
   });
 }
 
-export function useGetStoriesByCategory(category: Category | null) {
+export function useGetStoriesByCategory(category: Category | null, sortOption: SortOption = 'newest') {
   const { actor, isFetching } = useActor();
 
   return useQuery<Story[]>({
-    queryKey: ['stories', 'category', category],
+    queryKey: ['stories', 'category', category, sortOption],
     queryFn: async () => {
       if (!actor || !category) return [];
-      return actor.getStoriesByCategory(category);
+      const backendSortOption = toBackendSortOption(sortOption, null);
+      return actor.getStoriesByCategory(category, backendSortOption);
     },
     enabled: !!actor && !isFetching && !!category,
   });
@@ -157,6 +319,8 @@ export function useCreateStory() {
       
       const readyActor = await waitForActor(() => actor);
       const timestamp = BigInt(Date.now() * 1000000);
+      
+      // Pass image directly - null is a valid value for optional parameter
       return readyActor.createStory(
         params.title,
         params.content,
@@ -170,7 +334,8 @@ export function useCreateStory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      queryClient.invalidateQueries({ queryKey: ['hasSeenIntro'] });
+      queryClient.invalidateQueries({ queryKey: ['hasIntro'] });
+      queryClient.invalidateQueries({ queryKey: ['postedStories'] });
       toast.success('Story created successfully!');
     },
     onError: (error: Error) => {
@@ -180,6 +345,26 @@ export function useCreateStory() {
       } else {
         toast.error(message);
       }
+    },
+  });
+}
+
+export function useIncrementStoryViewCount() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (storyId: string) => {
+      const readyActor = await waitForActor(() => actor);
+      return readyActor.incrementStoryViewCount(storyId);
+    },
+    onSuccess: (_, storyId) => {
+      // Invalidate queries to refetch updated view count
+      queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+    },
+    onError: () => {
+      // Silent error - view count increment is not critical and should not show user-facing errors
     },
   });
 }
@@ -204,7 +389,7 @@ export function useLikeStory() {
       await queryClient.cancelQueries({ queryKey: ['currentUserProfile'] });
 
       // Snapshot previous values
-      const previousStories = queryClient.getQueryData(['stories', 'recent', 50]);
+      const previousStories = queryClient.getQueryData(['stories', 'search']);
       const previousStory = queryClient.getQueryData(['story', storyId]);
       const previousProfile = queryClient.getQueryData(['currentUserProfile']);
 
@@ -215,16 +400,6 @@ export function useLikeStory() {
           ...old,
           likeCount: old.likeCount + BigInt(1),
         };
-      });
-
-      // Optimistically update stories list
-      queryClient.setQueryData(['stories', 'recent', 50], (old: Story[] | undefined) => {
-        if (!old) return old;
-        return old.map(story => 
-          story.id === storyId 
-            ? { ...story, likeCount: story.likeCount + BigInt(1) }
-            : story
-        );
       });
 
       // Optimistically update user profile
@@ -240,9 +415,6 @@ export function useLikeStory() {
     },
     onError: (error: Error, storyId, context) => {
       // Rollback on error
-      if (context?.previousStories) {
-        queryClient.setQueryData(['stories', 'recent', 50], context.previousStories);
-      }
       if (context?.previousStory) {
         queryClient.setQueryData(['story', storyId], context.previousStory);
       }
@@ -262,6 +434,7 @@ export function useLikeStory() {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['story', storyId] });
       queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['likedStories'] });
     },
   });
 }
@@ -284,7 +457,7 @@ export function useUnlikeStory() {
       await queryClient.cancelQueries({ queryKey: ['story', storyId] });
       await queryClient.cancelQueries({ queryKey: ['currentUserProfile'] });
 
-      const previousStories = queryClient.getQueryData(['stories', 'recent', 50]);
+      const previousStories = queryClient.getQueryData(['stories', 'search']);
       const previousStory = queryClient.getQueryData(['story', storyId]);
       const previousProfile = queryClient.getQueryData(['currentUserProfile']);
 
@@ -294,15 +467,6 @@ export function useUnlikeStory() {
           ...old,
           likeCount: old.likeCount > BigInt(0) ? old.likeCount - BigInt(1) : BigInt(0),
         };
-      });
-
-      queryClient.setQueryData(['stories', 'recent', 50], (old: Story[] | undefined) => {
-        if (!old) return old;
-        return old.map(story => 
-          story.id === storyId 
-            ? { ...story, likeCount: story.likeCount > BigInt(0) ? story.likeCount - BigInt(1) : BigInt(0) }
-            : story
-        );
       });
 
       queryClient.setQueryData(['currentUserProfile'], (old: UserProfile | null | undefined) => {
@@ -316,9 +480,6 @@ export function useUnlikeStory() {
       return { previousStories, previousStory, previousProfile };
     },
     onError: (error: Error, storyId, context) => {
-      if (context?.previousStories) {
-        queryClient.setQueryData(['stories', 'recent', 50], context.previousStories);
-      }
       if (context?.previousStory) {
         queryClient.setQueryData(['story', storyId], context.previousStory);
       }
@@ -337,6 +498,7 @@ export function useUnlikeStory() {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['story', storyId] });
       queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['likedStories'] });
     },
   });
 }
@@ -359,7 +521,7 @@ export function usePinStory() {
       await queryClient.cancelQueries({ queryKey: ['story', storyId] });
       await queryClient.cancelQueries({ queryKey: ['currentUserProfile'] });
 
-      const previousStories = queryClient.getQueryData(['stories', 'recent', 50]);
+      const previousStories = queryClient.getQueryData(['stories', 'search']);
       const previousStory = queryClient.getQueryData(['story', storyId]);
       const previousProfile = queryClient.getQueryData(['currentUserProfile']);
 
@@ -369,15 +531,6 @@ export function usePinStory() {
           ...old,
           pinCount: old.pinCount + BigInt(1),
         };
-      });
-
-      queryClient.setQueryData(['stories', 'recent', 50], (old: Story[] | undefined) => {
-        if (!old) return old;
-        return old.map(story => 
-          story.id === storyId 
-            ? { ...story, pinCount: story.pinCount + BigInt(1) }
-            : story
-        );
       });
 
       queryClient.setQueryData(['currentUserProfile'], (old: UserProfile | null | undefined) => {
@@ -391,9 +544,6 @@ export function usePinStory() {
       return { previousStories, previousStory, previousProfile };
     },
     onError: (error: Error, storyId, context) => {
-      if (context?.previousStories) {
-        queryClient.setQueryData(['stories', 'recent', 50], context.previousStories);
-      }
       if (context?.previousStory) {
         queryClient.setQueryData(['story', storyId], context.previousStory);
       }
@@ -412,6 +562,7 @@ export function usePinStory() {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['story', storyId] });
       queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['pinnedStories'] });
     },
   });
 }
@@ -434,7 +585,7 @@ export function useUnpinStory() {
       await queryClient.cancelQueries({ queryKey: ['story', storyId] });
       await queryClient.cancelQueries({ queryKey: ['currentUserProfile'] });
 
-      const previousStories = queryClient.getQueryData(['stories', 'recent', 50]);
+      const previousStories = queryClient.getQueryData(['stories', 'search']);
       const previousStory = queryClient.getQueryData(['story', storyId]);
       const previousProfile = queryClient.getQueryData(['currentUserProfile']);
 
@@ -444,15 +595,6 @@ export function useUnpinStory() {
           ...old,
           pinCount: old.pinCount > BigInt(0) ? old.pinCount - BigInt(1) : BigInt(0),
         };
-      });
-
-      queryClient.setQueryData(['stories', 'recent', 50], (old: Story[] | undefined) => {
-        if (!old) return old;
-        return old.map(story => 
-          story.id === storyId 
-            ? { ...story, pinCount: story.pinCount > BigInt(0) ? story.pinCount - BigInt(1) : BigInt(0) }
-            : story
-        );
       });
 
       queryClient.setQueryData(['currentUserProfile'], (old: UserProfile | null | undefined) => {
@@ -466,9 +608,6 @@ export function useUnpinStory() {
       return { previousStories, previousStory, previousProfile };
     },
     onError: (error: Error, storyId, context) => {
-      if (context?.previousStories) {
-        queryClient.setQueryData(['stories', 'recent', 50], context.previousStories);
-      }
       if (context?.previousStory) {
         queryClient.setQueryData(['story', storyId], context.previousStory);
       }
@@ -487,6 +626,7 @@ export function useUnpinStory() {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['story', storyId] });
       queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['pinnedStories'] });
     },
   });
 }
@@ -500,12 +640,37 @@ export function useRemoveStory() {
       const readyActor = await waitForActor(() => actor);
       return readyActor.removeStory(storyId);
     },
+    onMutate: async (storyId) => {
+      // Optimistically remove the story from all caches
+      await queryClient.cancelQueries({ queryKey: ['stories'] });
+      await queryClient.cancelQueries({ queryKey: ['story', storyId] });
+      
+      const previousStory = queryClient.getQueryData(['story', storyId]);
+      
+      // Remove the specific story detail cache
+      queryClient.removeQueries({ queryKey: ['story', storyId] });
+      
+      return { previousStory };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
-      toast.success('Story removed successfully');
+      queryClient.invalidateQueries({ queryKey: ['postedStories'] });
+      queryClient.invalidateQueries({ queryKey: ['likedStories'] });
+      queryClient.invalidateQueries({ queryKey: ['pinnedStories'] });
+      toast.success('Story deleted successfully');
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to remove story');
+    onError: (error: Error, storyId, context) => {
+      // Rollback on error
+      if (context?.previousStory) {
+        queryClient.setQueryData(['story', storyId], context.previousStory);
+      }
+      
+      const message = error.message || 'Failed to delete story';
+      if (message.includes('Unauthorized') || message.includes('author') || message.includes('admin')) {
+        toast.error('You do not have permission to delete this story');
+      } else {
+        toast.error(message);
+      }
     },
   });
 }
@@ -547,9 +712,11 @@ export function useAddComment() {
       toast.success('Comment added');
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to add comment';
-      if (!message.includes('log in')) {
-        toast.error(message);
+      const message = error.message || 'Failed to add comment. Please try again.';
+      if (message.includes('Unauthorized')) {
+        throw new Error('You must be logged in to comment');
+      } else {
+        throw new Error(message);
       }
     },
   });

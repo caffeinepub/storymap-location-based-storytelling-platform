@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCreateStory } from '../hooks/useQueries';
+import { useSaveDraft, useListDrafts, useDeleteDraft, usePublishDraft } from '../hooks/useDrafts';
 import { useActor } from '../hooks/useActor';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import {
@@ -16,28 +17,40 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, MapPin, Upload, X, Navigation, Loader2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Info, MapPin, Upload, X, Navigation, Loader2, Save, FileText, Trash2 } from 'lucide-react';
 import { Category, ExternalBlob } from '../backend';
 import { getCategoryLabel } from '../lib/categories';
 import { toast } from 'sonner';
+import { getLocationCopy } from '../lib/locationPermissionCopy';
+import type { PermissionState, GeolocationDiagnostics } from '../hooks/useGeolocationPermission';
+import type { StoryDraft } from '../backend';
 
 interface CreateStoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userLocation: { latitude: number; longitude: number } | null;
+  permissionState: PermissionState;
+  onRequestLocation: () => Promise<void>;
+  diagnostics: GeolocationDiagnostics | null;
 }
 
 const categories: Category[] = [Category.love, Category.confession, Category.funny, Category.random, Category.other];
 
-type LocationState = 'idle' | 'requesting' | 'granted' | 'denied';
-
-export default function CreateStoryDialog({ open, onOpenChange, userLocation: initialUserLocation }: CreateStoryDialogProps) {
+export default function CreateStoryDialog({ 
+  open, 
+  onOpenChange, 
+  userLocation: initialUserLocation,
+  permissionState,
+  onRequestLocation,
+  diagnostics,
+}: CreateStoryDialogProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<Category>(Category.other);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(true);
-  const [locationState, setLocationState] = useState<LocationState>('idle');
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(initialUserLocation);
   const [manualLatitude, setManualLatitude] = useState('');
   const [manualLongitude, setManualLongitude] = useState('');
@@ -45,54 +58,33 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+  const [showDraftsList, setShowDraftsList] = useState(false);
 
   const createMutation = useCreateStory();
+  const saveDraftMutation = useSaveDraft();
+  const deleteDraftMutation = useDeleteDraft();
+  const publishDraftMutation = usePublishDraft();
+  const { data: drafts = [], isLoading: draftsLoading } = useListDrafts();
   const { actor, isFetching: actorFetching } = useActor();
   const { identity, loginStatus, isInitializing } = useInternetIdentity();
 
   useEffect(() => {
     if (initialUserLocation) {
       setUserLocation(initialUserLocation);
-      setLocationState('granted');
     }
   }, [initialUserLocation]);
 
-  const requestLocation = () => {
-    if (!('geolocation' in navigator)) {
-      toast.error('Geolocation is not supported by your browser');
-      setLocationState('denied');
-      return;
+  const handleRequestLocation = async () => {
+    setIsRequestingLocation(true);
+    try {
+      await onRequestLocation();
+    } catch (error) {
+      // Error already handled by parent
+    } finally {
+      setIsRequestingLocation(false);
     }
-
-    setLocationState('requesting');
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
-        setUserLocation(location);
-        setLocationState('granted');
-        setUseManualLocation(false);
-        toast.success('Location access granted');
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        setLocationState('denied');
-        if (error.code === error.PERMISSION_DENIED) {
-          toast.error('Location access denied. Please enter coordinates manually or enable location permissions in your browser settings.');
-        } else if (error.code === error.TIMEOUT) {
-          toast.error('Location request timed out. Please try again or enter coordinates manually.');
-        } else {
-          toast.error('Failed to get location. Please enter coordinates manually.');
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
   };
 
   const handleManualLocationSubmit = () => {
@@ -115,7 +107,6 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
     }
 
     setUserLocation({ latitude: lat, longitude: lng });
-    setLocationState('granted');
     toast.success('Manual location set');
   };
 
@@ -147,6 +138,112 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
     setUploadProgress(0);
   };
 
+  const resetForm = () => {
+    setTitle('');
+    setContent('');
+    setCategory(Category.other);
+    setIsAnonymous(false);
+    removeImage();
+    setUploadProgress(0);
+    setManualLatitude('');
+    setManualLongitude('');
+    setUseManualLocation(false);
+    setSelectedDraftId(null);
+    setShowDraftsList(false);
+  };
+
+  const loadDraft = async (draft: StoryDraft) => {
+    setTitle(draft.title);
+    setContent(draft.content);
+    setCategory(draft.category);
+    setIsAnonymous(draft.isAnonymous);
+    setSelectedDraftId(draft.id);
+    setShowDraftsList(false);
+
+    // Load location if present
+    if (draft.location) {
+      setUserLocation(draft.location);
+      setUseManualLocation(true);
+    }
+
+    // Load image if present
+    if (draft.image) {
+      try {
+        const imageUrl = draft.image.getDirectURL();
+        setImagePreview(imageUrl);
+        // Note: We keep the ExternalBlob reference for re-saving
+      } catch (error) {
+        console.error('Failed to load draft image:', error);
+      }
+    }
+
+    toast.success('Draft loaded');
+  };
+
+  const handleSaveDraft = async () => {
+    if (!identity) {
+      toast.error('Please log in to save drafts');
+      return;
+    }
+
+    if (!title.trim() || !content.trim()) {
+      toast.error('Title and content are required to save a draft');
+      return;
+    }
+
+    // Process image if new file selected
+    let imageBlob: ExternalBlob | null = null;
+    if (imageFile) {
+      try {
+        const arrayBuffer = await imageFile.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        imageBlob = ExternalBlob.fromBytes(uint8Array);
+      } catch (error) {
+        console.error('Failed to process image:', error);
+        toast.error('Failed to process image');
+        return;
+      }
+    }
+
+    saveDraftMutation.mutate({
+      draftId: selectedDraftId || undefined,
+      title: title.trim(),
+      content: content.trim(),
+      category,
+      location: userLocation,
+      isAnonymous,
+      image: imageBlob,
+    });
+  };
+
+  const handleDeleteDraft = () => {
+    if (!selectedDraftId) return;
+
+    if (confirm('Are you sure you want to delete this draft?')) {
+      deleteDraftMutation.mutate(selectedDraftId, {
+        onSuccess: () => {
+          resetForm();
+        },
+      });
+    }
+  };
+
+  const handlePublishDraft = () => {
+    if (!selectedDraftId) return;
+
+    if (!userLocation) {
+      toast.error('Please add a location before publishing');
+      return;
+    }
+
+    publishDraftMutation.mutate(selectedDraftId, {
+      onSuccess: () => {
+        resetForm();
+        onOpenChange(false);
+      },
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -160,6 +257,7 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
       return;
     }
 
+    // Image is optional - only process if file exists
     let imageBlob: ExternalBlob | null = null;
     if (imageFile) {
       try {
@@ -169,11 +267,13 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
           setUploadProgress(percentage);
         });
       } catch (error) {
+        console.error('Failed to process image:', error);
         toast.error('Failed to process image');
         return;
       }
     }
 
+    // Submit with or without image
     createMutation.mutate(
       {
         title: title.trim(),
@@ -185,15 +285,7 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
       },
       {
         onSuccess: () => {
-          setTitle('');
-          setContent('');
-          setCategory(Category.other);
-          setIsAnonymous(false);
-          removeImage();
-          setUploadProgress(0);
-          setManualLatitude('');
-          setManualLongitude('');
-          setUseManualLocation(false);
+          resetForm();
           onOpenChange(false);
         },
       }
@@ -205,17 +297,29 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
   const isActorInitializing = actorFetching && !actor;
   const isActorReady = !!actor && !actorFetching;
   const isUploading = createMutation.isPending && uploadProgress > 0 && uploadProgress < 100;
-  const isRequestingLocation = locationState === 'requesting';
 
   const showLoginRequired = !isAuthenticating && !isAuthenticated;
   const showActorLoading = isAuthenticated && isActorInitializing;
 
-  const formEnabled = isAuthenticated && isActorReady;
-  const canSubmit = formEnabled && !!userLocation && title.trim() && content.trim() && !createMutation.isPending;
+  const canDraft = isAuthenticated;
+  const canSaveDraft = isAuthenticated && isActorReady && title.trim() && content.trim() && !saveDraftMutation.isPending;
+  const canSubmit = isAuthenticated && isActorReady && !!userLocation && title.trim() && content.trim() && !createMutation.isPending;
+  const canPublish = isAuthenticated && isActorReady && !!selectedDraftId && !!userLocation && !publishDraftMutation.isPending;
+
+  const locationCopy = getLocationCopy(permissionState);
+  const showLocationIdle = !userLocation && (permissionState === 'prompt' || permissionState === 'unknown');
+  const showLocationDenied = !userLocation && permissionState === 'denied';
+  const showLocationUnsupported = !userLocation && permissionState === 'unsupported';
+  const showLocationInsecure = !userLocation && permissionState === 'insecure';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        resetForm();
+      }
+      onOpenChange(isOpen);
+    }}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto pointer-events-auto">
         <DialogHeader>
           <DialogTitle>Share Your Story</DialogTitle>
           <DialogDescription>
@@ -227,7 +331,7 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
           <Alert variant="destructive">
             <Info className="h-4 w-4" />
             <AlertDescription className="text-sm">
-              Please log in to post a story.
+              Please log in to post a story or save drafts.
             </AlertDescription>
           </Alert>
         )}
@@ -250,6 +354,87 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
           </Alert>
         )}
 
+        {/* Drafts Section */}
+        {isAuthenticated && !showDraftsList && drafts.length > 0 && (
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                You have {drafts.length} saved draft{drafts.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDraftsList(true)}
+            >
+              Load Draft
+            </Button>
+          </div>
+        )}
+
+        {showDraftsList && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Your Drafts</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDraftsList(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <ScrollArea className="h-48 rounded-md border">
+              <div className="p-2 space-y-2">
+                {draftsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : drafts.length === 0 ? (
+                  <div className="text-center py-8 text-sm text-muted-foreground">
+                    No drafts saved yet
+                  </div>
+                ) : (
+                  drafts.map((draft) => (
+                    <div
+                      key={draft.id}
+                      className="p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => loadDraft(draft)}
+                    >
+                      <div className="font-medium text-sm truncate">{draft.title}</div>
+                      <div className="text-xs text-muted-foreground truncate mt-1">
+                        {draft.content.substring(0, 60)}...
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {getCategoryLabel(draft.category)} • Updated {new Date(Number(draft.updatedAt) / 1000000).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+
+        {selectedDraftId && (
+          <Alert>
+            <FileText className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              <div className="flex items-center justify-between">
+                <span>Editing draft</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetForm}
+                >
+                  Clear & Start New
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {showGuidelines && (
           <Alert>
             <Info className="h-4 w-4" />
@@ -268,67 +453,115 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
           </Alert>
         )}
 
-        {locationState === 'idle' && !userLocation && (
+        {showLocationIdle && (
           <Alert>
             <MapPin className="h-4 w-4" />
             <AlertDescription className="text-sm">
               <div className="flex items-center justify-between">
-                <span>Location is required to post a story.</span>
+                <span>{locationCopy.description}</span>
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={requestLocation}
+                  onClick={handleRequestLocation}
                   disabled={isRequestingLocation}
                   className="ml-2"
                 >
                   <Navigation className="h-4 w-4 mr-2" />
-                  Allow Location Access
+                  {isRequestingLocation ? 'Requesting...' : locationCopy.action}
                 </Button>
               </div>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 mt-2"
-                onClick={() => setUseManualLocation(true)}
-              >
-                Or enter coordinates manually
-              </Button>
+              {locationCopy.secondaryAction && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 mt-2"
+                  onClick={() => setUseManualLocation(true)}
+                >
+                  Or enter coordinates manually
+                </Button>
+              )}
             </AlertDescription>
           </Alert>
         )}
 
-        {locationState === 'requesting' && (
+        {permissionState === 'requesting' && !userLocation && (
           <Alert>
             <MapPin className="h-4 w-4 animate-pulse" />
             <AlertDescription className="text-sm">
-              Requesting location access... Please allow location permissions in your browser.
+              {locationCopy.description}
             </AlertDescription>
           </Alert>
         )}
 
-        {locationState === 'denied' && !userLocation && (
+        {showLocationDenied && (
           <Alert variant="destructive">
             <MapPin className="h-4 w-4" />
             <AlertDescription className="text-sm">
               <div className="space-y-2">
-                <p>Location access was denied. You can:</p>
+                <p className="font-medium">{locationCopy.title}</p>
+                <p>{locationCopy.description}</p>
+                {diagnostics?.userFriendlyDetail && (
+                  <p className="text-xs opacity-75">
+                    Details: {diagnostics.userFriendlyDetail}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={requestLocation}
+                    onClick={handleRequestLocation}
                     disabled={isRequestingLocation}
                   >
-                    {isRequestingLocation ? 'Requesting...' : 'Retry Location Access'}
+                    {isRequestingLocation ? 'Requesting...' : locationCopy.action}
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setUseManualLocation(true)}
-                  >
-                    Enter Manually
-                  </Button>
+                  {locationCopy.secondaryAction && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUseManualLocation(true)}
+                    >
+                      {locationCopy.secondaryAction}
+                    </Button>
+                  )}
                 </div>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showLocationInsecure && (
+          <Alert variant="destructive">
+            <MapPin className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              <div className="space-y-2">
+                <p className="font-medium">{locationCopy.title}</p>
+                <p>{locationCopy.description}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUseManualLocation(true)}
+                >
+                  {locationCopy.action}
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showLocationUnsupported && (
+          <Alert variant="destructive">
+            <MapPin className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              <div className="space-y-2">
+                <p className="font-medium">{locationCopy.title}</p>
+                <p>{locationCopy.description}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUseManualLocation(true)}
+                >
+                  {locationCopy.action}
+                </Button>
               </div>
             </AlertDescription>
           </Alert>
@@ -347,6 +580,7 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
                   placeholder="e.g., 40.7128"
                   value={manualLatitude}
                   onChange={(e) => setManualLatitude(e.target.value)}
+                  className="pointer-events-auto"
                 />
               </div>
               <div className="space-y-1">
@@ -358,6 +592,7 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
                   placeholder="e.g., -74.0060"
                   value={manualLongitude}
                   onChange={(e) => setManualLongitude(e.target.value)}
+                  className="pointer-events-auto"
                 />
               </div>
             </div>
@@ -367,6 +602,7 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
                 size="sm"
                 onClick={handleManualLocationSubmit}
                 disabled={!manualLatitude || !manualLongitude}
+                className="pointer-events-auto"
               >
                 Set Location
               </Button>
@@ -379,6 +615,7 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
                   setManualLatitude('');
                   setManualLongitude('');
                 }}
+                className="pointer-events-auto"
               >
                 Cancel
               </Button>
@@ -402,9 +639,9 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
                   size="sm"
                   onClick={() => {
                     setUserLocation(null);
-                    setLocationState('idle');
                     setUseManualLocation(false);
                   }}
+                  className="pointer-events-auto"
                 >
                   Change
                 </Button>
@@ -413,7 +650,7 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 pointer-events-auto">
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
             <Input
@@ -423,7 +660,8 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
               onChange={(e) => setTitle(e.target.value)}
               maxLength={100}
               required
-              disabled={!formEnabled}
+              disabled={!canDraft}
+              className="pointer-events-auto"
             />
           </div>
 
@@ -437,7 +675,8 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
               rows={6}
               maxLength={2000}
               required
-              disabled={!formEnabled}
+              disabled={!canDraft}
+              className="pointer-events-auto"
             />
             <p className="text-xs text-muted-foreground text-right">
               {content.length}/2000 characters
@@ -449,14 +688,14 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
             <Select 
               value={category} 
               onValueChange={(value) => setCategory(value as Category)}
-              disabled={!formEnabled}
+              disabled={!canDraft}
             >
-              <SelectTrigger id="category">
+              <SelectTrigger id="category" className="pointer-events-auto">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="pointer-events-auto">
                 {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
+                  <SelectItem key={cat} value={cat} className="pointer-events-auto">
                     {getCategoryLabel(cat)}
                   </SelectItem>
                 ))}
@@ -473,8 +712,8 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
                   type="file"
                   accept="image/*"
                   onChange={handleImageChange}
-                  className="cursor-pointer"
-                  disabled={!formEnabled}
+                  className="cursor-pointer pointer-events-auto"
+                  disabled={!canDraft}
                 />
                 <Upload className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -489,9 +728,9 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
                   type="button"
                   variant="destructive"
                   size="icon"
-                  className="absolute top-2 right-2"
+                  className="absolute top-2 right-2 pointer-events-auto"
                   onClick={removeImage}
-                  disabled={!formEnabled}
+                  disabled={!canDraft}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -513,7 +752,8 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
               id="anonymous" 
               checked={isAnonymous} 
               onCheckedChange={setIsAnonymous}
-              disabled={!formEnabled}
+              disabled={!canDraft}
+              className="pointer-events-auto"
             />
           </div>
 
@@ -532,28 +772,106 @@ export default function CreateStoryDialog({ open, onOpenChange, userLocation: in
             </div>
           )}
 
-          <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Separator />
+
+          <div className="flex flex-wrap gap-2 justify-end pointer-events-auto">
+            {selectedDraftId && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteDraft}
+                disabled={deleteDraftMutation.isPending}
+                className="pointer-events-auto"
+              >
+                {deleteDraftMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Draft
+                  </>
+                )}
+              </Button>
+            )}
+            
+            <div className="flex-1" />
+            
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                resetForm();
+                onOpenChange(false);
+              }}
+              className="pointer-events-auto"
+            >
               Cancel
             </Button>
+
             <Button
-              type="submit"
-              disabled={!canSubmit}
+              type="button"
+              variant="secondary"
+              onClick={handleSaveDraft}
+              disabled={!canSaveDraft}
+              className="pointer-events-auto"
             >
-              {showActorLoading ? (
+              {saveDraftMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Connecting...
-                </>
-              ) : createMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Posting...
+                  Saving...
                 </>
               ) : (
-                'Post Story'
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Draft
+                </>
               )}
             </Button>
+
+            {selectedDraftId && (
+              <Button
+                type="button"
+                variant="default"
+                onClick={handlePublishDraft}
+                disabled={!canPublish}
+                className="pointer-events-auto"
+              >
+                {publishDraftMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Publishing...
+                  </>
+                ) : (
+                  'Publish Draft'
+                )}
+              </Button>
+            )}
+
+            {!selectedDraftId && (
+              <Button
+                type="submit"
+                disabled={!canSubmit}
+                className="pointer-events-auto"
+              >
+                {showActorLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : createMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Posting...
+                  </>
+                ) : (
+                  'Post Story'
+                )}
+              </Button>
+            )}
           </div>
         </form>
       </DialogContent>

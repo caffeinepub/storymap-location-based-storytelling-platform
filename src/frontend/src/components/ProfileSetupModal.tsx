@@ -33,7 +33,11 @@ export default function ProfileSetupModal() {
 
   return (
     <Dialog open={true}>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+      <DialogContent 
+        className="sm:max-w-md pointer-events-auto" 
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Welcome to StoryMap!</DialogTitle>
           <DialogDescription>
@@ -50,6 +54,7 @@ export default function ProfileSetupModal() {
               onChange={(e) => setUsername(e.target.value)}
               maxLength={30}
               required
+              autoFocus
             />
           </div>
           <Button

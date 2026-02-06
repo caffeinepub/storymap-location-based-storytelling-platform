@@ -22,7 +22,7 @@ export default function FilterBar({
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
           placeholder="Search stories..."
           value={searchQuery}
@@ -33,6 +33,7 @@ export default function FilterBar({
           <button
             onClick={() => onSearchChange('')}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            type="button"
           >
             <X className="h-4 w-4" />
           </button>

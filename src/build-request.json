@@ -1,54 +1,80 @@
 {
   "kind": "build_request",
-  "title": "Add Google-Maps-like map click pin dropping in MapView",
+  "title": "Remove Background wallpaper option and disable wallpaper feature",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Update the MapView (Leaflet map) so that clicking anywhere on the map drops a temporary pin/marker at the clicked latitude/longitude, providing immediate visual feedback similar to Google Maps.",
+      "text": "Remove the user-facing \"Background wallpaper\" control from the app header so users no longer see an option to choose/apply/remove a background wallpaper.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "recent-messages-4"
         ],
         "quotes": [
-          "When I click on any location it does not pin it or do something like in google map."
+          "You can remove Background wallpaper option."
         ]
       },
       "acceptanceCriteria": [
-        "When the user clicks on the map (not on an existing story marker), a pin appears at the clicked location.",
-        "Clicking a different location moves the same temporary pin to the new location (does not leave multiple temporary pins behind).",
-        "The existing story marker behavior continues to work (clicking a story marker still selects the story and its popup still works)."
+        "The header no longer renders the WallpaperSettingsDialog trigger/button.",
+        "No UI in the app shows the text \"Background wallpaper\" or offers wallpaper selection/removal."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Show the clicked coordinates to the user after dropping the temporary pin (e.g., in a small Leaflet popup or a compact UI element under the map) using English user-facing text.",
+      "text": "Disable applying and rendering a custom wallpaper background across the app layout, including clearing any previously persisted wallpaper in localStorage so older wallpapers do not continue to appear.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "recent-messages-4"
         ],
         "quotes": [
-          "When I click on any location it does not pin it or do something like in google map."
+          "You can remove Background wallpaper option."
         ]
       },
       "acceptanceCriteria": [
-        "After the user clicks the map and the pin is dropped, the UI shows latitude and longitude for the selected point.",
-        "The coordinate display updates when the user clicks a different location."
+        "The app no longer renders the wallpaper background layers (e.g., the elements using the app-wallpaper/app-wallpaper-overlay styling) even if a prior wallpaper exists in localStorage.",
+        "On load, any value stored under the wallpaper storage key is removed so wallpapers do not persist across sessions."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Clean up unused wallpaper-related frontend code and styles after the feature is removed (components, hooks, and CSS) to avoid dead code and unused Tailwind/CSS selectors.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "recent-messages-4"
+        ],
+        "quotes": [
+          "You can remove Background wallpaper option."
+        ]
+      },
+      "acceptanceCriteria": [
+        "The project builds without unused-import errors related to wallpaper code.",
+        "Wallpaper-specific CSS (e.g., app wallpaper background selectors) is removed if no longer referenced anywhere."
       ]
     }
   ],
   "constraints": [
-    "Do not modify files under frontend/src/components/ui (read-only UI components).",
-    "Do not modify any frontend files listed in SYSTEM_CONTEXT.frontend.immutablePaths."
+    "Do not modify any files under frontend/src/components/ui (read-only shadcn components).",
+    "Do not change immutable hook files listed by the system context (do not edit frontend/src/hooks/useInternetIdentity.ts / useActor.ts / frontend/src/main.tsx)."
   ],
   "nonGoals": [
-    "Do not add a new backend API or persist the clicked pin location to the backend.",
-    "Do not change the existing story pin/like feature semantics (the temporary map pin is only a map interaction affordance)."
+    "Adding replacement theming/background customization options.",
+    "Changing backend behavior or data models."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }

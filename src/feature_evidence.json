@@ -2,10 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-update-the-mapview-leaflet-map-so-that-clicking-anywhere-on-the-map-drops-a-temporary-pin-marker-at-the-clicked-latitude-longitude-providing-immediate-visual-feedback-similar-to-google-maps",
-      "featureTitle": "Update the MapView (Leaflet map) so that clicking anywhere on the map drops a temporary pin/marker at the clicked latitude/longitude, providing immediate visual feedback similar to Google Maps.",
+      "featureId": "feature-remove-the-user-facing-background-wallpaper-control-from-the-app-header-so-users-no-longer-see-an-option-to-choose-apply-remove-a-background-wallpaper",
+      "featureTitle": "Remove the user-facing \"Background wallpaper\" control from the app header so users no longer see an option to choose/apply/remove a background wallpaper.",
       "files": [
-        "frontend/src/components/MapView.tsx"
+        "frontend/src/components/Header.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -22,10 +22,10 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-show-the-clicked-coordinates-to-the-user-after-dropping-the-temporary-pin-e-g-in-a-small-leaflet-popup-or-a-compact-ui-element-under-the-map-using-english-user-facing-text",
-      "featureTitle": "Show the clicked coordinates to the user after dropping the temporary pin (e.g., in a small Leaflet popup or a compact UI element under the map) using English user-facing text.",
+      "featureId": "feature-disable-applying-and-rendering-a-custom-wallpaper-background-across-the-app-layout-including-clearing-any-previously-persisted-wallpaper-in-localstorage-so-older-wallpapers-do-not-continue-to-appear",
+      "featureTitle": "Disable applying and rendering a custom wallpaper background across the app layout, including clearing any previously persisted wallpaper in localStorage so older wallpapers do not continue to appear.",
       "files": [
-        "frontend/src/components/MapView.tsx"
+        "frontend/src/App.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -38,6 +38,29 @@
       ],
       "testIds": [
         "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-clean-up-unused-wallpaper-related-frontend-code-and-styles-after-the-feature-is-removed-components-hooks-and-css-to-avoid-dead-code-and-unused-tailwind-css-selectors",
+      "featureTitle": "Clean up unused wallpaper-related frontend code and styles after the feature is removed (components, hooks, and CSS) to avoid dead code and unused Tailwind/CSS selectors.",
+      "files": [
+        "frontend/src/components/WallpaperSettingsDialog.tsx",
+        "frontend/src/hooks/useWallpaper.ts",
+        "frontend/src/index.css",
+        "frontend/src/lib/wallpaperValidation.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
       ],
       "confidence": "high"
     }

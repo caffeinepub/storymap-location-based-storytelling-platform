@@ -1,36 +1,65 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Leaflet MapView click-to-drop temporary pin with coordinate display",
+  "title": "Remove wallpaper UI and fully disable wallpaper feature",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Add a single temporary pin that appears/moves to the clicked map location without breaking existing story marker interactions.",
+      "summary": "Remove the \"Background wallpaper\" control from the header so users cannot access wallpaper selection/removal UI.",
       "acceptanceCriteria": [
-        "When the user clicks on the map (not on an existing story marker), a pin appears at the clicked location.",
-        "Clicking a different location moves the same temporary pin to the new location (does not leave multiple temporary pins behind).",
-        "The existing story marker behavior continues to work (clicking a story marker still selects the story and its popup still works)."
+        "The header no longer renders the WallpaperSettingsDialog trigger/button.",
+        "No UI in the app shows the text \"Background wallpaper\" or offers wallpaper selection/removal."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/MapView.tsx",
+          "path": "frontend/src/components/Header.tsx",
           "operation": "modify",
-          "description": "Implement Leaflet map click handling to place a single temporary marker at the clicked latitude/longitude. Add internal state/refs (e.g., selectedLatLng and tempMarkerRef), register a map click listener after map initialization, and ensure marker clicks do not also trigger the map click handler (stop event propagation on story markers as needed) so existing story marker selection/popup behavior remains unchanged."
+          "description": "Remove the WallpaperSettingsDialog import and its render so the header no longer exposes any wallpaper control (and no longer displays the text \"Background wallpaper\")."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Display the clicked latitude/longitude in English after dropping the temporary pin and keep it updated as the user clicks new locations.",
+      "summary": "Disable wallpaper application/rendering across the app and clear any previously persisted wallpaper from localStorage on load.",
       "acceptanceCriteria": [
-        "After the user clicks the map and the pin is dropped, the UI shows latitude and longitude for the selected point.",
-        "The coordinate display updates when the user clicks a different location."
+        "The app no longer renders the wallpaper background layers (e.g., the elements using the app-wallpaper/app-wallpaper-overlay styling) even if a prior wallpaper exists in localStorage.",
+        "On load, any value stored under the wallpaper storage key is removed so wallpapers do not persist across sessions."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/MapView.tsx",
+          "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Add a compact coordinate readout in the MapView UI (e.g., a small section under the map) that renders when a temporary pin exists. Format and label values with English user-facing text (e.g., \"Selected location:\", \"Latitude:\", \"Longitude:\") and update it whenever the map click changes the selected point."
+          "description": "Remove useWallpaper usage and remove the wallpaper background layer rendering (app-wallpaper/app-wallpaper-overlay). Add a lightweight on-mount cleanup that removes the existing wallpaper localStorage key so previously persisted wallpapers never reappear."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Remove unused wallpaper-related components/hooks/styles after disabling the feature to avoid dead code and unused selectors.",
+      "acceptanceCriteria": [
+        "The project builds without unused-import errors related to wallpaper code.",
+        "Wallpaper-specific CSS (e.g., app wallpaper background selectors) is removed if no longer referenced anywhere."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/WallpaperSettingsDialog.tsx",
+          "operation": "delete",
+          "description": "Delete the wallpaper settings dialog component since the wallpaper feature and its UI are being removed."
+        },
+        {
+          "path": "frontend/src/hooks/useWallpaper.ts",
+          "operation": "delete",
+          "description": "Delete the wallpaper hook that managed persisted wallpaper state, since wallpaper is no longer supported."
+        },
+        {
+          "path": "frontend/src/lib/wallpaperValidation.ts",
+          "operation": "delete",
+          "description": "Delete wallpaper validation utilities that were only used by the wallpaper dialog."
+        },
+        {
+          "path": "frontend/src/index.css",
+          "operation": "modify",
+          "description": "Remove wallpaper-specific CSS selectors (e.g., .app-wallpaper, .app-wallpaper-overlay and any wallpaper-only rules). Keep non-wallpaper layout styling (e.g., app-container/app-content) as needed for the app layout."
         }
       ]
     }

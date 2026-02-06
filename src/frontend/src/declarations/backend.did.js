@@ -43,6 +43,7 @@ export const Story = IDL.Record({
   'content' : IDL.Text,
   'isAnonymous' : IDL.Bool,
   'author' : IDL.Principal,
+  'viewCount' : IDL.Nat,
   'timestamp' : IDL.Int,
   'category' : Category,
   'image' : IDL.Opt(ExternalBlob),
@@ -65,6 +66,34 @@ export const Comment = IDL.Record({
   'author' : IDL.Principal,
   'timestamp' : IDL.Int,
 });
+export const StoryDraft = IDL.Record({
+  'id' : IDL.Text,
+  'title' : IDL.Text,
+  'content' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'isAnonymous' : IDL.Bool,
+  'author' : IDL.Principal,
+  'updatedAt' : IDL.Int,
+  'timestamp' : IDL.Int,
+  'category' : Category,
+  'image' : IDL.Opt(ExternalBlob),
+  'location' : IDL.Opt(Location),
+});
+export const StoryView = IDL.Record({
+  'id' : IDL.Text,
+  'title' : IDL.Text,
+  'likeCount' : IDL.Nat,
+  'content' : IDL.Text,
+  'isAnonymous' : IDL.Bool,
+  'author' : IDL.Principal,
+  'viewCount' : IDL.Nat,
+  'viewers' : IDL.Vec(IDL.Principal),
+  'timestamp' : IDL.Int,
+  'category' : Category,
+  'image' : IDL.Opt(ExternalBlob),
+  'location' : Location,
+  'pinCount' : IDL.Nat,
+});
 export const Report = IDL.Record({
   'id' : IDL.Nat,
   'storyId' : IDL.Text,
@@ -72,7 +101,15 @@ export const Report = IDL.Record({
   'reporter' : IDL.Principal,
   'reason' : IDL.Text,
 });
+export const SortOption = IDL.Variant({
+  'nearest' : IDL.Record({ 'location' : Location }),
+  'newest' : IDL.Null,
+  'mostPinned' : IDL.Null,
+  'mostLiked' : IDL.Null,
+  'mostViewed' : IDL.Null,
+});
 export const SearchParams = IDL.Record({
+  'sort' : SortOption,
   'keywords' : IDL.Opt(IDL.Text),
   'category' : IDL.Opt(Category),
   'radius' : IDL.Opt(IDL.Float64),
@@ -113,6 +150,18 @@ export const idlService = IDL.Service({
       [],
     ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'createDraft' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Text,
+        Category,
+        IDL.Opt(Location),
+        IDL.Bool,
+        IDL.Opt(ExternalBlob),
+      ],
+      [IDL.Text],
+      [],
+    ),
   'createStory' : IDL.Func(
       [
         IDL.Text,
@@ -126,13 +175,33 @@ export const idlService = IDL.Service({
       [IDL.Text],
       [],
     ),
+  'deleteDraft' : IDL.Func([IDL.Text], [], []),
   'getAllStories' : IDL.Func([], [IDL.Vec(Story)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getComments' : IDL.Func([IDL.Text], [IDL.Vec(Comment)], ['query']),
-  'getRecentStories' : IDL.Func([IDL.Nat], [IDL.Vec(Story)], ['query']),
+  'getDraft' : IDL.Func([IDL.Text], [IDL.Opt(StoryDraft)], ['query']),
+  'getLikedStoriesByUser' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Vec(StoryView)],
+      ['query'],
+    ),
+  'getPinnedStoriesByUser' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Vec(StoryView)],
+      ['query'],
+    ),
   'getReports' : IDL.Func([], [IDL.Vec(Report)], ['query']),
-  'getStoriesByCategory' : IDL.Func([Category], [IDL.Vec(Story)], ['query']),
+  'getStoriesByCategory' : IDL.Func(
+      [Category, SortOption],
+      [IDL.Vec(Story)],
+      ['query'],
+    ),
+  'getStoriesByUser' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Vec(StoryView)],
+      ['query'],
+    ),
   'getStoryById' : IDL.Func([IDL.Text], [Story], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
@@ -140,10 +209,13 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'hasSeenIntro' : IDL.Func([], [IDL.Bool], ['query']),
+  'incrementStoryViewCount' : IDL.Func([IDL.Text], [], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'likeStory' : IDL.Func([IDL.Text], [], []),
+  'listDrafts' : IDL.Func([], [IDL.Vec(StoryDraft)], ['query']),
   'markIntroSeen' : IDL.Func([], [], []),
   'pinStory' : IDL.Func([IDL.Text], [], []),
+  'publishDraft' : IDL.Func([IDL.Text], [IDL.Text], []),
   'removeReport' : IDL.Func([IDL.Nat], [], []),
   'removeStory' : IDL.Func([IDL.Text], [], []),
   'reportStory' : IDL.Func([IDL.Text, IDL.Text, IDL.Int], [IDL.Nat], []),
@@ -151,6 +223,19 @@ export const idlService = IDL.Service({
   'searchStories' : IDL.Func([SearchParams], [IDL.Vec(Story)], ['query']),
   'unlikeStory' : IDL.Func([IDL.Text], [], []),
   'unpinStory' : IDL.Func([IDL.Text], [], []),
+  'updateDraft' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        Category,
+        IDL.Opt(Location),
+        IDL.Bool,
+        IDL.Opt(ExternalBlob),
+      ],
+      [],
+      [],
+    ),
 });
 
 export const idlInitArgs = [];
@@ -191,6 +276,7 @@ export const idlFactory = ({ IDL }) => {
     'content' : IDL.Text,
     'isAnonymous' : IDL.Bool,
     'author' : IDL.Principal,
+    'viewCount' : IDL.Nat,
     'timestamp' : IDL.Int,
     'category' : Category,
     'image' : IDL.Opt(ExternalBlob),
@@ -213,6 +299,34 @@ export const idlFactory = ({ IDL }) => {
     'author' : IDL.Principal,
     'timestamp' : IDL.Int,
   });
+  const StoryDraft = IDL.Record({
+    'id' : IDL.Text,
+    'title' : IDL.Text,
+    'content' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'isAnonymous' : IDL.Bool,
+    'author' : IDL.Principal,
+    'updatedAt' : IDL.Int,
+    'timestamp' : IDL.Int,
+    'category' : Category,
+    'image' : IDL.Opt(ExternalBlob),
+    'location' : IDL.Opt(Location),
+  });
+  const StoryView = IDL.Record({
+    'id' : IDL.Text,
+    'title' : IDL.Text,
+    'likeCount' : IDL.Nat,
+    'content' : IDL.Text,
+    'isAnonymous' : IDL.Bool,
+    'author' : IDL.Principal,
+    'viewCount' : IDL.Nat,
+    'viewers' : IDL.Vec(IDL.Principal),
+    'timestamp' : IDL.Int,
+    'category' : Category,
+    'image' : IDL.Opt(ExternalBlob),
+    'location' : Location,
+    'pinCount' : IDL.Nat,
+  });
   const Report = IDL.Record({
     'id' : IDL.Nat,
     'storyId' : IDL.Text,
@@ -220,7 +334,15 @@ export const idlFactory = ({ IDL }) => {
     'reporter' : IDL.Principal,
     'reason' : IDL.Text,
   });
+  const SortOption = IDL.Variant({
+    'nearest' : IDL.Record({ 'location' : Location }),
+    'newest' : IDL.Null,
+    'mostPinned' : IDL.Null,
+    'mostLiked' : IDL.Null,
+    'mostViewed' : IDL.Null,
+  });
   const SearchParams = IDL.Record({
+    'sort' : SortOption,
     'keywords' : IDL.Opt(IDL.Text),
     'category' : IDL.Opt(Category),
     'radius' : IDL.Opt(IDL.Float64),
@@ -261,6 +383,18 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'createDraft' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          Category,
+          IDL.Opt(Location),
+          IDL.Bool,
+          IDL.Opt(ExternalBlob),
+        ],
+        [IDL.Text],
+        [],
+      ),
     'createStory' : IDL.Func(
         [
           IDL.Text,
@@ -274,13 +408,33 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Text],
         [],
       ),
+    'deleteDraft' : IDL.Func([IDL.Text], [], []),
     'getAllStories' : IDL.Func([], [IDL.Vec(Story)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getComments' : IDL.Func([IDL.Text], [IDL.Vec(Comment)], ['query']),
-    'getRecentStories' : IDL.Func([IDL.Nat], [IDL.Vec(Story)], ['query']),
+    'getDraft' : IDL.Func([IDL.Text], [IDL.Opt(StoryDraft)], ['query']),
+    'getLikedStoriesByUser' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(StoryView)],
+        ['query'],
+      ),
+    'getPinnedStoriesByUser' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(StoryView)],
+        ['query'],
+      ),
     'getReports' : IDL.Func([], [IDL.Vec(Report)], ['query']),
-    'getStoriesByCategory' : IDL.Func([Category], [IDL.Vec(Story)], ['query']),
+    'getStoriesByCategory' : IDL.Func(
+        [Category, SortOption],
+        [IDL.Vec(Story)],
+        ['query'],
+      ),
+    'getStoriesByUser' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(StoryView)],
+        ['query'],
+      ),
     'getStoryById' : IDL.Func([IDL.Text], [Story], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
@@ -288,10 +442,13 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'hasSeenIntro' : IDL.Func([], [IDL.Bool], ['query']),
+    'incrementStoryViewCount' : IDL.Func([IDL.Text], [], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'likeStory' : IDL.Func([IDL.Text], [], []),
+    'listDrafts' : IDL.Func([], [IDL.Vec(StoryDraft)], ['query']),
     'markIntroSeen' : IDL.Func([], [], []),
     'pinStory' : IDL.Func([IDL.Text], [], []),
+    'publishDraft' : IDL.Func([IDL.Text], [IDL.Text], []),
     'removeReport' : IDL.Func([IDL.Nat], [], []),
     'removeStory' : IDL.Func([IDL.Text], [], []),
     'reportStory' : IDL.Func([IDL.Text, IDL.Text, IDL.Int], [IDL.Nat], []),
@@ -299,6 +456,19 @@ export const idlFactory = ({ IDL }) => {
     'searchStories' : IDL.Func([SearchParams], [IDL.Vec(Story)], ['query']),
     'unlikeStory' : IDL.Func([IDL.Text], [], []),
     'unpinStory' : IDL.Func([IDL.Text], [], []),
+    'updateDraft' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          Category,
+          IDL.Opt(Location),
+          IDL.Bool,
+          IDL.Opt(ExternalBlob),
+        ],
+        [],
+        [],
+      ),
   });
 };
 

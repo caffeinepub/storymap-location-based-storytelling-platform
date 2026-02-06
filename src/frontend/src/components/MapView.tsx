@@ -4,15 +4,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getCategoryLabel, getCategoryColor } from '../lib/categories';
 import { calculateDistance, formatDistance } from '../lib/utils';
-import { MapPin } from 'lucide-react';
+import { MapPin, Eye } from 'lucide-react';
 
 interface MapViewProps {
   stories: Story[];
   userLocation: { latitude: number; longitude: number } | null;
   onStoryClick: (story: Story) => void;
+  onMapBackgroundClick?: (latitude: number, longitude: number) => void;
 }
 
-export default function MapView({ stories, userLocation, onStoryClick }: MapViewProps) {
+export default function MapView({ stories, userLocation, onStoryClick, onMapBackgroundClick }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -83,10 +84,15 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
       maxZoom: 19,
     }).addTo(map);
 
-    // Add map click handler for temporary pin
+    // Add map click handler for temporary pin and location filter
     map.on('click', (e: any) => {
       const { lat, lng } = e.latlng;
       setSelectedLatLng({ lat, lng });
+
+      // Trigger location filter callback if provided
+      if (onMapBackgroundClick) {
+        onMapBackgroundClick(lat, lng);
+      }
 
       // Create or update temporary marker
       if (tempMarkerRef.current) {
@@ -123,7 +129,7 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
         mapInstanceRef.current = null;
       }
     };
-  }, [leafletLoaded, L, userLocation]);
+  }, [leafletLoaded, L, userLocation, onMapBackgroundClick]);
 
   // Update markers when stories or user location changes
   useEffect(() => {
@@ -184,7 +190,16 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
             </span>
           </div>
           <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">${story.content}</p>
-          ${distance ? `<p class="text-xs text-gray-500">${distance} away</p>` : ''}
+          <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
+            ${distance ? `<span>${distance} away</span>` : '<span></span>'}
+            <span class="flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              ${Number(story.viewCount)}
+            </span>
+          </div>
           <button 
             class="mt-2 w-full px-3 py-1 text-xs bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-md hover:opacity-90 transition-opacity"
             onclick="window.dispatchEvent(new CustomEvent('story-marker-click', { detail: '${story.id}' }))"
@@ -316,19 +331,25 @@ export default function MapView({ stories, userLocation, onStoryClick }: MapView
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{selectedStory.content}</p>
-            {userLocation && (
-              <p className="text-xs text-muted-foreground">
-                {formatDistance(
-                  calculateDistance(
-                    userLocation.latitude,
-                    userLocation.longitude,
-                    selectedStory.location.latitude,
-                    selectedStory.location.longitude
-                  )
-                )}{' '}
-                away
-              </p>
-            )}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              {userLocation && (
+                <span>
+                  {formatDistance(
+                    calculateDistance(
+                      userLocation.latitude,
+                      userLocation.longitude,
+                      selectedStory.location.latitude,
+                      selectedStory.location.longitude
+                    )
+                  )}{' '}
+                  away
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <Eye className="h-3 w-3" />
+                {Number(selectedStory.viewCount)} Views
+              </span>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -81,3 +81,37 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Ensure dialog overlays don't block pointer events on dialog content */
+[data-radix-dialog-overlay] {
+    pointer-events: auto;
+}
+
+[data-radix-dialog-content] {
+    pointer-events: auto;
+}
+
+/* Ensure alert dialog overlays don't block pointer events on content */
+[data-radix-alert-dialog-overlay] {
+    pointer-events: auto;
+}
+
+[data-radix-alert-dialog-content] {
+    pointer-events: auto;
+}
+
+/* App layout container */
+.app-container {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-content {
+    position: relative;
+    z-index: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}

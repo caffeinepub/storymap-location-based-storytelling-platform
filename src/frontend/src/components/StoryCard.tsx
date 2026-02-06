@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Heart, MapPin as PinIcon, MessageCircle, Share2, Loader2 } from 'lucide-react';
+import { Heart, MapPin as PinIcon, MessageCircle, Share2, Loader2, Eye } from 'lucide-react';
 import type { Story } from '../backend';
 import { calculateDistance, formatDistance } from '../lib/utils';
 import { getCategoryLabel, getCategoryColor } from '../lib/categories';
@@ -34,6 +34,9 @@ export default function StoryCard({ story, userLocation, onClick }: StoryCardPro
   useEffect(() => {
     if (story.image) {
       setImageUrl(story.image.getDirectURL());
+    } else {
+      // Clear image URL when story has no image to prevent stale UI
+      setImageUrl(null);
     }
   }, [story.image]);
 
@@ -211,20 +214,25 @@ export default function StoryCard({ story, userLocation, onClick }: StoryCardPro
             <Share2 className="h-4 w-4" />
           </Button>
         </div>
-        {distance !== null && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>{formatDistance(distance)}</span>
+        <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+          {distance !== null && (
+            <div className="flex items-center gap-1">
+              <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>{formatDistance(distance)}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1">
+            <Eye className="h-3 w-3" />
+            <span>{Number(story.viewCount)} Views</span>
           </div>
-        )}
+        </div>
       </CardFooter>
     </Card>
   );
 }
-

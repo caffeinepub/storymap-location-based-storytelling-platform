@@ -33,11 +33,17 @@ export interface Report {
   'reason' : string,
 }
 export interface SearchParams {
+  'sort' : SortOption,
   'keywords' : [] | [string],
   'category' : [] | [Category],
   'radius' : [] | [number],
   'coordinates' : Location,
 }
+export type SortOption = { 'nearest' : { 'location' : Location } } |
+  { 'newest' : null } |
+  { 'mostPinned' : null } |
+  { 'mostLiked' : null } |
+  { 'mostViewed' : null };
 export interface Story {
   'id' : string,
   'title' : string,
@@ -45,6 +51,35 @@ export interface Story {
   'content' : string,
   'isAnonymous' : boolean,
   'author' : Principal,
+  'viewCount' : bigint,
+  'timestamp' : bigint,
+  'category' : Category,
+  'image' : [] | [ExternalBlob],
+  'location' : Location,
+  'pinCount' : bigint,
+}
+export interface StoryDraft {
+  'id' : string,
+  'title' : string,
+  'content' : string,
+  'createdAt' : bigint,
+  'isAnonymous' : boolean,
+  'author' : Principal,
+  'updatedAt' : bigint,
+  'timestamp' : bigint,
+  'category' : Category,
+  'image' : [] | [ExternalBlob],
+  'location' : [] | [Location],
+}
+export interface StoryView {
+  'id' : string,
+  'title' : string,
+  'likeCount' : bigint,
+  'content' : string,
+  'isAnonymous' : boolean,
+  'author' : Principal,
+  'viewCount' : bigint,
+  'viewers' : Array<Principal>,
   'timestamp' : bigint,
   'category' : Category,
   'image' : [] | [ExternalBlob],
@@ -92,24 +127,35 @@ export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addComment' : ActorMethod<[string, string, bigint, boolean], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'createDraft' : ActorMethod<
+    [string, string, Category, [] | [Location], boolean, [] | [ExternalBlob]],
+    string
+  >,
   'createStory' : ActorMethod<
     [string, string, Category, Location, bigint, boolean, [] | [ExternalBlob]],
     string
   >,
+  'deleteDraft' : ActorMethod<[string], undefined>,
   'getAllStories' : ActorMethod<[], Array<Story>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComments' : ActorMethod<[string], Array<Comment>>,
-  'getRecentStories' : ActorMethod<[bigint], Array<Story>>,
+  'getDraft' : ActorMethod<[string], [] | [StoryDraft]>,
+  'getLikedStoriesByUser' : ActorMethod<[Principal], Array<StoryView>>,
+  'getPinnedStoriesByUser' : ActorMethod<[Principal], Array<StoryView>>,
   'getReports' : ActorMethod<[], Array<Report>>,
-  'getStoriesByCategory' : ActorMethod<[Category], Array<Story>>,
+  'getStoriesByCategory' : ActorMethod<[Category, SortOption], Array<Story>>,
+  'getStoriesByUser' : ActorMethod<[Principal], Array<StoryView>>,
   'getStoryById' : ActorMethod<[string], Story>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'hasSeenIntro' : ActorMethod<[], boolean>,
+  'incrementStoryViewCount' : ActorMethod<[string], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'likeStory' : ActorMethod<[string], undefined>,
+  'listDrafts' : ActorMethod<[], Array<StoryDraft>>,
   'markIntroSeen' : ActorMethod<[], undefined>,
   'pinStory' : ActorMethod<[string], undefined>,
+  'publishDraft' : ActorMethod<[string], string>,
   'removeReport' : ActorMethod<[bigint], undefined>,
   'removeStory' : ActorMethod<[string], undefined>,
   'reportStory' : ActorMethod<[string, string, bigint], bigint>,
@@ -117,6 +163,18 @@ export interface _SERVICE {
   'searchStories' : ActorMethod<[SearchParams], Array<Story>>,
   'unlikeStory' : ActorMethod<[string], undefined>,
   'unpinStory' : ActorMethod<[string], undefined>,
+  'updateDraft' : ActorMethod<
+    [
+      string,
+      string,
+      string,
+      Category,
+      [] | [Location],
+      boolean,
+      [] | [ExternalBlob],
+    ],
+    undefined
+  >,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import {
   useLikeStory,
@@ -10,6 +10,8 @@ import {
   useReportStory,
   useRemoveStory,
   useGetCallerUserProfile,
+  useIsCallerAdmin,
+  useIncrementStoryViewCount,
 } from '../hooks/useQueries';
 import {
   Dialog,
@@ -23,7 +25,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Heart, MapPin as PinIcon, MessageCircle, Share2, Flag, Loader2 } from 'lucide-react';
+import { Heart, MapPin as PinIcon, MessageCircle, Share2, Flag, Loader2, Trash2, Eye } from 'lucide-react';
 import type { Story } from '../backend';
 import { calculateDistance, formatDistance } from '../lib/utils';
 import { getCategoryLabel, getCategoryColor } from '../lib/categories';
@@ -45,6 +46,7 @@ interface StoryDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userLocation: { latitude: number; longitude: number } | null;
+  onStoryDeleted?: () => void;
 }
 
 export default function StoryDetailDialog({
@@ -52,8 +54,9 @@ export default function StoryDetailDialog({
   open,
   onOpenChange,
   userLocation,
+  onStoryDeleted,
 }: StoryDetailDialogProps) {
-  const { identity, isInitializing } = useInternetIdentity();
+  const { identity } = useInternetIdentity();
   const [commentText, setCommentText] = useState('');
   const [commentAnonymous, setCommentAnonymous] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -61,8 +64,12 @@ export default function StoryDetailDialog({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [showCommentInput, setShowCommentInput] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [deleteIconError, setDeleteIconError] = useState(false);
+  const viewRecordedRef = useRef<string | null>(null);
 
   const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
+  const { data: isAdmin = false, isLoading: adminLoading } = useIsCallerAdmin();
   const { data: comments = [], refetch: refetchComments } = useGetComments(story?.id || null);
   const likeMutation = useLikeStory();
   const unlikeMutation = useUnlikeStory();
@@ -71,6 +78,7 @@ export default function StoryDetailDialog({
   const addCommentMutation = useAddComment();
   const reportMutation = useReportStory();
   const removeMutation = useRemoveStory();
+  const incrementViewMutation = useIncrementStoryViewCount();
 
   useEffect(() => {
     if (story?.image) {
@@ -85,14 +93,22 @@ export default function StoryDetailDialog({
       setCommentText('');
       setCommentAnonymous(false);
       setShowCommentInput(false);
+      setCommentError(null);
+      viewRecordedRef.current = null;
     }
   }, [open]);
 
   useEffect(() => {
     if (open && story?.id) {
       refetchComments();
+      
+      // Record view count exactly once per dialog open, only when authenticated
+      if (identity && viewRecordedRef.current !== story.id) {
+        viewRecordedRef.current = story.id;
+        incrementViewMutation.mutate(story.id);
+      }
     }
-  }, [open, story?.id, refetchComments]);
+  }, [open, story?.id, identity, refetchComments, incrementViewMutation]);
 
   if (!story) return null;
 
@@ -105,8 +121,13 @@ export default function StoryDetailDialog({
       )
     : null;
 
-  const isAuthenticated = !!identity && !isInitializing;
+  const isAuthenticated = !!identity;
   const isAuthor = identity && story.author.toString() === identity.getPrincipal().toString();
+  
+  // Show delete button if user is authenticated AND (is author OR is admin)
+  // Don't hide it during admin loading if we already know user is author
+  const canDelete = isAuthenticated && (isAuthor || isAdmin);
+  const showDeleteButton = isAuthenticated && (isAuthor || (!adminLoading && isAdmin));
 
   const hasLiked = userProfile?.likedStories.includes(story.id) || false;
   const hasPinned = userProfile?.pinnedStories.includes(story.id) || false;
@@ -180,6 +201,7 @@ export default function StoryDetailDialog({
     }
     if (!commentText.trim()) return;
 
+    setCommentError(null);
     try {
       await addCommentMutation.mutateAsync({
         storyId: story.id,
@@ -189,8 +211,12 @@ export default function StoryDetailDialog({
       setCommentText('');
       setCommentAnonymous(false);
       setShowCommentInput(false);
-    } catch (error) {
-      // Error already handled by mutation
+      // Refetch comments to show the new one immediately
+      await refetchComments();
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to add comment. Please try again.';
+      setCommentError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -211,8 +237,16 @@ export default function StoryDetailDialog({
       await removeMutation.mutateAsync(story.id);
       setShowDeleteDialog(false);
       onOpenChange(false);
-    } catch (error) {
-      // Error already handled by mutation
+      if (onStoryDeleted) {
+        onStoryDeleted();
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to delete story';
+      if (errorMessage.includes('Unauthorized') || errorMessage.includes('permission')) {
+        toast.error('You do not have permission to delete this story');
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -223,7 +257,7 @@ export default function StoryDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden pointer-events-auto">
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <DialogTitle className="text-2xl pr-8">{story.title}</DialogTitle>
@@ -245,10 +279,14 @@ export default function StoryDetailDialog({
                   {formatDistance(distance)}
                 </span>
               )}
+              <span className="flex items-center gap-1">
+                <Eye className="h-3 w-3" />
+                {Number(story.viewCount)} Views
+              </span>
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 px-6 pb-6">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
             <div className="space-y-6">
               {imageUrl && (
                 <div className="w-full rounded-lg overflow-hidden">
@@ -326,21 +364,24 @@ export default function StoryDetailDialog({
                     Report
                   </Button>
                 )}
-                {isAuthor && (
+                {showDeleteButton && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShowDeleteDialog(true)}
-                    className="gap-2 text-destructive hover:text-destructive"
+                    className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                     disabled={removeMutation.isPending}
                   >
                     {removeMutation.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : deleteIconError ? (
+                      <Trash2 className="h-4 w-4" />
                     ) : (
                       <img 
                         src="/assets/generated/delete-story-icon.dim_32x32.png" 
                         alt="Delete" 
                         className="h-4 w-4"
+                        onError={() => setDeleteIconError(true)}
                       />
                     )}
                     Delete
@@ -361,10 +402,16 @@ export default function StoryDetailDialog({
                     <Textarea
                       placeholder="Add a comment..."
                       value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
+                      onChange={(e) => {
+                        setCommentText(e.target.value);
+                        setCommentError(null);
+                      }}
                       rows={3}
-                      className="bg-background"
+                      className="bg-background pointer-events-auto"
                     />
+                    {commentError && (
+                      <p className="text-sm text-destructive">{commentError}</p>
+                    )}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Switch
@@ -384,6 +431,7 @@ export default function StoryDetailDialog({
                             setShowCommentInput(false);
                             setCommentText('');
                             setCommentAnonymous(false);
+                            setCommentError(null);
                           }}
                         >
                           Cancel
@@ -429,12 +477,12 @@ export default function StoryDetailDialog({
                 </div>
               </div>
             </div>
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="pointer-events-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>Report Story</AlertDialogTitle>
             <AlertDialogDescription>
@@ -446,6 +494,7 @@ export default function StoryDetailDialog({
             value={reportReason}
             onChange={(e) => setReportReason(e.target.value)}
             rows={4}
+            className="pointer-events-auto"
           />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -460,11 +509,11 @@ export default function StoryDetailDialog({
       </AlertDialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="pointer-events-auto">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Story</AlertDialogTitle>
+            <AlertDialogTitle className="text-destructive">Delete Story</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this story? This action cannot be undone.
+              Are you sure you want to delete this story? <strong>This action cannot be undone.</strong> The story and all its comments will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -472,9 +521,16 @@ export default function StoryDetailDialog({
             <AlertDialogAction
               onClick={handleDelete}
               disabled={removeMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive"
             >
-              {removeMutation.isPending ? 'Deleting...' : 'Delete'}
+              {removeMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Permanently'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 
 interface CreateStoryFABProps {
-  onClick: () => void;
+  onClick: () => void | Promise<void>;
 }
 
 export default function CreateStoryFAB({ onClick }: CreateStoryFABProps) {

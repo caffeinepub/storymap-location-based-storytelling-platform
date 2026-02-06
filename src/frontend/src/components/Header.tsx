@@ -7,10 +7,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export default function Header() {
+interface HeaderProps {
+  onNavigateProfile: () => void;
+  onNavigateHome: () => void;
+}
+
+export default function Header({ onNavigateProfile, onNavigateHome }: HeaderProps) {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
@@ -38,7 +44,10 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-2">
+        <button
+          onClick={onNavigateHome}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500">
             <MapPin className="h-5 w-5 text-white" />
           </div>
@@ -48,7 +57,7 @@ export default function Header() {
             </h1>
             <p className="text-xs text-muted-foreground">Stories around you</p>
           </div>
-        </div>
+        </button>
 
         <div className="flex items-center gap-2">
           <Button
@@ -69,6 +78,13 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onNavigateHome}>
+                  Home
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onNavigateProfile}>
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleAuth}>
                   Logout
                 </DropdownMenuItem>

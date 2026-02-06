@@ -7,9 +7,10 @@ interface StoryFeedProps {
   isLoading: boolean;
   userLocation: { latitude: number; longitude: number } | null;
   onStoryClick: (story: Story) => void;
+  isLocationFiltered?: boolean;
 }
 
-export default function StoryFeed({ stories, isLoading, userLocation, onStoryClick }: StoryFeedProps) {
+export default function StoryFeed({ stories, isLoading, userLocation, onStoryClick, isLocationFiltered = false }: StoryFeedProps) {
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -38,9 +39,13 @@ export default function StoryFeed({ stories, isLoading, userLocation, onStoryCli
             />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold mb-2">No stories found</h3>
+        <h3 className="text-lg font-semibold mb-2">
+          {isLocationFiltered ? 'No story yet, be the one to write it' : 'No stories found'}
+        </h3>
         <p className="text-muted-foreground max-w-sm">
-          Be the first to share a story in your area! Click the + button to get started.
+          {isLocationFiltered
+            ? 'There are no stories near this location. Share your experience and be the first!'
+            : 'Be the first to share a story in your area! Click the + button to get started.'}
         </p>
       </div>
     );

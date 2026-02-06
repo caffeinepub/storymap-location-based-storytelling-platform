@@ -9,11 +9,14 @@ import Runtime "mo:core/Runtime";
 import Int "mo:core/Int";
 import Float "mo:core/Float";
 import List "mo:core/List";
-
+import Nat "mo:core/Nat";
+import Time "mo:core/Time";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
+
+
 
 actor {
   include MixinStorage();
@@ -43,6 +46,23 @@ actor {
     likeCount : Nat;
     pinCount : Nat;
     image : ?Storage.ExternalBlob;
+    viewCount : Nat;
+  };
+
+  public type StoryView = {
+    id : Text;
+    title : Text;
+    content : Text;
+    category : Category;
+    location : Location;
+    timestamp : Int;
+    author : Principal;
+    isAnonymous : Bool;
+    likeCount : Nat;
+    pinCount : Nat;
+    image : ?Storage.ExternalBlob;
+    viewCount : Nat;
+    viewers : [Principal];
   };
 
   public type UserProfile = {
@@ -54,11 +74,20 @@ actor {
     seenIntro : Bool;
   };
 
+  public type SortOption = {
+    #newest;
+    #nearest : { location : Location };
+    #mostLiked;
+    #mostViewed;
+    #mostPinned;
+  };
+
   public type SearchParams = {
     keywords : ?Text;
     category : ?Category;
     radius : ?Float;
     coordinates : Location;
+    sort : SortOption;
   };
 
   public type Comment = {
@@ -78,6 +107,9 @@ actor {
     timestamp : Int;
   };
 
+  public type StoryId = Text;
+  public type CommentId = Nat;
+
   module Story {
     public func compare(a : Story, b : Story) : Order.Order {
       switch (Int.compare(b.pinCount, a.pinCount)) {
@@ -89,13 +121,72 @@ actor {
     public func compareByTime(a : Story, b : Story) : Order.Order {
       Int.compare(b.timestamp, a.timestamp);
     };
+
+    public func compareByLocation(a : Story, b : Story, location : Location) : Order.Order {
+      let distanceA = calculateDistance(a.location, location);
+      let distanceB = calculateDistance(b.location, location);
+
+      Float.compare(distanceA, distanceB);
+    };
+
+    func calculateDistance(loc1 : Location, loc2 : Location) : Float {
+      let earthRadiusKm : Float = 6371.0;
+
+      func degreesToRadians(degrees : Float) : Float {
+        degrees * (Float.pi / 180.0);
+      };
+
+      func haversine(coord1 : Location, coord2 : Location) : Float {
+        let lat1 = degreesToRadians(coord1.latitude);
+        let lon1 = degreesToRadians(coord1.longitude);
+        let lat2 = degreesToRadians(coord2.latitude);
+        let lon2 = degreesToRadians(coord2.longitude);
+
+        let dlat = lat2 - lat1;
+        let dlon = lon2 - lon1;
+
+        let a = Float.sin(dlat / 2.0) ** 2 +
+                Float.cos(lat1) * Float.cos(lat2) *
+                (Float.sin(dlon / 2.0) ** 2);
+        let c = 2.0 * Float.arctan2(Float.sqrt(a), Float.sqrt(1.0 - a));
+        earthRadiusKm * c;
+      };
+
+      haversine(loc1, loc2);
+    };
   };
 
-  public type StoryId = Text;
-  public type CommentId = Nat;
+  public type StoryWithViewers = {
+    id : Text;
+    title : Text;
+    content : Text;
+    category : Category;
+    location : Location;
+    timestamp : Int;
+    author : Principal;
+    isAnonymous : Bool;
+    likeCount : Nat;
+    pinCount : Nat;
+    image : ?Storage.ExternalBlob;
+    viewCount : Nat;
+    viewers : Set.Set<Principal>;
+  };
 
-  // Persistent storage
-  let stories = Map.empty<StoryId, Story>();
+  public type StoryDraft = {
+    id : Text;
+    title : Text;
+    content : Text;
+    category : Category;
+    location : ?Location;
+    timestamp : Int;
+    author : Principal;
+    isAnonymous : Bool;
+    image : ?Storage.ExternalBlob;
+    createdAt : Int;
+    updatedAt : Int;
+  };
+
+  let stories = Map.empty<StoryId, StoryWithViewers>();
   let userProfiles = Map.empty<Principal, UserProfile>();
   let userLikes = Map.empty<Principal, Set.Set<Text>>();
   let userPins = Map.empty<Principal, Set.Set<Text>>();
@@ -105,17 +196,32 @@ actor {
   var nextReportId : Nat = 0;
   var nextStoryId : Nat = 0;
 
-  // Authorization module
-  let accessControlState = AccessControl.initState();
-  include MixinAuthorization(accessControlState);
+  let drafts = Map.empty<Text, StoryDraft>();
 
-  // Helper Functions
-  func isWithinCategory(story : Story, category : ?Category) : Bool {
-    switch (category) {
-      case (null) { true };
-      case (?c) { story.category == c };
+  func toStoryViewArray(withViewers : [StoryWithViewers]) : [StoryView] {
+    withViewers.map(func(story) { toStoryView(story) });
+  };
+
+  func toStoryView(story : StoryWithViewers) : StoryView {
+    {
+      id = story.id;
+      title = story.title;
+      content = story.content;
+      category = story.category;
+      location = story.location;
+      timestamp = story.timestamp;
+      author = story.author;
+      isAnonymous = story.isAnonymous;
+      likeCount = story.likeCount;
+      pinCount = story.pinCount;
+      image = story.image;
+      viewCount = story.viewCount;
+      viewers = story.viewers.toArray();
     };
   };
+
+  let accessControlState = AccessControl.initState();
+  include MixinAuthorization(accessControlState);
 
   func generateStoryId() : Text {
     let id = nextStoryId;
@@ -145,7 +251,6 @@ actor {
     };
   };
 
-  // Helper function to check if user has seen intro - accessible to all including guests
   public query ({ caller }) func hasSeenIntro() : async Bool {
     switch (userProfiles.get(caller)) {
       case (null) { false };
@@ -153,41 +258,153 @@ actor {
     };
   };
 
-  // Public query functions - accessible to all users including guests
   public query ({ caller }) func getStoryById(id : Text) : async Story {
-    // No authorization check - public read access
     switch (stories.get(id)) {
       case (null) { Runtime.trap("Story does not exist") };
-      case (?story) { story };
+      case (?storyWithViewers) { storyWithViewers };
     };
   };
 
-  public query ({ caller }) func getRecentStories(amount : Nat) : async [Story] {
-    // No authorization check - public read access
-    stories.values().toArray().sort(Story.compareByTime).sliceToArray(0, amount);
+  public shared ({ caller }) func incrementStoryViewCount(id : Text) : async () {
+    switch (stories.get(id)) {
+      case (null) { Runtime.trap("Story does not exist") };
+      case (?storyWithViewers) {
+        if (not storyWithViewers.viewers.contains(caller)) {
+          let updatedViewers = storyWithViewers.viewers.clone();
+          updatedViewers.add(caller);
+
+          let updatedStory : StoryWithViewers = {
+            storyWithViewers with viewCount = storyWithViewers.viewCount + 1;
+            viewers = updatedViewers;
+          };
+          stories.add(id, updatedStory);
+        };
+      };
+    };
+  };
+
+  func matchesKeywords(story : StoryWithViewers, keywords : ?Text) : Bool {
+    switch (keywords) {
+      case (null) { true };
+      case (?kwords) {
+        let lowercaseKeywords = kwords.toLower();
+        story.title.toLower().contains(#text lowercaseKeywords) or story.content.toLower().contains(#text lowercaseKeywords);
+      };
+    };
+  };
+
+  func matchesCategory(story : StoryWithViewers, category : ?Category) : Bool {
+    switch (category) {
+      case (null) { true };
+      case (?cat) { story.category == cat };
+    };
+  };
+
+  func isWithinRadius(story : StoryWithViewers, coordinates : Location, radius : ?Float) : Bool {
+    let earthRadiusKm : Float = 6371.0;
+
+    func degreesToRadians(degrees : Float) : Float {
+      degrees * (Float.pi / 180.0);
+    };
+
+    func haversine(coord1 : Location, coord2 : Location) : Float {
+      let lat1 = degreesToRadians(coord1.latitude);
+      let lon1 = degreesToRadians(coord1.longitude);
+      let lat2 = degreesToRadians(coord2.latitude);
+      let lon2 = degreesToRadians(coord2.longitude);
+
+      let dlat = lat2 - lat1;
+      let dlon = lon2 - lon1;
+
+      let a = Float.sin(dlat / 2.0) ** 2 +
+              Float.cos(lat1) * Float.cos(lat2) *
+              (Float.sin(dlon / 2.0) ** 2);
+      let c = 2.0 * Float.arctan2(Float.sqrt(a), Float.sqrt(1.0 - a));
+      earthRadiusKm * c;
+    };
+
+    switch (radius) {
+      case (null) { true };
+      case (?r) { haversine(story.location, coordinates) <= r };
+    };
+  };
+
+  func getFilteredStories(
+    stories : Map.Map<Text, StoryWithViewers>,
+    matchesKeywords : (StoryWithViewers, ?Text) -> Bool,
+    matchesCategory : (StoryWithViewers, ?Category) -> Bool,
+    matchesRadius : (StoryWithViewers, Location, ?Float) -> Bool,
+    params : SearchParams
+  ) : Iter.Iter<StoryWithViewers> {
+    stories.values().filter(func(story) { matchesKeywords(story, params.keywords) and matchesCategory(story, params.category) and matchesRadius(story, params.coordinates, params.radius) });
   };
 
   public query ({ caller }) func searchStories(params : SearchParams) : async [Story] {
-    // No authorization check - public read access
-    stories.values().toArray().sort().sliceToArray(0, 32);
+    let filteredStories = getFilteredStories(
+      stories,
+      matchesKeywords,
+      matchesCategory,
+      isWithinRadius,
+      params
+    );
+
+    sortStories(filteredStories.toArray(), params.sort).sliceToArray(0, 32);
   };
 
-  public query ({ caller }) func getStoriesByCategory(category : Category) : async [Story] {
-    // No authorization check - public read access
-    stories.values().toArray().filter(
-      func(story) { story.category == category }
-    ).sort();
+  func sortStories(stories : [StoryWithViewers], sortOption : SortOption) : [StoryWithViewers] {
+    switch (sortOption) {
+      case (#newest) {
+        stories.sort(
+          func(a, b) {
+            Int.compare(b.timestamp, a.timestamp);
+          }
+        );
+      };
+      case (#nearest { location }) {
+        stories.sort(
+          func(a, b) {
+            Story.compareByLocation(a, b, location);
+          }
+        );
+      };
+      case (#mostLiked) {
+        stories.sort(
+          func(a, b) {
+            Nat.compare(b.likeCount, a.likeCount);
+          }
+        );
+      };
+      case (#mostViewed) {
+        stories.sort(
+          func(a, b) {
+            Nat.compare(b.viewCount, a.viewCount);
+          }
+        );
+      };
+      case (#mostPinned) {
+        stories.sort(
+          func(a, b) {
+            Nat.compare(b.pinCount, a.pinCount);
+          }
+        );
+      };
+    };
+  };
+
+  public query ({ caller }) func getStoriesByCategory(category : Category, sortOption : SortOption) : async [Story] {
+    let categoryStories = stories.values().toArray().filter(
+      func(storyWithViewers) { storyWithViewers.category == category }
+    );
+    sortStories(categoryStories, sortOption);
   };
 
   public query ({ caller }) func getComments(storyId : Text) : async [Comment] {
-    // No authorization check - public read access
     switch (comments.get(storyId)) {
       case (null) { [] };
       case (?commentList) { commentList.toArray() };
     };
   };
 
-  // User profile management - required by frontend
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can access profiles");
@@ -196,14 +413,12 @@ actor {
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    // Users can view their own profile, admins can view any profile
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own profile");
     };
     userProfiles.get(user);
   };
 
-  // Mark user as having seen intro - requires user authentication
   public shared ({ caller }) func markIntroSeen() : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can mark intro as seen");
@@ -242,7 +457,6 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  // Story creation - requires user authentication
   public shared ({ caller }) func createStory(
     title : Text,
     content : Text,
@@ -257,7 +471,7 @@ actor {
     };
 
     let storyId = generateStoryId();
-    let story : Story = {
+    let story : StoryWithViewers = {
       id = storyId;
       title = title;
       content = content;
@@ -269,11 +483,12 @@ actor {
       likeCount = 0;
       pinCount = 0;
       image = image;
+      viewCount = 0;
+      viewers = Set.empty<Principal>();
     };
 
     stories.add(storyId, story);
 
-    // Update user profile
     switch (userProfiles.get(caller)) {
       case (null) {
         let newProfile : UserProfile = {
@@ -302,7 +517,6 @@ actor {
     storyId;
   };
 
-  // Like story - requires user authentication
   public shared ({ caller }) func likeStory(storyId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can like stories");
@@ -310,37 +524,50 @@ actor {
 
     switch (stories.get(storyId)) {
       case (null) { Runtime.trap("Story does not exist") };
-      case (?story) {
+      case (?storyWithViewers) {
         let userLikesSet = getUserLikesSet(caller);
 
-        // Check if already liked
         if (userLikesSet.contains(storyId)) {
           Runtime.trap("Story already liked");
         };
 
-        // Add like
         userLikesSet.add(storyId);
 
-        // Update story like count
-        let updatedStory : Story = {
-          id = story.id;
-          title = story.title;
-          content = story.content;
-          category = story.category;
-          location = story.location;
-          timestamp = story.timestamp;
-          author = story.author;
-          isAnonymous = story.isAnonymous;
-          likeCount = story.likeCount + 1;
-          pinCount = story.pinCount;
-          image = story.image;
+        let updatedStory : StoryWithViewers = {
+          storyWithViewers with likeCount = storyWithViewers.likeCount + 1;
         };
         stories.add(storyId, updatedStory);
+
+        let updatedLikedStories = userLikesSet.toArray();
+
+        switch (userProfiles.get(caller)) {
+          case (null) {
+            let newProfile : UserProfile = {
+              id = caller;
+              username = "";
+              storiesPosted = 0;
+              likedStories = updatedLikedStories;
+              pinnedStories = [];
+              seenIntro = false;
+            };
+            userProfiles.add(caller, newProfile);
+          };
+          case (?profile) {
+            let updatedProfile : UserProfile = {
+              id = profile.id;
+              username = profile.username;
+              storiesPosted = profile.storiesPosted;
+              likedStories = updatedLikedStories;
+              pinnedStories = profile.pinnedStories;
+              seenIntro = profile.seenIntro;
+            };
+            userProfiles.add(caller, updatedProfile);
+          };
+        };
       };
     };
   };
 
-  // Unlike story - requires user authentication
   public shared ({ caller }) func unlikeStory(storyId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can unlike stories");
@@ -348,37 +575,50 @@ actor {
 
     switch (stories.get(storyId)) {
       case (null) { Runtime.trap("Story does not exist") };
-      case (?story) {
+      case (?storyWithViewers) {
         let userLikesSet = getUserLikesSet(caller);
 
-        // Check if liked
         if (not userLikesSet.contains(storyId)) {
           Runtime.trap("Story not liked");
         };
 
-        // Remove like
         userLikesSet.remove(storyId);
 
-        // Update story like count
-        let updatedStory : Story = {
-          id = story.id;
-          title = story.title;
-          content = story.content;
-          category = story.category;
-          location = story.location;
-          timestamp = story.timestamp;
-          author = story.author;
-          isAnonymous = story.isAnonymous;
-          likeCount = if (story.likeCount > 0) { story.likeCount - 1 } else { 0 };
-          pinCount = story.pinCount;
-          image = story.image;
+        let updatedStory : StoryWithViewers = {
+          storyWithViewers with likeCount = if (storyWithViewers.likeCount > 0) { storyWithViewers.likeCount - 1 } else { 0 };
         };
         stories.add(storyId, updatedStory);
+
+        let updatedLikedStories = userLikesSet.toArray();
+
+        switch (userProfiles.get(caller)) {
+          case (null) {
+            let newProfile : UserProfile = {
+              id = caller;
+              username = "";
+              storiesPosted = 0;
+              likedStories = updatedLikedStories;
+              pinnedStories = [];
+              seenIntro = false;
+            };
+            userProfiles.add(caller, newProfile);
+          };
+          case (?profile) {
+            let updatedProfile : UserProfile = {
+              id = profile.id;
+              username = profile.username;
+              storiesPosted = profile.storiesPosted;
+              likedStories = updatedLikedStories;
+              pinnedStories = profile.pinnedStories;
+              seenIntro = profile.seenIntro;
+            };
+            userProfiles.add(caller, updatedProfile);
+          };
+        };
       };
     };
   };
 
-  // Pin story - requires user authentication
   public shared ({ caller }) func pinStory(storyId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can pin stories");
@@ -386,37 +626,50 @@ actor {
 
     switch (stories.get(storyId)) {
       case (null) { Runtime.trap("Story does not exist") };
-      case (?story) {
+      case (?storyWithViewers) {
         let userPinsSet = getUserPinsSet(caller);
 
-        // Check if already pinned (one pin per user per story)
         if (userPinsSet.contains(storyId)) {
           Runtime.trap("Story already pinned");
         };
 
-        // Add pin
         userPinsSet.add(storyId);
 
-        // Update story pin count
-        let updatedStory : Story = {
-          id = story.id;
-          title = story.title;
-          content = story.content;
-          category = story.category;
-          location = story.location;
-          timestamp = story.timestamp;
-          author = story.author;
-          isAnonymous = story.isAnonymous;
-          likeCount = story.likeCount;
-          pinCount = story.pinCount + 1;
-          image = story.image;
+        let updatedStory : StoryWithViewers = {
+          storyWithViewers with pinCount = storyWithViewers.pinCount + 1;
         };
         stories.add(storyId, updatedStory);
+
+        let updatedPinnedStories = userPinsSet.toArray();
+
+        switch (userProfiles.get(caller)) {
+          case (null) {
+            let newProfile : UserProfile = {
+              id = caller;
+              username = "";
+              storiesPosted = 0;
+              likedStories = [];
+              pinnedStories = updatedPinnedStories;
+              seenIntro = false;
+            };
+            userProfiles.add(caller, newProfile);
+          };
+          case (?profile) {
+            let updatedProfile : UserProfile = {
+              id = profile.id;
+              username = profile.username;
+              storiesPosted = profile.storiesPosted;
+              likedStories = profile.likedStories;
+              pinnedStories = updatedPinnedStories;
+              seenIntro = profile.seenIntro;
+            };
+            userProfiles.add(caller, updatedProfile);
+          };
+        };
       };
     };
   };
 
-  // Unpin story - requires user authentication
   public shared ({ caller }) func unpinStory(storyId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can unpin stories");
@@ -424,37 +677,50 @@ actor {
 
     switch (stories.get(storyId)) {
       case (null) { Runtime.trap("Story does not exist") };
-      case (?story) {
+      case (?storyWithViewers) {
         let userPinsSet = getUserPinsSet(caller);
 
-        // Check if pinned
         if (not userPinsSet.contains(storyId)) {
           Runtime.trap("Story not pinned");
         };
 
-        // Remove pin
         userPinsSet.remove(storyId);
 
-        // Update story pin count
-        let updatedStory : Story = {
-          id = story.id;
-          title = story.title;
-          content = story.content;
-          category = story.category;
-          location = story.location;
-          timestamp = story.timestamp;
-          author = story.author;
-          isAnonymous = story.isAnonymous;
-          likeCount = story.likeCount;
-          pinCount = if (story.pinCount > 0) { story.pinCount - 1 } else { 0 };
-          image = story.image;
+        let updatedStory : StoryWithViewers = {
+          storyWithViewers with pinCount = if (storyWithViewers.pinCount > 0) { storyWithViewers.pinCount - 1 } else { 0 };
         };
         stories.add(storyId, updatedStory);
+
+        let updatedPinnedStories = userPinsSet.toArray();
+
+        switch (userProfiles.get(caller)) {
+          case (null) {
+            let newProfile : UserProfile = {
+              id = caller;
+              username = "";
+              storiesPosted = 0;
+              likedStories = [];
+              pinnedStories = updatedPinnedStories;
+              seenIntro = false;
+            };
+            userProfiles.add(caller, newProfile);
+          };
+          case (?profile) {
+            let updatedProfile : UserProfile = {
+              id = profile.id;
+              username = profile.username;
+              storiesPosted = profile.storiesPosted;
+              likedStories = profile.likedStories;
+              pinnedStories = updatedPinnedStories;
+              seenIntro = profile.seenIntro;
+            };
+            userProfiles.add(caller, updatedProfile);
+          };
+        };
       };
     };
   };
 
-  // Add comment - requires user authentication
   public shared ({ caller }) func addComment(
     storyId : Text,
     content : Text,
@@ -465,7 +731,6 @@ actor {
       Runtime.trap("Unauthorized: Only users can comment");
     };
 
-    // Verify story exists
     switch (stories.get(storyId)) {
       case (null) { Runtime.trap("Story does not exist") };
       case (?_) {
@@ -493,7 +758,6 @@ actor {
     };
   };
 
-  // Report story - requires user authentication
   public shared ({ caller }) func reportStory(
     storyId : Text,
     reason : Text,
@@ -503,7 +767,6 @@ actor {
       Runtime.trap("Unauthorized: Only users can report stories");
     };
 
-    // Verify story exists
     switch (stories.get(storyId)) {
       case (null) { Runtime.trap("Story does not exist") };
       case (?_) {
@@ -524,25 +787,25 @@ actor {
     };
   };
 
-  // Remove story - requires ownership or admin privileges
   public shared ({ caller }) func removeStory(id : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can remove stories");
+    };
+
     switch (stories.get(id)) {
       case (null) { Runtime.trap("Story does not exist") };
-      case (?story) {
-        // Check if caller is the author or an admin
-        if (caller != story.author and not AccessControl.isAdmin(accessControlState, caller)) {
+      case (?storyWithViewers) {
+        if (caller != storyWithViewers.author and not AccessControl.isAdmin(accessControlState, caller)) {
           Runtime.trap("Unauthorized: Only the story author or admins can remove stories");
         };
 
         stories.remove(id);
 
-        // Clean up associated comments
         comments.remove(id);
       };
     };
   };
 
-  // Admin-only: Get all reports
   public query ({ caller }) func getReports() : async [Report] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can view reports");
@@ -551,7 +814,6 @@ actor {
     reports.values().toArray();
   };
 
-  // Admin-only: Remove report
   public shared ({ caller }) func removeReport(reportId : Nat) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can remove reports");
@@ -560,12 +822,244 @@ actor {
     reports.remove(reportId);
   };
 
-  // Admin-only: Get all stories (for moderation)
   public query ({ caller }) func getAllStories() : async [Story] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can view all stories");
     };
 
     stories.values().toArray();
+  };
+
+  func getStoriesByIds(ids : [Text]) : [StoryView] {
+    ids.map(
+      func(id) {
+        stories.get(id);
+      }
+    ).filter(
+      func(storyOpt) {
+        switch (storyOpt) {
+          case (null) { false };
+          case (?_) { true };
+        };
+      }
+    ).map(
+      func(storyOpt) {
+        switch (storyOpt) {
+          case (null) { Runtime.trap("Should never happen, filtered out nulls") };
+          case (?story) { toStoryView(story) };
+        };
+      }
+    );
+  };
+
+  public query ({ caller }) func getStoriesByUser(author : Principal) : async [StoryView] {
+    if (caller != author and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own posted stories");
+    };
+
+    let filtered = stories.values().toArray().filter(
+      func(story) { story.author == author }
+    );
+    toStoryViewArray(filtered);
+  };
+
+  public query ({ caller }) func getLikedStoriesByUser(user : Principal) : async [StoryView] {
+    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own liked stories");
+    };
+
+    switch (userProfiles.get(user)) {
+      case (null) { [] };
+      case (?profile) {
+        getStoriesByIds(profile.likedStories);
+      };
+    };
+  };
+
+  public query ({ caller }) func getPinnedStoriesByUser(user : Principal) : async [StoryView] {
+    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own pinned stories");
+    };
+
+    switch (userProfiles.get(user)) {
+      case (null) { [] };
+      case (?profile) {
+        getStoriesByIds(profile.pinnedStories);
+      };
+    };
+  };
+
+  public shared ({ caller }) func createDraft(
+    title : Text,
+    content : Text,
+    category : Category,
+    location : ?Location,
+    isAnonymous : Bool,
+    image : ?Storage.ExternalBlob,
+  ) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create drafts");
+    };
+
+    let draftId = "draft_" # drafts.size().toText();
+
+    let draft : StoryDraft = {
+      id = draftId;
+      title = title;
+      content = content;
+      category = category;
+      location = location;
+      timestamp = Time.now();
+      author = caller;
+      isAnonymous = isAnonymous;
+      image = image;
+      createdAt = Time.now();
+      updatedAt = Time.now();
+    };
+
+    drafts.add(draftId, draft);
+    draftId;
+  };
+
+  public shared ({ caller }) func updateDraft(
+    draftId : Text,
+    title : Text,
+    content : Text,
+    category : Category,
+    location : ?Location,
+    isAnonymous : Bool,
+    image : ?Storage.ExternalBlob,
+  ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update drafts");
+    };
+
+    switch (drafts.get(draftId)) {
+      case (null) { Runtime.trap("Draft does not exist") };
+      case (?existingDraft) {
+        if (existingDraft.author != caller) {
+          Runtime.trap("Unauthorized: Only the draft author can update the draft");
+        };
+
+        let updatedDraft : StoryDraft = {
+          existingDraft with
+          title = title;
+          content = content;
+          category = category;
+          location = location;
+          isAnonymous = isAnonymous;
+          image = image;
+          updatedAt = Time.now();
+        };
+        drafts.add(draftId, updatedDraft);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteDraft(draftId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete drafts");
+    };
+
+    switch (drafts.get(draftId)) {
+      case (null) { Runtime.trap("Draft does not exist") };
+      case (?draft) {
+        if (draft.author != caller) {
+          Runtime.trap("Unauthorized: Only the draft author can delete their draft");
+        };
+        drafts.remove(draftId);
+      };
+    };
+  };
+
+  public shared ({ caller }) func publishDraft(draftId : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can publish drafts");
+    };
+
+    switch (drafts.get(draftId)) {
+      case (null) { Runtime.trap("Draft does not exist") };
+      case (?draft) {
+        if (draft.author != caller) {
+          Runtime.trap("Unauthorized: Only the draft author can publish the draft");
+        };
+
+        let storyId = generateStoryId();
+
+        let finalLocation : Location = switch (draft.location) {
+          case (null) { Runtime.trap("Published stories must have a location") };
+          case (?loc) { loc };
+        };
+
+        let story : StoryWithViewers = {
+          id = storyId;
+          title = draft.title;
+          content = draft.content;
+          category = draft.category;
+          location = finalLocation;
+          timestamp = Time.now();
+          author = draft.author;
+          isAnonymous = draft.isAnonymous;
+          likeCount = 0;
+          pinCount = 0;
+          image = draft.image;
+          viewCount = 0;
+          viewers = Set.empty<Principal>();
+        };
+
+        stories.add(storyId, story);
+
+        switch (userProfiles.get(caller)) {
+          case (null) {
+            let newProfile : UserProfile = {
+              id = caller;
+              username = "";
+              storiesPosted = 1;
+              likedStories = [];
+              pinnedStories = [];
+              seenIntro = false;
+            };
+            userProfiles.add(caller, newProfile);
+          };
+          case (?profile) {
+            let updatedProfile : UserProfile = {
+              id = profile.id;
+              username = profile.username;
+              storiesPosted = profile.storiesPosted + 1;
+              likedStories = profile.likedStories;
+              pinnedStories = profile.pinnedStories;
+              seenIntro = profile.seenIntro;
+            };
+            userProfiles.add(caller, updatedProfile);
+          };
+        };
+
+        drafts.remove(draftId); // Delete draft after publishing
+        storyId;
+      };
+    };
+  };
+
+  public query ({ caller }) func getDraft(draftId : Text) : async ?StoryDraft {
+    switch (drafts.get(draftId)) {
+      case (null) { null };
+      case (?draft) {
+        if (draft.author != caller) {
+          Runtime.trap("Unauthorized: Only the draft author can fetch their draft");
+        };
+        ?draft;
+      };
+    };
+  };
+
+  public query ({ caller }) func listDrafts() : async [StoryDraft] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can list their drafts");
+    };
+
+    let userDrafts : Iter.Iter<StoryDraft> = drafts.values().filter(
+      func(draft) { draft.author == caller }
+    );
+    userDrafts.toArray();
   };
 };

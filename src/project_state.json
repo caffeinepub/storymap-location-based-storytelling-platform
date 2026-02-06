@@ -1,215 +1,32 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "StoryMap is a location-based storytelling platform built on the Internet Computer. Authenticated users sign in with Internet Identity, set up a username, and create geotagged stories (optionally anonymous and with an uploaded image). All users can browse recent stories in a feed or on an interactive Leaflet map, filter/search by category/text, view story details, and interact via likes, pins, comments, sharing, reporting, and (for authors/admins) deletion. The Motoko backend canister stores stories, comments, reports, and user profiles/interaction state, and enforces role-based access control (admin/user/guest).",
+  "summary": "Project includes a wallpaper feature; background wallpaper option has been requested for removal.",
+  "architectural_notes": [],
+  "known_issues": [],
+  "isFixRequest": false,
   "existing_features": [
     {
-      "id": "IF-1",
-      "title": "Internet Identity authentication and session management",
-      "synonyms": [
-        "II login",
-        "AuthClient integration"
-      ],
-      "description": "Provides a React context (InternetIdentityProvider) that initializes the Dfinity AuthClient, loads persisted sessions, supports login/logout, exposes detailed login state flags, and supplies an Identity for authenticated canister calls.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-2",
-      "title": "Per-identity backend actor creation and initialization",
-      "synonyms": [
-        "Actor hook",
-        "useActor"
-      ],
-      "description": "Creates an anonymous actor for guests and an authenticated actor when an identity is present; initializes backend access control via _initializeAccessControlWithSecret using a secret token pulled from the URL hash; invalidates/refetches React Query data when the actor changes.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-3",
-      "title": "Role-based access control (admin/user/guest)",
-      "synonyms": [
-        "Authorization",
-        "AccessControl"
-      ],
-      "description": "Motoko access-control module and mixin: first properly-initialized caller can become admin via a shared secret, others become users; supports role queries, admin checks, and admin-only role assignment.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-4",
-      "title": "User profile retrieval and onboarding profile setup",
-      "synonyms": [
-        "Profile setup modal",
-        "Username onboarding"
-      ],
-      "description": "Fetches the caller's UserProfile once authenticated; if missing, shows a modal to set a username and save an initial profile. Profile includes storiesPosted, likedStories, pinnedStories, and seenIntro.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-5",
-      "title": "Intro/onboarding seen tracking",
-      "synonyms": [
-        "seenIntro flag",
-        "first-time flow"
-      ],
-      "description": "Frontend checks first-time conditions (no stories posted + seenIntro false) to auto-open the create story dialog and calls markIntroSeen; backend supports hasSeenIntro and markIntroSeen on the user profile.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-6",
-      "title": "Story creation with geolocation, category, anonymity, and optional image upload",
-      "synonyms": [
-        "Post story",
-        "Create story dialog"
-      ],
-      "description": "Authenticated users can create stories with title/content/category, required coordinates (via geolocation permission or manual coordinate entry), optional anonymous posting, and optional image attachment using ExternalBlob with upload progress.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-7",
-      "title": "Story feed and detail viewing",
-      "synonyms": [
-        "Recent stories",
-        "Story detail dialog"
-      ],
-      "description": "Displays recent stories in a responsive grid feed with loading/empty states; allows opening a detail dialog showing full content, category, distance (if user location available), and image preview when present.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-8",
-      "title": "Interactive map view of stories",
-      "synonyms": [
-        "Leaflet map",
-        "Story markers"
-      ],
-      "description": "Provides a Leaflet-based map (loaded dynamically from CDN) that renders story markers and a user location marker, fits bounds to visible points, and opens story details via marker popups and click handlers.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-9",
-      "title": "Client-side filtering by category and search query",
-      "synonyms": [
-        "Filter bar",
-        "Search stories (UI)"
-      ],
-      "description": "Implements a filter bar with category buttons and a text search input to filter the currently loaded stories list by category and by title/content substring matches.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-10",
-      "title": "Likes with optimistic UI updates",
-      "synonyms": [
-        "Like/unlike story"
-      ],
-      "description": "Authenticated users can like/unlike stories. Frontend uses optimistic updates to increment/decrement counts and update the caller profile cache, with rollback on error and refetch on settle; backend enforces one-like-per-user semantics via per-user sets.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-11",
-      "title": "Pins with optimistic UI updates",
-      "synonyms": [
-        "Pin/unpin story"
-      ],
-      "description": "Authenticated users can pin/unpin stories. Frontend uses optimistic updates similar to likes; backend enforces one-pin-per-user semantics and tracks pinCount.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-12",
-      "title": "Commenting system (including anonymous comments)",
-      "synonyms": [
-        "Story comments"
-      ],
-      "description": "Fetches comments for a story and allows authenticated users to add comments with an optional anonymous flag. Comments are stored per story and displayed in the story detail dialog.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-13",
-      "title": "Reporting stories for moderation",
-      "synonyms": [
-        "Report abuse",
-        "Flag story"
-      ],
-      "description": "Authenticated users can report a story with a free-text reason; backend stores reports and exposes admin-only access to the full report list and report removal.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-14",
-      "title": "Story deletion with author/admin authorization",
-      "synonyms": [
-        "Remove story",
-        "Delete post"
-      ],
-      "description": "Allows story authors (and admins) to remove a story. Frontend shows delete controls only to the author; backend enforces author-or-admin checks and removes associated comments.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-15",
-      "title": "Sharing stories via Web Share API or clipboard",
-      "synonyms": [
-        "Share link"
-      ],
-      "description": "Generates a deep link to a story and attempts native sharing via navigator.share when available; otherwise copies the URL to clipboard with user feedback toasts.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-16",
-      "title": "Geolocation acquisition and distance display",
-      "synonyms": [
-        "Location permission handling",
-        "Distance from user"
-      ],
-      "description": "Requests browser geolocation on the home page (with permission denied handling) and in the create dialog (with retry and manual coordinate entry). Uses Haversine distance calculation to show how far stories are from the user.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-17",
-      "title": "Blob storage maintenance and authorization mixin",
-      "synonyms": [
-        "Storage mixin",
-        "Dead blob pruning"
-      ],
-      "description": "Backend includes storage mixin endpoints for updating authorized gateway principals, listing dead blobs to delete (authorized callers only), confirming blob deletion and triggering GC, checking blob liveness, and a cashier-only refill endpoint to top up cycles.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "IF-18",
-      "title": "Theme toggle and responsive UI shell",
-      "synonyms": [
-        "Dark mode",
-        "Header/Footer"
-      ],
-      "description": "App shell includes a sticky header with branding, theme toggle (light/dark/system), and auth controls; footer attribution; responsive layout and Tailwind/shadcn component styling; toast notifications via sonner.",
-      "reqIds": [],
-      "version": 1
-    },
-    {
-      "id": "feature-update-the-mapview-leaflet-map-so-that-clicking-anywhere-on-the-map-drops-a-temporary-pin-marker-at-the-clicked-latitude-longitude-providing-immediate-visual-feedback-similar-to-google-maps",
-      "title": "Update the MapView (Leaflet map) so that clicking anywhere on the map drops a temporary pin/marker at the clicked latitude/longitude, providing immediate visual feedback similar to Google Maps.",
+      "id": "feature-remove-the-user-facing-background-wallpaper-control-from-the-app-header-so-users-no-longer-see-an-option-to-choose-apply-remove-a-background-wallpaper",
+      "title": "Remove the user-facing \"Background wallpaper\" control from the app header so users no longer see an option to choose/apply/remove a background wallpaper.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-show-the-clicked-coordinates-to-the-user-after-dropping-the-temporary-pin-e-g-in-a-small-leaflet-popup-or-a-compact-ui-element-under-the-map-using-english-user-facing-text",
-      "title": "Show the clicked coordinates to the user after dropping the temporary pin (e.g., in a small Leaflet popup or a compact UI element under the map) using English user-facing text.",
+      "id": "feature-disable-applying-and-rendering-a-custom-wallpaper-background-across-the-app-layout-including-clearing-any-previously-persisted-wallpaper-in-localstorage-so-older-wallpapers-do-not-continue-to-appear",
+      "title": "Disable applying and rendering a custom wallpaper background across the app layout, including clearing any previously persisted wallpaper in localStorage so older wallpapers do not continue to appear.",
       "reqIds": [
         "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-clean-up-unused-wallpaper-related-frontend-code-and-styles-after-the-feature-is-removed-components-hooks-and-css-to-avoid-dead-code-and-unused-tailwind-css-selectors",
+      "title": "Clean up unused wallpaper-related frontend code and styles after the feature is removed (components, hooks, and CSS) to avoid dead code and unused Tailwind/CSS selectors.",
+      "reqIds": [
+        "REQ-3"
       ],
       "version": 1
     }
@@ -217,36 +34,12 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Enable Google-Maps-like interaction: clicking on the map drops/selects a pin/marker (e.g., for choosing a story location) and provides immediate visual feedback.",
+      "summary": "Remove the Background wallpaper option from the wallpaper feature.",
       "reqIds": [],
       "status": "pending"
     }
   ],
-  "architectural_notes": [
-    "Frontend uses React + TanStack React Query for data fetching/caching and mutations, including optimistic updates for like/pin actions.",
-    "Internet Identity authentication is wrapped in a React context provider (AuthClient), exposing login/logout and initialization states.",
-    "Backend connectivity is encapsulated via a per-identity actor hook; actor creation triggers access-control initialization using a secret token from the URL hash.",
-    "Motoko backend uses in-canister persistent collections (Map/Set/List) for stories, profiles, likes/pins, comments, and reports.",
-    "Role-based access control is implemented as a reusable Motoko module plus a mixin included into the main actor.",
-    "Blob/image support is integrated via a storage mixin with authorization gates and maintenance endpoints (dead blob pruning, gateway principal updates).",
-    "UI includes both feed and map views; the map is Leaflet loaded dynamically at runtime via CDN and updated by recreating markers on data changes.",
-    "UI styling uses TailwindCSS + shadcn/ui components with theming via next-themes and OKLCH CSS variables.",
-    "Geolocation is requested in the UI (Home + Create Story) with fallbacks and manual coordinate entry for story creation.",
-    "Cross-feature synchronization is done through React Query cache invalidation/refetch triggered when the actor/identity changes."
-  ],
-  "known_issues": [
-    "Backend searchStories(params) is effectively a stub (ignores params and returns a generic sorted slice), while the UI performs only client-side filtering.",
-    "markIntroSeen creates a new profile with storiesPosted = 1, which appears semantically incorrect (marking intro should not increment posted story count).",
-    "createStory creates a new profile with seenIntro = false even if the UI just marked intro as seen, potentially overwriting expected onboarding state for new users.",
-    "Storage canister env var key appears misspelled as \"CAFFFEINE_STORAGE_CASHIER_PRINCIPAL\" (extra 'F'), which may cause runtime traps if deployment uses the expected spelling.",
-    "AccessControl.getUserRole traps if the caller is not registered; this makes some \"read\" calls brittle if initialization is skipped or fails for a principal.",
-    "MapView injects popup HTML strings (including an inline onclick dispatch); while functional, it bypasses React event handling and may be harder to maintain/test.",
-    "External blob certificate creation in the storage mixin is a placeholder (always returns method=\"upload\" and echoes blob_hash) and does not validate/authenticate uploads by itself.",
-    "Map click interaction is missing: clicking a location does not drop/select a pin/marker or provide feedback, unlike expected Google Maps behavior."
-  ],
-  "isFixRequest": true,
-  "gameProjectType": "none",
-  "projectName": "StoryMap",
+  "projectName": "Remove Background wallpaper option and disable wallpaper feature",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

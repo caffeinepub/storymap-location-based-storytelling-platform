@@ -1,48 +1,53 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-05T06:01:09.085Z",
-  "summary": "MapView was updated to handle map clicks and track a selected lat/lng with a temporary Leaflet marker ref, but the diff excerpt does not clearly show a user-visible coordinate display or logic ensuring map clicks exclude existing story markers. Several unrelated documentation/state files and an unrelated auth hook change were also included.",
+  "generatedAt": "2026-02-06T05:09:23.498Z",
+  "summary": "Diff removes the wallpaper control from the Header and adds a mount-time localStorage cleanup for a wallpaper key, but wallpaper-related modules still exist and additional unrelated UI interactivity guard/CSS changes were introduced.",
   "missing_requirements": [
     {
-      "id": "REQ-1",
-      "requirement": "When the user clicks on the map (not on an existing story marker), a temporary pin appears at the clicked location; clicking elsewhere moves the same temporary pin; story marker click behavior continues to work.",
-      "reason": "The diff shows a global `map.on('click', ...)` handler that will run on any map click, but the provided excerpt does not show logic that prevents the handler from running when clicking an existing story marker (e.g., stopping propagation / checking click target). The excerpt also does not show story-marker click handling to confirm it remains unchanged.",
+      "id": "REQ-2",
+      "requirement": "Disable applying and rendering a custom wallpaper background across the app layout, including clearing any previously persisted wallpaper in localStorage so older wallpapers do not continue to appear.",
+      "reason": "The diff shows localStorage cleanup on mount, but does not provide clear evidence that wallpaper background layers (e.g., app-wallpaper/app-wallpaper-overlay elements) are removed from the rendered layout everywhere; App.tsx is truncated and other potential render locations are not shown.",
       "evidence": [
-        "frontend/src/components/MapView.tsx"
+        "frontend/src/App.tsx (truncated)"
       ]
     },
     {
-      "id": "REQ-2",
-      "requirement": "Show the clicked coordinates to the user after dropping the temporary pin, and update when the user clicks a different location, using English user-facing text.",
-      "reason": "The excerpt shows `selectedLatLng` state being set on click, but does not include any rendered UI (popup or element under the map) that displays latitude/longitude with English text.",
+      "id": "REQ-3",
+      "requirement": "Clean up unused wallpaper-related frontend code and styles after the feature is removed (components, hooks, and CSS) to avoid dead code and unused Tailwind/CSS selectors.",
+      "reason": "Wallpaper-related files are still present and were modified rather than removed; without their contents it is not evident that the wallpaper feature code paths were fully deleted or that these modules are no longer dead code.",
       "evidence": [
-        "frontend/src/components/MapView.tsx"
+        "frontend/src/components/WallpaperSettingsDialog.tsx",
+        "frontend/src/hooks/useWallpaper.ts",
+        "frontend/src/lib/wallpaperValidation.ts"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Modified Internet Identity hook behavior/options unrelated to map pin dropping or coordinate display.",
-      "reason": "BuildRequest only targets MapView map interactions; no auth-related changes were requested.",
+      "description": "Runtime guard that periodically checks and restores UI interactivity by forcing pointer-events to auto and removing inert attributes on body/root.",
+      "reason": "Not requested by the BuildRequest (which focuses on removing wallpaper UI/behavior and cleanup).",
       "evidence": [
-        "frontend/src/hooks/useInternetIdentity.ts"
+        "frontend/src/App.tsx (truncated)"
       ]
     },
     {
-      "description": "Added/updated project documentation/state summary files (project_state.json, frontend-file-summaries.txt).",
-      "reason": "BuildRequest does not request generating or modifying project meta/state summary files.",
+      "description": "Global CSS changes to force pointer-events: auto for Radix dialog and alert-dialog overlays/content.",
+      "reason": "Not requested by the BuildRequest and unrelated to wallpaper removal/disablement.",
       "evidence": [
-        "project_state.json",
-        "frontend-file-summaries.txt"
+        "frontend/src/index.css"
       ]
     }
   ],
   "confidence": 0.62,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/components/MapView.tsx",
-    "frontend/src/hooks/useInternetIdentity.ts",
+    "frontend/src/App.tsx",
+    "frontend/src/components/Header.tsx",
+    "frontend/src/components/WallpaperSettingsDialog.tsx",
+    "frontend/src/hooks/useWallpaper.ts",
+    "frontend/src/index.css",
+    "frontend/src/lib/wallpaperValidation.ts",
     "project_state.json"
   ]
 }

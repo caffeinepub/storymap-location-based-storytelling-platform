@@ -122,6 +122,18 @@ export interface Story {
     location: Location;
     pinCount: bigint;
 }
+export interface LocalUpdatePublic {
+    id: bigint;
+    latitude: number;
+    content: string;
+    author: Principal;
+    longitude: number;
+    thumbsUp: bigint;
+    timestamp: bigint;
+    category: LocalCategory;
+    radius: bigint;
+    image?: ExternalBlob;
+}
 export interface _CaffeineStorageCreateCertificateResult {
     method: string;
     blob_hash: string;
@@ -139,17 +151,6 @@ export interface SearchParams {
     category?: Category;
     radius?: number;
     coordinates: Location;
-}
-export interface LocalUpdate {
-    id: bigint;
-    latitude: number;
-    content: string;
-    author: Principal;
-    longitude: number;
-    timestamp: bigint;
-    category: LocalCategory;
-    radius: bigint;
-    image?: ExternalBlob;
 }
 export interface StoryDraft {
     id: string;
@@ -243,16 +244,16 @@ export interface backendInterface {
     createDraft(title: string, content: string, category: Category, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
     createStory(title: string, content: string, category: Category, location: Location, timestamp: bigint, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
     deleteDraft(draftId: string): Promise<void>;
-    getActiveLocalUpdatesByProximity(location: Location): Promise<Array<LocalUpdate>>;
-    getAllActiveLocalUpdates(): Promise<Array<LocalUpdate>>;
+    getActiveLocalUpdatesByProximity(location: Location): Promise<Array<LocalUpdatePublic>>;
+    getAllActiveLocalUpdates(): Promise<Array<LocalUpdatePublic>>;
     getAllStories(): Promise<Array<Story>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getComments(storyId: string): Promise<Array<Comment>>;
     getDraft(draftId: string): Promise<StoryDraft | null>;
     getLikedStoriesByUser(user: Principal): Promise<Array<StoryView>>;
-    getLocalUpdateById(id: bigint): Promise<LocalUpdate>;
-    getLocalUpdatesByCategory(category: LocalCategory): Promise<Array<LocalUpdate>>;
+    getLocalUpdateById(id: bigint): Promise<LocalUpdatePublic>;
+    getLocalUpdatesByCategory(category: LocalCategory): Promise<Array<LocalUpdatePublic>>;
     getPinnedStoriesByUser(user: Principal): Promise<Array<StoryView>>;
     getReports(): Promise<Array<Report>>;
     getStoriesByCategory(category: Category, sortOption: SortOption): Promise<Array<Story>>;
@@ -267,19 +268,20 @@ export interface backendInterface {
     markIntroSeen(): Promise<void>;
     pinStory(storyId: string): Promise<void>;
     publishDraft(draftId: string): Promise<string>;
-    queryByProximity(proximityQuery: ProximityQuery): Promise<Array<LocalUpdate>>;
+    queryByProximity(proximityQuery: ProximityQuery): Promise<Array<LocalUpdatePublic>>;
     removeLocalUpdate(id: bigint): Promise<void>;
     removeReport(reportId: bigint): Promise<void>;
     removeStory(id: string): Promise<void>;
     reportStory(storyId: string, reason: string, timestamp: bigint): Promise<bigint>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     searchStories(params: SearchParams): Promise<Array<Story>>;
+    thumbsUpLocalUpdate(updateId: bigint): Promise<void>;
     unlikeStory(storyId: string): Promise<void>;
     unpinStory(storyId: string): Promise<void>;
     updateDraft(draftId: string, title: string, content: string, category: Category, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
     updateStory(storyId: string, title: string, content: string, category: Category, location: Location, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
 }
-import type { Category as _Category, ExternalBlob as _ExternalBlob, LocalCategory as _LocalCategory, LocalUpdate as _LocalUpdate, Location as _Location, SearchParams as _SearchParams, SortOption as _SortOption, Story as _Story, StoryDraft as _StoryDraft, StoryView as _StoryView, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
+import type { Category as _Category, ExternalBlob as _ExternalBlob, LocalCategory as _LocalCategory, LocalUpdatePublic as _LocalUpdatePublic, Location as _Location, SearchParams as _SearchParams, SortOption as _SortOption, Story as _Story, StoryDraft as _StoryDraft, StoryView as _StoryView, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async _caffeineStorageBlobIsLive(arg0: Uint8Array): Promise<boolean> {
@@ -464,7 +466,7 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getActiveLocalUpdatesByProximity(arg0: Location): Promise<Array<LocalUpdate>> {
+    async getActiveLocalUpdatesByProximity(arg0: Location): Promise<Array<LocalUpdatePublic>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getActiveLocalUpdatesByProximity(arg0);
@@ -478,7 +480,7 @@ export class Backend implements backendInterface {
             return from_candid_vec_n17(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getAllActiveLocalUpdates(): Promise<Array<LocalUpdate>> {
+    async getAllActiveLocalUpdates(): Promise<Array<LocalUpdatePublic>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllActiveLocalUpdates();
@@ -576,21 +578,21 @@ export class Backend implements backendInterface {
             return from_candid_vec_n36(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getLocalUpdateById(arg0: bigint): Promise<LocalUpdate> {
+    async getLocalUpdateById(arg0: bigint): Promise<LocalUpdatePublic> {
         if (this.processError) {
             try {
                 const result = await this.actor.getLocalUpdateById(arg0);
-                return from_candid_LocalUpdate_n18(this._uploadFile, this._downloadFile, result);
+                return from_candid_LocalUpdatePublic_n18(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getLocalUpdateById(arg0);
-            return from_candid_LocalUpdate_n18(this._uploadFile, this._downloadFile, result);
+            return from_candid_LocalUpdatePublic_n18(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getLocalUpdatesByCategory(arg0: LocalCategory): Promise<Array<LocalUpdate>> {
+    async getLocalUpdatesByCategory(arg0: LocalCategory): Promise<Array<LocalUpdatePublic>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getLocalUpdatesByCategory(to_candid_LocalCategory_n8(this._uploadFile, this._downloadFile, arg0));
@@ -800,7 +802,7 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async queryByProximity(arg0: ProximityQuery): Promise<Array<LocalUpdate>> {
+    async queryByProximity(arg0: ProximityQuery): Promise<Array<LocalUpdatePublic>> {
         if (this.processError) {
             try {
                 const result = await this.actor.queryByProximity(arg0);
@@ -898,6 +900,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n24(this._uploadFile, this._downloadFile, result);
         }
     }
+    async thumbsUpLocalUpdate(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.thumbsUpLocalUpdate(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.thumbsUpLocalUpdate(arg0);
+            return result;
+        }
+    }
     async unlikeStory(arg0: string): Promise<void> {
         if (this.processError) {
             try {
@@ -964,7 +980,7 @@ async function from_candid_ExternalBlob_n23(_uploadFile: (file: ExternalBlob) =>
 function from_candid_LocalCategory_n20(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _LocalCategory): LocalCategory {
     return from_candid_variant_n21(_uploadFile, _downloadFile, value);
 }
-async function from_candid_LocalUpdate_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _LocalUpdate): Promise<LocalUpdate> {
+async function from_candid_LocalUpdatePublic_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _LocalUpdatePublic): Promise<LocalUpdatePublic> {
     return await from_candid_record_n19(_uploadFile, _downloadFile, value);
 }
 async function from_candid_StoryDraft_n33(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _StoryDraft): Promise<StoryDraft> {
@@ -1006,6 +1022,7 @@ async function from_candid_record_n19(_uploadFile: (file: ExternalBlob) => Promi
     content: string;
     author: Principal;
     longitude: number;
+    thumbsUp: bigint;
     timestamp: bigint;
     category: _LocalCategory;
     radius: bigint;
@@ -1016,6 +1033,7 @@ async function from_candid_record_n19(_uploadFile: (file: ExternalBlob) => Promi
     content: string;
     author: Principal;
     longitude: number;
+    thumbsUp: bigint;
     timestamp: bigint;
     category: LocalCategory;
     radius: bigint;
@@ -1027,6 +1045,7 @@ async function from_candid_record_n19(_uploadFile: (file: ExternalBlob) => Promi
         content: value.content,
         author: value.author,
         longitude: value.longitude,
+        thumbsUp: value.thumbsUp,
         timestamp: value.timestamp,
         category: from_candid_LocalCategory_n20(_uploadFile, _downloadFile, value.category),
         radius: value.radius,
@@ -1208,8 +1227,8 @@ function from_candid_variant_n31(_uploadFile: (file: ExternalBlob) => Promise<Ui
 }): UserRole {
     return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : "guest" in value ? UserRole.guest : value;
 }
-async function from_candid_vec_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_LocalUpdate>): Promise<Array<LocalUpdate>> {
-    return await Promise.all(value.map(async (x)=>await from_candid_LocalUpdate_n18(_uploadFile, _downloadFile, x)));
+async function from_candid_vec_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_LocalUpdatePublic>): Promise<Array<LocalUpdatePublic>> {
+    return await Promise.all(value.map(async (x)=>await from_candid_LocalUpdatePublic_n18(_uploadFile, _downloadFile, x)));
 }
 async function from_candid_vec_n24(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Story>): Promise<Array<Story>> {
     return await Promise.all(value.map(async (x)=>await from_candid_Story_n25(_uploadFile, _downloadFile, x)));

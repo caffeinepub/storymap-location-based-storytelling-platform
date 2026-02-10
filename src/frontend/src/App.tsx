@@ -106,7 +106,9 @@ export default function App() {
               </div>
             )}
             {currentView === 'admin' && <AdminModerationPage />}
-            {currentView === 'localUpdates' && <LocalUpdatesPage />}
+            {currentView === 'localUpdates' && (
+              <LocalUpdatesPage onBackHome={() => setCurrentView('home')} />
+            )}
           </main>
           <Footer />
           {showProfileSetup && <ProfileSetupModal />}

@@ -14,15 +14,19 @@ import LocalUpdatesMapView from '../components/local-updates/LocalUpdatesMapView
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { List, Map as MapIcon, MapPin, Settings, Info, RefreshCw } from 'lucide-react';
+import { List, Map as MapIcon, MapPin, Settings, Info, RefreshCw, ArrowLeft } from 'lucide-react';
 import { getLocationCopy } from '../lib/locationPermissionCopy';
-import type { LocalUpdate } from '../backend';
+import type { LocalUpdatePublic } from '../backend';
 
-export default function LocalUpdatesPage() {
+interface LocalUpdatesPageProps {
+  onBackHome: () => void;
+}
+
+export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) {
   const [view, setView] = useState<'list' | 'map'>('list');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [selectedUpdate, setSelectedUpdate] = useState<LocalUpdate | null>(null);
+  const [selectedUpdate, setSelectedUpdate] = useState<LocalUpdatePublic | null>(null);
 
   const { identity } = useInternetIdentity();
   const {
@@ -93,7 +97,17 @@ export default function LocalUpdatesPage() {
         <div className="h-full overflow-y-auto">
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-xl font-bold">Local Updates</h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onBackHome}
+                  aria-label="Back to Home"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <h2 className="text-xl font-bold">Local Updates</h2>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"

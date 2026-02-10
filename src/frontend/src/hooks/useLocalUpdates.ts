@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import { useInternetIdentity } from './useInternetIdentity';
-import type { LocalUpdate, LocalCategory, Location } from '../backend';
+import type { LocalUpdatePublic, LocalCategory, Location } from '../backend';
 import { ExternalBlob } from '../backend';
 import { toast } from 'sonner';
 
@@ -81,7 +81,7 @@ export function useAddLocalUpdate() {
 export function useGetAllActiveLocalUpdates() {
   const { actor, isFetching } = useActor();
 
-  return useQuery<LocalUpdate[]>({
+  return useQuery<LocalUpdatePublic[]>({
     queryKey: localUpdatesKeys.allActive(),
     queryFn: async () => {
       if (!actor) return [];
@@ -101,7 +101,7 @@ export function useGetAllActiveLocalUpdates() {
 export function useGetActiveLocalUpdatesByProximity(location: Location | null) {
   const { actor, isFetching } = useActor();
 
-  return useQuery<LocalUpdate[]>({
+  return useQuery<LocalUpdatePublic[]>({
     queryKey: localUpdatesKeys.proximity(location),
     queryFn: async () => {
       if (!actor || !location) return [];
@@ -121,7 +121,7 @@ export function useGetActiveLocalUpdatesByProximity(location: Location | null) {
 export function useGetLocalUpdatesByCategory(category: LocalCategory | null) {
   const { actor, isFetching } = useActor();
 
-  return useQuery<LocalUpdate[]>({
+  return useQuery<LocalUpdatePublic[]>({
     queryKey: localUpdatesKeys.category(category),
     queryFn: async () => {
       if (!actor || !category) return [];
@@ -134,6 +134,60 @@ export function useGetLocalUpdatesByCategory(category: LocalCategory | null) {
     },
     enabled: !!actor && !isFetching && !!category,
     retry: false,
+  });
+}
+
+// Increment Local Update view count
+export function useIncrementLocalUpdateViewCount() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (updateId: bigint) => {
+      const readyActor = await waitForActor(() => actor);
+      return readyActor.incrementLocalUpdateViewCount(updateId);
+    },
+    onSuccess: () => {
+      // Invalidate all Local Updates queries to refresh view counts
+      queryClient.invalidateQueries({ queryKey: localUpdatesKeys.all });
+    },
+    onError: (error: Error) => {
+      // Silently handle errors for view count increments
+      console.error('Failed to increment view count:', error);
+    },
+  });
+}
+
+// Thumbs up Local Update
+export function useThumbsUpLocalUpdate() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (updateId: bigint) => {
+      if (!identity) {
+        throw new Error('Please log in to give a thumbs up');
+      }
+
+      const readyActor = await waitForActor(() => actor);
+      return readyActor.thumbsUpLocalUpdate(updateId);
+    },
+    onSuccess: () => {
+      // Invalidate all Local Updates queries to refresh thumbs-up counts
+      queryClient.invalidateQueries({ queryKey: localUpdatesKeys.all });
+      queryClient.refetchQueries({ queryKey: localUpdatesKeys.all });
+    },
+    onError: (error: Error) => {
+      const message = error.message || 'Failed to give thumbs up';
+      if (message.includes('already given a thumbs-up')) {
+        toast.error('You have already given a thumbs up for this update');
+      } else if (message.includes('Unauthorized') || message.includes('authenticated')) {
+        toast.error('Please log in to give a thumbs up');
+      } else {
+        toast.error(message);
+      }
+    },
   });
 }
 

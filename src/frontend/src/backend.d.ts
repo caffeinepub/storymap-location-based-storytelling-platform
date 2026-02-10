@@ -44,6 +44,18 @@ export interface Story {
     location: Location;
     pinCount: bigint;
 }
+export interface LocalUpdatePublic {
+    id: bigint;
+    latitude: number;
+    content: string;
+    author: Principal;
+    longitude: number;
+    thumbsUp: bigint;
+    timestamp: bigint;
+    category: LocalCategory;
+    radius: bigint;
+    image?: ExternalBlob;
+}
 export interface Report {
     id: bigint;
     storyId: string;
@@ -57,17 +69,6 @@ export interface SearchParams {
     category?: Category;
     radius?: number;
     coordinates: Location;
-}
-export interface LocalUpdate {
-    id: bigint;
-    latitude: number;
-    content: string;
-    author: Principal;
-    longitude: number;
-    timestamp: bigint;
-    category: LocalCategory;
-    radius: bigint;
-    image?: ExternalBlob;
 }
 export interface StoryDraft {
     id: string;
@@ -150,16 +151,16 @@ export interface backendInterface {
     createDraft(title: string, content: string, category: Category, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
     createStory(title: string, content: string, category: Category, location: Location, timestamp: bigint, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
     deleteDraft(draftId: string): Promise<void>;
-    getActiveLocalUpdatesByProximity(location: Location): Promise<Array<LocalUpdate>>;
-    getAllActiveLocalUpdates(): Promise<Array<LocalUpdate>>;
+    getActiveLocalUpdatesByProximity(location: Location): Promise<Array<LocalUpdatePublic>>;
+    getAllActiveLocalUpdates(): Promise<Array<LocalUpdatePublic>>;
     getAllStories(): Promise<Array<Story>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getComments(storyId: string): Promise<Array<Comment>>;
     getDraft(draftId: string): Promise<StoryDraft | null>;
     getLikedStoriesByUser(user: Principal): Promise<Array<StoryView>>;
-    getLocalUpdateById(id: bigint): Promise<LocalUpdate>;
-    getLocalUpdatesByCategory(category: LocalCategory): Promise<Array<LocalUpdate>>;
+    getLocalUpdateById(id: bigint): Promise<LocalUpdatePublic>;
+    getLocalUpdatesByCategory(category: LocalCategory): Promise<Array<LocalUpdatePublic>>;
     getPinnedStoriesByUser(user: Principal): Promise<Array<StoryView>>;
     getReports(): Promise<Array<Report>>;
     getStoriesByCategory(category: Category, sortOption: SortOption): Promise<Array<Story>>;
@@ -174,13 +175,14 @@ export interface backendInterface {
     markIntroSeen(): Promise<void>;
     pinStory(storyId: string): Promise<void>;
     publishDraft(draftId: string): Promise<string>;
-    queryByProximity(proximityQuery: ProximityQuery): Promise<Array<LocalUpdate>>;
+    queryByProximity(proximityQuery: ProximityQuery): Promise<Array<LocalUpdatePublic>>;
     removeLocalUpdate(id: bigint): Promise<void>;
     removeReport(reportId: bigint): Promise<void>;
     removeStory(id: string): Promise<void>;
     reportStory(storyId: string, reason: string, timestamp: bigint): Promise<bigint>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     searchStories(params: SearchParams): Promise<Array<Story>>;
+    thumbsUpLocalUpdate(updateId: bigint): Promise<void>;
     unlikeStory(storyId: string): Promise<void>;
     unpinStory(storyId: string): Promise<void>;
     updateDraft(draftId: string, title: string, content: string, category: Category, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;

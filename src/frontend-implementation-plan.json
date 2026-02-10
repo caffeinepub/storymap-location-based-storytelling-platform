@@ -1,86 +1,41 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix frontend build failures and add optional image upload/display for Local Updates",
+  "title": "Local Updates back navigation to Home via app-level view state",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Fix the frontend production build failure by aligning Local Updates calls/types with the generated backend declarations, without touching immutable frontend paths.",
+      "summary": "Add a visible, accessible Back button on Local Updates that returns the user to the Home view.",
       "acceptanceCriteria": [
-        "A clean production build completes successfully for the frontend (no TypeScript errors, missing imports/exports, or build-time crashes).",
-        "A full deploy succeeds (no unspecified deployment error remains).",
-        "Any fixes made for deployment stability do not modify files under the declared immutable frontend paths (e.g., frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui/*)."
+        "When the user is viewing Local Updates, a \"Back\" button is visible in the Local Updates UI.",
+        "Clicking the \"Back\" button returns the user to the Home page view (same destination as existing Home navigation).",
+        "The button label is in English and reads \"Back\" (or \"Back to Home\" if consistent with existing UI copy), and it is accessible (keyboard focusable and has appropriate semantics)."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useLocalUpdates.ts",
+          "path": "frontend/src/pages/LocalUpdatesPage.tsx",
           "operation": "modify",
-          "description": "Resolve build-breaking TypeScript/interface mismatches in the Local Updates create flow by ensuring the actor call arguments match the generated backend declarations (including passing the image argument and keeping radius as BigInt)."
-        },
-        {
-          "path": "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx",
-          "operation": "modify",
-          "description": "Adjust the Local Update creation dialog to pass parameters matching the updated/expected mutation signature (including optional image), ensuring no TypeScript errors in production build."
+          "description": "Add a Back/Back to Home button (use the existing shadcn Button component) to the Local Updates UI (e.g., near the Local Updates header) that calls a provided navigation callback; ensure it is a real <button> via the Button component and includes clear English label. Verify the component's usage instructions before implementing."
         }
       ]
     },
     {
-      "id": "REQ-3",
-      "summary": "Add optional image upload UX to the Post Local Update dialog with validation, preview, remove, and submission as an ExternalBlob.",
+      "id": "REQ-2",
+      "summary": "Pass an app-level navigation callback into Local Updates so the Back button switches the app view to home using existing view state routing.",
       "acceptanceCriteria": [
-        "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx includes an optional image input (accept=image/*) with user-friendly validation errors for non-image files and oversized files.",
-        "The dialog shows a preview of the selected image and provides a clear action to remove/clear the selected image before posting.",
-        "On submit, the dialog passes the optional image to the Local Update create mutation, using the same ExternalBlob conversion pattern used in frontend/src/components/CreateStoryDialog.tsx (ArrayBuffer -> Uint8Array -> ExternalBlob).",
-        "If no image is selected, Local Updates can still be posted successfully.",
-        "All user-facing text added/changed is in English."
+        "Local Updates page receives a navigation callback from the top-level app (where view state is managed) and uses it for the \"Back\" button.",
+        "No backend changes are required to navigate back to Home."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx",
+          "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Add image selection state, file input (accept image/*), size/type validation with user-friendly English errors, preview rendering, and a remove/clear action; on submit, convert the selected file to an ExternalBlob (ArrayBuffer -> Uint8Array -> ExternalBlob) and pass it to the create mutation. Use the blob-storage ExternalBlob capability for bytes-to-blob conversion and later URL display; verify the component's usage instructions before implementing."
-        }
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "summary": "Render the optional Local Update image on detail (and add lightweight support in list/map previews where appropriate) while keeping UI clean when absent.",
-      "acceptanceCriteria": [
-        "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx renders the image when update.image is present, using the blob's direct URL method (consistent with how Story images/draft images are rendered).",
-        "The UI remains clean when update.image is null/undefined (no broken image placeholders).",
-        "Local Updates list/map views continue to function without runtime errors after the LocalUpdate type change."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
-          "operation": "modify",
-          "description": "When update.image is present, render an image preview using ExternalBlob.getDirectURL(); when absent, omit the image section entirely to avoid broken placeholders. Use the blob-storage ExternalBlob capability for direct, cacheable image URLs; verify the component's usage instructions before implementing."
+          "description": "Wire LocalUpdatesPage into the existing App-level view state by passing a navigation callback prop (e.g., onBackHome) that sets currentView to 'home', keeping routing consistent with the current view-state approach (no new routing framework)."
         },
         {
-          "path": "frontend/src/components/local-updates/LocalUpdatesList.tsx",
+          "path": "frontend/src/pages/LocalUpdatesPage.tsx",
           "operation": "modify",
-          "description": "Optionally enhance list cards to show a small thumbnail when update.image is present using ExternalBlob.getDirectURL(), while keeping layout clean when absent and avoiding runtime errors. Use the blob-storage ExternalBlob capability for direct image URLs; verify the component's usage instructions before implementing."
-        },
-        {
-          "path": "frontend/src/components/local-updates/LocalUpdatesMapView.tsx",
-          "operation": "modify",
-          "description": "Ensure map popup/preview logic remains compatible with the updated LocalUpdate shape; optionally include an image in the selected update preview card (not required for all popups) using ExternalBlob.getDirectURL() when available, without breaking when image is undefined. Use the blob-storage ExternalBlob capability for direct image URLs; verify the component's usage instructions before implementing."
-        }
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "summary": "Update Local Updates React Query mutation typing and call signature to accept and forward an optional image ExternalBlob and maintain correct BigInt radius handling.",
-      "acceptanceCriteria": [
-        "frontend/src/hooks/useLocalUpdates.ts: useAddLocalUpdate mutationFn accepts an optional image parameter and forwards it to the backend addLocalUpdate call in the correct argument position/type.",
-        "TypeScript types for LocalUpdate and the addLocalUpdate call site match the generated backend declarations (no any-casts required to make the build pass).",
-        "Posting a Local Update with an image succeeds and the posted update, when re-fetched, includes a usable image reference."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useLocalUpdates.ts",
-          "operation": "modify",
-          "description": "Extend useAddLocalUpdate params to include image?: ExternalBlob | null, and forward it to the actor addLocalUpdate call in the correct position/type while keeping radius converted to BigInt; keep strict typing aligned with frontend/src/backend.d.ts and avoid any-casts. Use the blob-storage ExternalBlob capability for representing uploaded bytes and tracking progress if needed; verify the component's usage instructions before implementing."
+          "description": "Update LocalUpdatesPage to accept a navigation callback prop from App (e.g., onBackHome: () => void) and use it for the Back button action so it can switch the current view to 'home' without any backend involvement."
         }
       ]
     }

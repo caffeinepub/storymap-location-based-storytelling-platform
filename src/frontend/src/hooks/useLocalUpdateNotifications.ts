@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
-import type { LocalUpdate, LocalCategory } from '../backend';
+import type { LocalUpdatePublic, LocalCategory } from '../backend';
 import { computeRelevance } from '../lib/localUpdates';
 import { formatDistanceValue } from '../lib/utils';
 import { toast } from 'sonner';
 
 interface UseLocalUpdateNotificationsParams {
-  updates: LocalUpdate[];
+  updates: LocalUpdatePublic[];
   userLocation: { latitude: number; longitude: number } | null;
   mutedCategories: Record<LocalCategory, boolean>;
   enabled: boolean;

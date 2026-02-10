@@ -1,14 +1,19 @@
-import type { LocalUpdate } from '../../backend';
+import type { LocalUpdatePublic } from '../../backend';
 import { computeRelevance, getLocalCategoryLabel, getLocalCategoryColor, formatRadius } from '../../lib/localUpdates';
 import { formatDistanceValue } from '../../lib/utils';
+import { useThumbsUpLocalUpdate } from '../../hooks/useLocalUpdates';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Clock, Radio } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MapPin, Clock, Radio, Eye, ThumbsUp, Loader2 } from 'lucide-react';
+
+// Extended type to include viewCount (backend updated but interface not yet regenerated)
+type LocalUpdateWithViews = LocalUpdatePublic & { viewCount?: bigint };
 
 interface LocalUpdatesListProps {
-  updates: LocalUpdate[];
+  updates: LocalUpdatePublic[];
   userLocation: { latitude: number; longitude: number } | null;
-  onUpdateClick: (update: LocalUpdate) => void;
+  onUpdateClick: (update: LocalUpdatePublic) => void;
 }
 
 export default function LocalUpdatesList({
@@ -16,6 +21,8 @@ export default function LocalUpdatesList({
   userLocation,
   onUpdateClick,
 }: LocalUpdatesListProps) {
+  const thumbsUpMutation = useThumbsUpLocalUpdate();
+
   if (updates.length === 0) {
     return (
       <div className="text-center py-12">
@@ -25,12 +32,21 @@ export default function LocalUpdatesList({
     );
   }
 
+  const handleThumbsUp = (e: React.MouseEvent, updateId: bigint) => {
+    e.stopPropagation(); // Prevent card click from opening detail dialog
+    thumbsUpMutation.mutate(updateId);
+  };
+
   return (
     <div className="space-y-3">
       {updates.map((update) => {
+        const updateWithViews = update as LocalUpdateWithViews;
         const relevance = computeRelevance(update, userLocation);
         const timestamp = new Date(Number(update.timestamp) / 1000000);
         const timeAgo = getTimeAgo(timestamp);
+        const viewCount = updateWithViews.viewCount !== undefined ? Number(updateWithViews.viewCount) : 0;
+        const thumbsUpCount = Number(update.thumbsUp);
+        const isThumbingUp = thumbsUpMutation.isPending;
 
         return (
           <Card
@@ -72,22 +88,43 @@ export default function LocalUpdatesList({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-3">
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>{timeAgo}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  <span>{formatRadius(Number(update.radius))}</span>
-                </div>
-                {relevance.distanceKm !== null && (
+              <div className="flex items-center justify-between gap-4 mt-3">
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
-                    <span className="font-medium">
-                      {formatDistanceValue(relevance.distanceKm)} away
-                    </span>
+                    <Clock className="h-3 w-3" />
+                    <span>{timeAgo}</span>
                   </div>
-                )}
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    <span>{formatRadius(Number(update.radius))}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Eye className="h-3 w-3" />
+                    <span>{viewCount}</span>
+                  </div>
+                  {relevance.distanceKm !== null && (
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">
+                        {formatDistanceValue(relevance.distanceKm)} away
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => handleThumbsUp(e, update.id)}
+                  disabled={isThumbingUp}
+                  className="flex items-center gap-1 h-8 px-2"
+                >
+                  {isThumbingUp ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ThumbsUp className="h-4 w-4" />
+                  )}
+                  <span className="text-xs font-medium">{thumbsUpCount}</span>
+                </Button>
               </div>
             </CardContent>
           </Card>

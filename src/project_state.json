@@ -3,40 +3,22 @@
   "projectStateVersion": 3,
   "summary": "New project",
   "architectural_notes": [],
-  "known_issues": [
-    "Deployment fails with an unspecified deployment error"
-  ],
-  "isFixRequest": true,
+  "known_issues": [],
+  "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-identify-and-fix-the-root-cause-of-the-current-deployment-failure-ensuring-the-project-builds-and-deploys-successfully-in-a-production-configuration-frontend-typescript-vite-build-and-backend-motoko-canister-build",
-      "title": "Identify and fix the root cause of the current deployment failure, ensuring the project builds and deploys successfully in a production configuration (frontend TypeScript/Vite build and backend Motoko canister build).",
+      "id": "feature-add-a-user-visible-back-button-on-the-local-updates-page-that-navigates-the-user-to-the-home-page-when-clicked",
+      "title": "Add a user-visible \"Back\" button on the Local Updates page that navigates the user to the Home page when clicked.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-add-an-image-upload-ui-to-the-local-updates-creation-flow-in-the-post-local-update-dialog-including-file-selection-validation-preview-remove-option-and-submitting-the-optional-image-along-with-the-update",
-      "title": "Add an image upload UI to the Local Updates creation flow in the \"Post Local Update\" dialog, including file selection, validation, preview, remove option, and submitting the optional image along with the update.",
+      "id": "feature-wire-local-updates-page-navigation-to-the-app-level-view-router-so-the-local-updates-back-button-can-switch-the-current-view-to-home",
+      "title": "Wire Local Updates page navigation to the app-level view router so the Local Updates \"Back\" button can switch the current view to \"home\".",
       "reqIds": [
-        "REQ-3"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-update-local-update-display-surfaces-to-render-the-optional-image-when-present-at-minimum-in-the-local-update-detail-dialog-additionally-in-the-list-and-map-popup-preview-if-those-views-currently-show-rich-content",
-      "title": "Update Local Update display surfaces to render the optional image when present (at minimum in the Local Update detail dialog; additionally in the list and map popup/preview if those views currently show rich content).",
-      "reqIds": [
-        "REQ-4"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-update-local-update-react-query-hooks-and-mutations-to-support-the-new-optional-image-field-and-to-send-the-correct-parameter-type-to-the-backend-including-bigint-radius-and-the-updated-addlocalupdate-signature",
-      "title": "Update Local Update React Query hooks and mutations to support the new optional image field and to send the correct parameter type to the backend (including BigInt radius and the updated addLocalUpdate signature).",
-      "reqIds": [
-        "REQ-5"
+        "REQ-2"
       ],
       "version": 1
     }
@@ -44,21 +26,12 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Add image upload feature in \"Local update\"",
+      "summary": "Add a Back button on the Local Updates page that navigates to the home page",
       "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-3",
-      "summary": "Extend the backend Local Update model and APIs to support an optional uploaded image, using the existing blob storage approach already used for Story images (i.e., an optional Storage.ExternalBlob on LocalUpdate and in addLocalUpdate parameters).",
-      "reqIds": [
-        "REQ-2"
-      ],
       "status": "pending"
     }
   ],
-  "gameProjectType": "none",
-  "projectName": "Fix deployment failure and add image upload to Local Updates",
+  "projectName": "Make Local Updates Back button navigate to Home page",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

@@ -1,115 +1,51 @@
 {
   "kind": "build_request",
-  "title": "Fix deployment failure and add image upload to Local Updates",
-  "priority": "high",
+  "title": "Make Local Updates Back button navigate to Home page",
+  "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Identify and fix the root cause of the current deployment failure, ensuring the project builds and deploys successfully in a production configuration (frontend TypeScript/Vite build and backend Motoko canister build).",
-      "target": "both",
+      "text": "Add a user-visible \"Back\" button on the Local Updates page that navigates the user to the Home page when clicked.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1",
-          "msg-2",
-          "msg-3"
+          "msg-4"
         ],
         "quotes": [
-          "🙏 Something went wrong with the deployment\n\n Deployment error",
-          "Please fix the deployment error and add upload image feature in \"Local update\""
+          "Give \"Back\" button in Local Updates to go to the home page."
         ]
       },
       "acceptanceCriteria": [
-        "A clean production build completes successfully for the frontend (no TypeScript errors, missing imports/exports, or build-time crashes).",
-        "A clean canister build completes successfully for the backend (no Motoko compile errors, no Candid/interface generation errors).",
-        "A full deploy succeeds (no unspecified deployment error remains).",
-        "Any fixes made for deployment stability do not modify files under the declared immutable frontend paths (e.g., frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui/*)."
+        "When the user is viewing Local Updates, a \"Back\" button is visible in the Local Updates UI.",
+        "Clicking the \"Back\" button returns the user to the Home page view (same destination as existing Home navigation).",
+        "The button label is in English and reads \"Back\" (or \"Back to Home\" if consistent with existing UI copy), and it is accessible (keyboard focusable and has appropriate semantics)."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Extend the backend Local Update model and APIs to support an optional uploaded image, using the existing blob storage approach already used for Story images (i.e., an optional Storage.ExternalBlob on LocalUpdate and in addLocalUpdate parameters).",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-3"
-        ],
-        "quotes": [
-          "add upload image feature in \"Local update\""
-        ]
-      },
-      "acceptanceCriteria": [
-        "backend/main.mo: LocalUpdate includes an optional image field compatible with the existing blob-storage types used by Story (e.g., ?Storage.ExternalBlob).",
-        "backend/main.mo: addLocalUpdate accepts an optional image parameter and persists it with the LocalUpdate record.",
-        "All Local Update query methods that return LocalUpdate (e.g., getLocalUpdateById, getAllActiveLocalUpdates, getActiveLocalUpdatesByProximity, getLocalUpdatesByCategory, queryByProximity) continue to compile and return the new LocalUpdate shape including the optional image.",
-        "Candid bindings used by the frontend are updated accordingly so the frontend compiles against the new interface."
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Add an image upload UI to the Local Updates creation flow in the \"Post Local Update\" dialog, including file selection, validation, preview, remove option, and submitting the optional image along with the update.",
+      "text": "Wire Local Updates page navigation to the app-level view router so the Local Updates \"Back\" button can switch the current view to \"home\".",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-3"
+          "msg-4"
         ],
         "quotes": [
-          "add upload image feature in \"Local update\""
+          "Give \"Back\" button in Local Updates to go to the home page."
         ]
       },
       "acceptanceCriteria": [
-        "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx includes an optional image input (accept=image/*) with user-friendly validation errors for non-image files and oversized files.",
-        "The dialog shows a preview of the selected image and provides a clear action to remove/clear the selected image before posting.",
-        "On submit, the dialog passes the optional image to the Local Update create mutation, using the same ExternalBlob conversion pattern used in frontend/src/components/CreateStoryDialog.tsx (ArrayBuffer -> Uint8Array -> ExternalBlob).",
-        "If no image is selected, Local Updates can still be posted successfully.",
-        "All user-facing text added/changed is in English."
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "Update Local Update display surfaces to render the optional image when present (at minimum in the Local Update detail dialog; additionally in the list and map popup/preview if those views currently show rich content).",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-3"
-        ],
-        "quotes": [
-          "add upload image feature in \"Local update\""
-        ]
-      },
-      "acceptanceCriteria": [
-        "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx renders the image when update.image is present, using the blob's direct URL method (consistent with how Story images/draft images are rendered).",
-        "The UI remains clean when update.image is null/undefined (no broken image placeholders).",
-        "Local Updates list/map views continue to function without runtime errors after the LocalUpdate type change."
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "text": "Update Local Update React Query hooks and mutations to support the new optional image field and to send the correct parameter type to the backend (including BigInt radius and the updated addLocalUpdate signature).",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-3"
-        ],
-        "quotes": [
-          "add upload image feature in \"Local update\""
-        ]
-      },
-      "acceptanceCriteria": [
-        "frontend/src/hooks/useLocalUpdates.ts: useAddLocalUpdate mutationFn accepts an optional image parameter and forwards it to the backend addLocalUpdate call in the correct argument position/type.",
-        "TypeScript types for LocalUpdate and the addLocalUpdate call site match the generated backend declarations (no any-casts required to make the build pass).",
-        "Posting a Local Update with an image succeeds and the posted update, when re-fetched, includes a usable image reference."
+        "Local Updates page receives a navigation callback from the top-level app (where view state is managed) and uses it for the \"Back\" button.",
+        "No backend changes are required to navigate back to Home."
       ]
     }
   ],
   "constraints": [
-    "Backend must remain a single Motoko actor with all logic in backend/main.mo; only add a migration file if a stable-state upgrade requires it.",
-    "Do not edit frontend files in the immutable paths list (frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui/*). Compose UI components rather than modifying shadcn sources.",
-    "Do not introduce external databases or third-party storage; use the existing blob-storage mixin already included in backend/main.mo."
+    "Do not edit files under frontend/src/components/ui (shadcn UI components are read-only).",
+    "Keep routing consistent with the existing app-level view state in frontend/src/App.tsx (no new routing framework)."
   ],
   "nonGoals": [
-    "Adding new authentication providers beyond Internet Identity.",
-    "Adding real-time updates (WebSockets/push) for Local Updates beyond the existing polling/query behavior.",
-    "Implementing image editing/cropping/compression tools (only upload, preview, remove, and display)."
+    "Add browser URL routing or deep links for Local Updates.",
+    "Change any Local Updates fetching, notifications, muting, or map/list behavior."
   ],
   "imageRequirements": {
     "required": [],

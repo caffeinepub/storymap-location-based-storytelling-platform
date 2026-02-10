@@ -12,11 +12,12 @@ import DistanceKmSlider from '../components/DistanceKmSlider';
 import SortControl from '../components/SortControl';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { List, Map as MapIcon, MapPin, X, Info } from 'lucide-react';
+import { List, Map as MapIcon, MapPin, X, Info, Zap } from 'lucide-react';
 import type { Category, Story } from '../backend';
 import type { SortOption } from '../lib/storySorting';
 import { LOCATION_FILTER_RADIUS_KM } from '../lib/locationFilter';
 import { getLocationCopy } from '../lib/locationPermissionCopy';
+import { toast } from 'sonner';
 
 export default function HomePage() {
   const [view, setView] = useState<'feed' | 'map'>('feed');
@@ -25,9 +26,11 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [hasCheckedFirstTime, setHasCheckedFirstTime] = useState(false);
   const [mapSelectedLocation, setMapSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [feedTeleportLocation, setFeedTeleportLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [hasShownDenialToast, setHasShownDenialToast] = useState(false);
   const [radiusKm, setRadiusKm] = useState(LOCATION_FILTER_RADIUS_KM);
   const [sortOption, setSortOption] = useState<SortOption>('newest');
+  const [isTeleporting, setIsTeleporting] = useState(false);
 
   const { identity } = useInternetIdentity();
   const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
@@ -73,9 +76,11 @@ export default function HomePage() {
   }, [identity, profileLoading, userProfile, hasCheckedFirstTime, markIntroSeenMutation]);
 
   // Determine the active distance filter center
-  // Priority: map-selected location > user location > none
-  const activeFilterCenter = mapSelectedLocation || userLocation || null;
-  const filterCenterSource = mapSelectedLocation 
+  // Priority: feed-teleport location > map-selected location > user location > none
+  const activeFilterCenter = feedTeleportLocation || mapSelectedLocation || userLocation || null;
+  const filterCenterSource = feedTeleportLocation
+    ? 'feed-teleport'
+    : mapSelectedLocation 
     ? 'map-selection' 
     : userLocation 
     ? 'user-location' 
@@ -100,6 +105,16 @@ export default function HomePage() {
     coordinates: activeFilterCenter,
     sortOption,
     nearestOrigin,
+  });
+
+  // Fetch all stories for teleport destination selection (unfiltered)
+  const { data: allStories = [] } = useSearchStories({
+    keywords: null,
+    category: null,
+    radius: null,
+    coordinates: null,
+    sortOption: 'newest',
+    nearestOrigin: null,
   });
 
   // Unified location request handler - single source of truth
@@ -128,15 +143,61 @@ export default function HomePage() {
 
   const handleMapBackgroundClick = (latitude: number, longitude: number) => {
     setMapSelectedLocation({ latitude, longitude });
+    // Clear feed teleport when user manually selects on map
+    setFeedTeleportLocation(null);
     // Keep user in map view - don't auto-switch to feed
   };
 
   const clearLocationFilter = () => {
     setMapSelectedLocation(null);
+    setFeedTeleportLocation(null);
   };
 
   const handleStoryDeleted = () => {
     setSelectedStory(null);
+  };
+
+  const handleTeleport = () => {
+    setIsTeleporting(true);
+    
+    try {
+      // Get available story locations
+      if (allStories.length === 0) {
+        toast.error('No stories available to teleport to');
+        return;
+      }
+
+      // Extract unique locations from stories
+      const storyLocations = allStories.map(story => story.location);
+      
+      // Filter out current location if possible
+      let availableLocations = storyLocations;
+      if (activeFilterCenter) {
+        const currentLat = activeFilterCenter.latitude;
+        const currentLon = activeFilterCenter.longitude;
+        const differentLocations = storyLocations.filter(
+          loc => Math.abs(loc.latitude - currentLat) > 0.001 || Math.abs(loc.longitude - currentLon) > 0.001
+        );
+        // Use different locations if available, otherwise use all
+        if (differentLocations.length > 0) {
+          availableLocations = differentLocations;
+        }
+      }
+
+      // Pick a random location
+      const randomIndex = Math.floor(Math.random() * availableLocations.length);
+      const randomLocation = availableLocations[randomIndex];
+
+      // Set the teleport location and clear map selection
+      setFeedTeleportLocation(randomLocation);
+      setMapSelectedLocation(null);
+      
+      toast.success('Teleported to a new location!');
+    } catch (error) {
+      toast.error('Failed to teleport');
+    } finally {
+      setIsTeleporting(false);
+    }
   };
 
   const showLocationPrompt = permissionState === 'prompt' || permissionState === 'unknown';
@@ -149,6 +210,9 @@ export default function HomePage() {
   const getDistanceSliderHelperText = () => {
     if (!activeFilterCenter) {
       return 'Enable location or select a point on the map to filter by distance';
+    }
+    if (feedTeleportLocation) {
+      return `Filtering around teleported location`;
     }
     if (mapSelectedLocation) {
       return `Filtering around selected map location`;
@@ -221,12 +285,12 @@ export default function HomePage() {
               onCategoryChange={setSelectedCategory}
             />
 
-            {mapSelectedLocation && (
+            {(mapSelectedLocation || feedTeleportLocation) && (
               <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border border-green-200 dark:border-green-800 rounded-lg">
                 <MapPin className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                 <div className="flex-1 text-sm">
                   <span className="font-medium text-green-900 dark:text-green-100 block">
-                    Near selected location
+                    {feedTeleportLocation ? 'Teleported location' : 'Near selected location'}
                   </span>
                   <span className="text-green-700 dark:text-green-300 text-xs">
                     (within {radiusKm}km)
@@ -259,7 +323,7 @@ export default function HomePage() {
               nearestDisabled={!isNearestAvailable}
             />
 
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
               <div className="flex gap-2">
                 <Button
                   variant={view === 'feed' ? 'default' : 'outline'}
@@ -288,9 +352,23 @@ export default function HomePage() {
       {/* Main content area */}
       <main className="flex-1 overflow-y-auto">
         <div className="container px-4 py-6">
-          <h2 className="text-2xl font-bold mb-4">
-            {view === 'feed' ? 'Story Feed' : 'Story Map'}
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">
+              {view === 'feed' ? 'Story Feed' : 'Story Map'}
+            </h2>
+            
+            {view === 'feed' && (
+              <Button
+                onClick={handleTeleport}
+                disabled={isTeleporting || allStories.length === 0}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg"
+                size="sm"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Teleport to Location
+              </Button>
+            )}
+          </div>
 
           {view === 'feed' ? (
             <StoryFeed

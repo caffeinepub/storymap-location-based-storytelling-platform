@@ -15,9 +15,9 @@ import AccessControl "authorization/access-control";
 import Storage "blob-storage/Storage";
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
-import Migration "migration";
 
-(with migration = Migration.run)
+
+
 actor {
   include MixinStorage();
 
@@ -196,21 +196,37 @@ actor {
     #general;
   };
 
-  public type LocalUpdate = {
+  type LocalUpdate = {
     id : Nat;
     content : Text;
     latitude : Float;
     longitude : Float;
-    radius : Nat; // meters
+    radius : Nat;
     timestamp : Int;
     category : LocalCategory;
     author : Principal;
-    image : ?Storage.ExternalBlob; // Now supports optional image
+    image : ?Storage.ExternalBlob;
+    thumbsUp : Nat;
+  };
+
+  // Public representation for UI/Frontend
+  public type LocalUpdatePublic = {
+    id : Nat;
+    content : Text;
+    latitude : Float;
+    longitude : Float;
+    radius : Nat;
+    timestamp : Int;
+    category : LocalCategory;
+    author : Principal;
+    image : ?Storage.ExternalBlob;
+    thumbsUp : Nat;
   };
 
   var nextLocalUpdateId = 0;
   let localUpdates = Map.empty<Nat, LocalUpdate>();
-  stable var lastCleanupTimestamp : Time.Time = 0;
+  let thumbsUpList = Map.empty<Nat, Set.Set<Principal>>();
+  var lastCleanupTimestamp : Time.Time = 0;
 
   let stories = Map.empty<StoryId, StoryWithViewers>();
   let userProfiles = Map.empty<Principal, UserProfile>();
@@ -1164,6 +1180,7 @@ actor {
       category;
       author = caller;
       image; // Store image in local update
+      thumbsUp = 0; // Init thumbs up for new stories
     };
 
     localUpdates.add(updateId, update);
@@ -1186,10 +1203,26 @@ actor {
     };
   };
 
-  public query ({ caller }) func getLocalUpdateById(id : Nat) : async LocalUpdate {
+  // Make one-way transform to immutable public representation for local updates
+  func localUpdateToPublic(update : LocalUpdate) : LocalUpdatePublic {
+    {
+      id = update.id;
+      content = update.content;
+      latitude = update.latitude;
+      longitude = update.longitude;
+      radius = update.radius;
+      timestamp = update.timestamp;
+      category = update.category;
+      author = update.author;
+      image = update.image;
+      thumbsUp = update.thumbsUp;
+    };
+  };
+
+  public query ({ caller }) func getLocalUpdateById(id : Nat) : async LocalUpdatePublic {
     switch (localUpdates.get(id)) {
       case (null) { Runtime.trap("Local update does not exist") };
-      case (?update) { update };
+      case (?update) { localUpdateToPublic(update) };
     };
   };
 
@@ -1198,37 +1231,66 @@ actor {
     longitude : Float;
   };
 
-  public query ({ caller }) func queryByProximity(proximityQuery : ProximityQuery) : async [LocalUpdate] {
-    localUpdates.filter(
+  public query ({ caller }) func queryByProximity(proximityQuery : ProximityQuery) : async [LocalUpdatePublic] {
+    let activeAndNearbyUpdates : Iter.Iter<LocalUpdate> = localUpdates.filter(
       func(_id, update) {
         isLocalUpdateActive(update) and isWithinLocalRadius(update, proximityQuery.latitude, proximityQuery.longitude);
       }
-    ).values().toArray();
+    ).values();
+
+    // Convert each entry from LocalUpdate to LocalUpdatePublic
+    activeAndNearbyUpdates.map<LocalUpdate, LocalUpdatePublic>(
+      func(update) {
+        localUpdateToPublic(update);
+      }
+    ).toArray();
   };
 
-  public query ({ caller }) func getLocalUpdatesByCategory(category : LocalCategory) : async [LocalUpdate] {
-    localUpdates.filter(
+  public query ({ caller }) func getLocalUpdatesByCategory(category : LocalCategory) : async [LocalUpdatePublic] {
+    let activeUpdatesByCategory : Iter.Iter<LocalUpdate> = localUpdates.filter(
       func(_id, update) {
         update.category == category and isLocalUpdateActive(update);
       }
-    ).values().toArray();
+    ).values();
+
+    // Convert each entry from LocalUpdate to LocalUpdatePublic
+    activeUpdatesByCategory.map<LocalUpdate, LocalUpdatePublic>(
+      func(update) {
+        localUpdateToPublic(update);
+      }
+    ).toArray();
   };
 
-  public query ({ caller }) func getAllActiveLocalUpdates() : async [LocalUpdate] {
-    localUpdates.filter(
+  public query ({ caller }) func getAllActiveLocalUpdates() : async [LocalUpdatePublic] {
+    let allActiveUpdates : Iter.Iter<LocalUpdate> = localUpdates.filter(
       func(_id, update) {
         isLocalUpdateActive(update);
       }
-    ).values().toArray();
+    ).values();
+
+    // Convert each entry from LocalUpdate to LocalUpdatePublic
+    allActiveUpdates.map<LocalUpdate, LocalUpdatePublic>(
+      func(update) {
+        localUpdateToPublic(update);
+      }
+    ).toArray();
   };
 
-  public query ({ caller }) func getActiveLocalUpdatesByProximity(location : Location) : async [LocalUpdate] {
-    let activeUpdates = localUpdates.values().filter(
+  public query ({ caller }) func getActiveLocalUpdatesByProximity(location : Location) : async [LocalUpdatePublic] {
+    let activeUpdatesIter = localUpdates.values().filter(
       func(update) {
         isLocalUpdateActive(update) and isWithinLocalRadius(update, location.latitude, location.longitude)
       }
     );
-    Array.fromIter(activeUpdates);
+
+    // Convert each entry from LocalUpdate to LocalUpdatePublic
+    let publicUpdatesIter = activeUpdatesIter.map(
+      func(update) {
+        localUpdateToPublic(update);
+      }
+    );
+
+    Array.fromIter(publicUpdatesIter);
   };
 
   func calculateDistance(lat1 : Float, lon1 : Float, lat2 : Float, lon2 : Float) : Float {
@@ -1287,4 +1349,36 @@ actor {
       case (#general) { age <= hours24 }; // General updates last 24 hours
     };
   };
+
+  public shared ({ caller }) func thumbsUpLocalUpdate(updateId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can give a thumbs-up");
+    };
+
+    switch (localUpdates.get(updateId)) {
+      case (null) { Runtime.trap("Local update does not exist") };
+      case (?update) {
+        let existingSet = switch (thumbsUpList.get(updateId)) {
+          case (null) {
+            let newSet = Set.empty<Principal>();
+            thumbsUpList.add(updateId, newSet);
+            newSet;
+          };
+          case (?set) { set };
+        };
+
+        if (existingSet.contains(caller)) {
+          Runtime.trap("You have already given a thumbs-up for this update");
+        };
+
+        existingSet.add(caller);
+
+        let updatedUpdate = {
+          update with thumbsUp = update.thumbsUp + 1
+        };
+        localUpdates.add(updateId, updatedUpdate);
+      };
+    };
+  };
 };
+

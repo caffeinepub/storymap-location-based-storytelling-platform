@@ -1,8 +1,8 @@
 export const locationPermissionCopy = {
   idle: {
     title: 'Location Required',
-    description: 'Location is required to post and view nearby stories.',
-    action: 'Allow Location Access',
+    description: 'Pick a location on the map or use your current location.',
+    action: 'Use My Current Location',
     secondaryAction: undefined,
   },
   requesting: {
@@ -20,31 +20,31 @@ export const locationPermissionCopy = {
   denied: {
     title: 'Location Access Denied',
     description:
-      'To enable location access, please update your browser settings: Click the lock icon in the address bar, find Location permissions, and select "Allow". Then click "Retry Location Access" below.',
+      'Location access is not available. You can still select a location by clicking on the map.',
     action: 'Retry Location Access',
     secondaryAction: 'Enter Manually',
   },
   prompt: {
     title: 'Location Access',
-    description: 'Click to allow location access for the best experience.',
-    action: 'Allow Location Access',
+    description: 'Pick a location on the map or allow location access.',
+    action: 'Use My Current Location',
     secondaryAction: 'Enter Manually',
   },
   unknown: {
     title: 'Location Access',
-    description: 'Click to allow location access for the best experience.',
-    action: 'Allow Location Access',
+    description: 'Pick a location on the map or allow location access.',
+    action: 'Use My Current Location',
     secondaryAction: 'Enter Manually',
   },
   unsupported: {
     title: 'Location Not Supported',
-    description: 'Your browser does not support geolocation. Please enter coordinates manually.',
+    description: 'Your browser does not support geolocation. Please use the map picker or enter coordinates manually.',
     action: 'Enter Manually',
     secondaryAction: undefined,
   },
   insecure: {
     title: 'Secure Connection Required',
-    description: 'Location access requires HTTPS or localhost. Please access this site via a secure connection.',
+    description: 'Location access requires HTTPS or localhost. Please use the map picker or enter coordinates manually.',
     action: 'Enter Manually',
     secondaryAction: undefined,
   },

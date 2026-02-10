@@ -1,54 +1,65 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T11:13:56.377Z",
-  "summary": "The diff clearly implements frontend image selection/preview/removal and passes an optional image to the addLocalUpdate mutation (with BigInt radius), and updates Local Update detail + list UIs to render an image when present. However, the backend changes required by REQ-2 (LocalUpdate type + addLocalUpdate signature + query return shapes + updated candid bindings) are not evidenced in the provided backend/main.mo truncation, and the deployment-failure root-cause fix (REQ-1) is not clearly evidenced. The diff also introduces unrequested behavior such as dynamically loading Leaflet assets from a CDN in LocalUpdatesMapView, and includes a large “frontend-file-summaries” description of many unrelated features not requested.",
+  "generatedAt": "2026-02-10T04:16:46.687Z",
+  "summary": "Diff introduces a LocalUpdatesPage prop for a home-navigation callback, but the provided truncated snippets do not show an actual user-visible \"Back\" button or confirm that App.tsx passes the callback and that LocalUpdatesPage uses it in the UI. Several unrelated features/changes were also made outside the requested back-navigation behavior.",
   "missing_requirements": [
     {
       "id": "REQ-1",
-      "requirement": "Identify and fix the root cause of the current deployment failure, ensuring the project builds and deploys successfully in a production configuration (frontend TypeScript/Vite build and backend Motoko canister build).",
-      "reason": "The diff shows feature work (image support) and a migration hook, but does not provide explicit evidence of fixing the stated deployment failure or of build/deploy stability changes addressing a specific root cause.",
+      "requirement": "Add a user-visible \"Back\" button on the Local Updates page that navigates the user to the Home page when clicked (accessible, English label).",
+      "reason": "LocalUpdatesPage defines an onBackHome prop, but the diff snippet is truncated before the rendered UI and does not show any \"Back\" button element (or its label/semantics) being rendered and wired to navigation.",
       "evidence": [
-        "backend/main.mo",
-        "frontend-file-summaries.txt"
+        "frontend/src/pages/LocalUpdatesPage.tsx"
       ]
     },
     {
       "id": "REQ-2",
-      "requirement": "Extend the backend Local Update model and APIs to support an optional uploaded image (LocalUpdate.image and addLocalUpdate optional image parameter) and ensure all query methods return the updated LocalUpdate shape; update candid bindings accordingly.",
-      "reason": "A migration module defines NewLocalUpdate with an image field, and backend/main.mo references a migration hook, but the provided backend/main.mo excerpt is truncated before any LocalUpdate type/API definitions. There is no direct diff evidence that main.mo’s LocalUpdate type includes image, that addLocalUpdate accepts/persists image, or that the relevant query methods now return the new shape / candid is updated.",
+      "requirement": "Wire Local Updates page navigation to the app-level view router so the Local Updates \"Back\" button can switch the current view to \"home\".",
+      "reason": "LocalUpdatesPage expects an onBackHome callback, but the App.tsx diff is truncated before the LocalUpdatesPage render, so there is no visible evidence that App passes a callback that sets the view to \"home\", nor that LocalUpdatesPage calls it from a Back button.",
       "evidence": [
-        "backend/migration.mo",
-        "backend/main.mo"
+        "frontend/src/App.tsx",
+        "frontend/src/pages/LocalUpdatesPage.tsx"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Dynamically loading Leaflet JS/CSS from unpkg CDN within LocalUpdatesMapView (injecting <link> and <script> tags at runtime).",
-      "reason": "The BuildRequest did not request changing map implementation details or adding dynamic CDN loading behavior; it only requested rendering optional images on existing Local Update surfaces.",
+      "description": "Runtime guard/polling to detect and recover from non-interactive UI state (pointer-events/inert) in App.",
+      "reason": "Not requested by the BuildRequest; unrelated to Local Updates back navigation.",
       "evidence": [
-        "frontend/src/components/local-updates/LocalUpdatesMapView.tsx"
+        "frontend/src/App.tsx"
       ]
     },
     {
-      "description": "Introduced/claimed broad unrelated frontend feature work (e.g., story edit mode, optimistic Like/Pin, enhanced geocoding race-condition handling, admin dashboard nav, profile setup modal pointer-events fixes, etc.) as described in the changed summary file.",
-      "reason": "These features are not requested by REQ-1 through REQ-5. While this file is a summary and may not prove code changes, the diff does show this file being modified to include these unrequested feature descriptions.",
+      "description": "New/changed React Query hooks including a new useUpdateStory mutation for editing stories.",
+      "reason": "Not requested; BuildRequest explicitly focuses only on Local Updates back navigation and states non-goals around other behavior changes.",
       "evidence": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "Header changes: always-visible Local Updates button and user dropdown navigation items.",
+      "reason": "Not requested by the BuildRequest (which only asks for a Back button on Local Updates and wiring to view state).",
+      "evidence": [
+        "frontend/src/components/Header.tsx",
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "ProfileSetupModal changes to pointer-events-auto and interact-outside prevention.",
+      "reason": "Not requested; unrelated to Local Updates back navigation.",
+      "evidence": [
+        "frontend/src/components/ProfileSetupModal.tsx",
         "frontend-file-summaries.txt"
       ]
     }
   ],
-  "confidence": 0.58,
+  "confidence": 0.62,
   "changed_files": [
-    "backend/main.mo",
-    "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx",
-    "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
-    "frontend/src/components/local-updates/LocalUpdatesList.tsx",
-    "frontend/src/components/local-updates/LocalUpdatesMapView.tsx",
-    "frontend/src/hooks/useLocalUpdates.ts",
+    "frontend/src/App.tsx",
+    "frontend/src/pages/LocalUpdatesPage.tsx",
     "project_state.json"
   ]
 }

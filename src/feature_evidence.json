@@ -2,11 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-identify-and-fix-the-root-cause-of-the-current-deployment-failure-ensuring-the-project-builds-and-deploys-successfully-in-a-production-configuration-frontend-typescript-vite-build-and-backend-motoko-canister-build",
-      "featureTitle": "Identify and fix the root cause of the current deployment failure, ensuring the project builds and deploys successfully in a production configuration (frontend TypeScript/Vite build and backend Motoko canister build).",
+      "featureId": "feature-add-a-user-visible-back-button-on-the-local-updates-page-that-navigates-the-user-to-the-home-page-when-clicked",
+      "featureTitle": "Add a user-visible \"Back\" button on the Local Updates page that navigates the user to the Home page when clicked.",
       "files": [
-        "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx",
-        "frontend/src/hooks/useLocalUpdates.ts"
+        "frontend/src/pages/LocalUpdatesPage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -23,10 +22,11 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-add-an-image-upload-ui-to-the-local-updates-creation-flow-in-the-post-local-update-dialog-including-file-selection-validation-preview-remove-option-and-submitting-the-optional-image-along-with-the-update",
-      "featureTitle": "Add an image upload UI to the Local Updates creation flow in the \"Post Local Update\" dialog, including file selection, validation, preview, remove option, and submitting the optional image along with the update.",
+      "featureId": "feature-wire-local-updates-page-navigation-to-the-app-level-view-router-so-the-local-updates-back-button-can-switch-the-current-view-to-home",
+      "featureTitle": "Wire Local Updates page navigation to the app-level view router so the Local Updates \"Back\" button can switch the current view to \"home\".",
       "files": [
-        "frontend/src/components/local-updates/CreateLocalUpdateDialog.tsx"
+        "frontend/src/App.tsx",
+        "frontend/src/pages/LocalUpdatesPage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -38,49 +38,7 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-3"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-update-local-update-display-surfaces-to-render-the-optional-image-when-present-at-minimum-in-the-local-update-detail-dialog-additionally-in-the-list-and-map-popup-preview-if-those-views-currently-show-rich-content",
-      "featureTitle": "Update Local Update display surfaces to render the optional image when present (at minimum in the Local Update detail dialog; additionally in the list and map popup/preview if those views currently show rich content).",
-      "files": [
-        "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
-        "frontend/src/components/local-updates/LocalUpdatesList.tsx",
-        "frontend/src/components/local-updates/LocalUpdatesMapView.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "blob-storage@4.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-4"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-update-local-update-react-query-hooks-and-mutations-to-support-the-new-optional-image-field-and-to-send-the-correct-parameter-type-to-the-backend-including-bigint-radius-and-the-updated-addlocalupdate-signature",
-      "featureTitle": "Update Local Update React Query hooks and mutations to support the new optional image field and to send the correct parameter type to the backend (including BigInt radius and the updated addLocalUpdate signature).",
-      "files": [
-        "frontend/src/hooks/useLocalUpdates.ts"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "blob-storage@4.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-5"
+        "REQ-2"
       ],
       "confidence": "high"
     }

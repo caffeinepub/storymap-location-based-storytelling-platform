@@ -44,12 +44,13 @@ export const Location = IDL.Record({
   'latitude' : IDL.Float64,
   'longitude' : IDL.Float64,
 });
-export const LocalUpdate = IDL.Record({
+export const LocalUpdatePublic = IDL.Record({
   'id' : IDL.Nat,
   'latitude' : IDL.Float64,
   'content' : IDL.Text,
   'author' : IDL.Principal,
   'longitude' : IDL.Float64,
+  'thumbsUp' : IDL.Nat,
   'timestamp' : IDL.Int,
   'category' : LocalCategory,
   'radius' : IDL.Nat,
@@ -213,10 +214,14 @@ export const idlService = IDL.Service({
   'deleteDraft' : IDL.Func([IDL.Text], [], []),
   'getActiveLocalUpdatesByProximity' : IDL.Func(
       [Location],
-      [IDL.Vec(LocalUpdate)],
+      [IDL.Vec(LocalUpdatePublic)],
       ['query'],
     ),
-  'getAllActiveLocalUpdates' : IDL.Func([], [IDL.Vec(LocalUpdate)], ['query']),
+  'getAllActiveLocalUpdates' : IDL.Func(
+      [],
+      [IDL.Vec(LocalUpdatePublic)],
+      ['query'],
+    ),
   'getAllStories' : IDL.Func([], [IDL.Vec(Story)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
@@ -227,10 +232,10 @@ export const idlService = IDL.Service({
       [IDL.Vec(StoryView)],
       ['query'],
     ),
-  'getLocalUpdateById' : IDL.Func([IDL.Nat], [LocalUpdate], ['query']),
+  'getLocalUpdateById' : IDL.Func([IDL.Nat], [LocalUpdatePublic], ['query']),
   'getLocalUpdatesByCategory' : IDL.Func(
       [LocalCategory],
-      [IDL.Vec(LocalUpdate)],
+      [IDL.Vec(LocalUpdatePublic)],
       ['query'],
     ),
   'getPinnedStoriesByUser' : IDL.Func(
@@ -265,7 +270,7 @@ export const idlService = IDL.Service({
   'publishDraft' : IDL.Func([IDL.Text], [IDL.Text], []),
   'queryByProximity' : IDL.Func(
       [ProximityQuery],
-      [IDL.Vec(LocalUpdate)],
+      [IDL.Vec(LocalUpdatePublic)],
       ['query'],
     ),
   'removeLocalUpdate' : IDL.Func([IDL.Nat], [], []),
@@ -274,6 +279,7 @@ export const idlService = IDL.Service({
   'reportStory' : IDL.Func([IDL.Text, IDL.Text, IDL.Int], [IDL.Nat], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'searchStories' : IDL.Func([SearchParams], [IDL.Vec(Story)], ['query']),
+  'thumbsUpLocalUpdate' : IDL.Func([IDL.Nat], [], []),
   'unlikeStory' : IDL.Func([IDL.Text], [], []),
   'unpinStory' : IDL.Func([IDL.Text], [], []),
   'updateDraft' : IDL.Func(
@@ -343,12 +349,13 @@ export const idlFactory = ({ IDL }) => {
     'latitude' : IDL.Float64,
     'longitude' : IDL.Float64,
   });
-  const LocalUpdate = IDL.Record({
+  const LocalUpdatePublic = IDL.Record({
     'id' : IDL.Nat,
     'latitude' : IDL.Float64,
     'content' : IDL.Text,
     'author' : IDL.Principal,
     'longitude' : IDL.Float64,
+    'thumbsUp' : IDL.Nat,
     'timestamp' : IDL.Int,
     'category' : LocalCategory,
     'radius' : IDL.Nat,
@@ -512,12 +519,12 @@ export const idlFactory = ({ IDL }) => {
     'deleteDraft' : IDL.Func([IDL.Text], [], []),
     'getActiveLocalUpdatesByProximity' : IDL.Func(
         [Location],
-        [IDL.Vec(LocalUpdate)],
+        [IDL.Vec(LocalUpdatePublic)],
         ['query'],
       ),
     'getAllActiveLocalUpdates' : IDL.Func(
         [],
-        [IDL.Vec(LocalUpdate)],
+        [IDL.Vec(LocalUpdatePublic)],
         ['query'],
       ),
     'getAllStories' : IDL.Func([], [IDL.Vec(Story)], ['query']),
@@ -530,10 +537,10 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(StoryView)],
         ['query'],
       ),
-    'getLocalUpdateById' : IDL.Func([IDL.Nat], [LocalUpdate], ['query']),
+    'getLocalUpdateById' : IDL.Func([IDL.Nat], [LocalUpdatePublic], ['query']),
     'getLocalUpdatesByCategory' : IDL.Func(
         [LocalCategory],
-        [IDL.Vec(LocalUpdate)],
+        [IDL.Vec(LocalUpdatePublic)],
         ['query'],
       ),
     'getPinnedStoriesByUser' : IDL.Func(
@@ -568,7 +575,7 @@ export const idlFactory = ({ IDL }) => {
     'publishDraft' : IDL.Func([IDL.Text], [IDL.Text], []),
     'queryByProximity' : IDL.Func(
         [ProximityQuery],
-        [IDL.Vec(LocalUpdate)],
+        [IDL.Vec(LocalUpdatePublic)],
         ['query'],
       ),
     'removeLocalUpdate' : IDL.Func([IDL.Nat], [], []),
@@ -577,6 +584,7 @@ export const idlFactory = ({ IDL }) => {
     'reportStory' : IDL.Func([IDL.Text, IDL.Text, IDL.Int], [IDL.Nat], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'searchStories' : IDL.Func([SearchParams], [IDL.Vec(Story)], ['query']),
+    'thumbsUpLocalUpdate' : IDL.Func([IDL.Nat], [], []),
     'unlikeStory' : IDL.Func([IDL.Text], [], []),
     'unpinStory' : IDL.Func([IDL.Text], [], []),
     'updateDraft' : IDL.Func(

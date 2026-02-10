@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import type { LocalUpdate } from '../../backend';
+import type { LocalUpdatePublic } from '../../backend';
 import { getLocalCategoryLabel, getLocalCategoryIconColor, formatRadius } from '../../lib/localUpdates';
 import { formatDistanceValue, calculateDistance } from '../../lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Clock } from 'lucide-react';
+import { loadLeaflet, unloadLeaflet } from '../../lib/leafletLoader';
+import { useLeafletMapResize } from '../../hooks/useLeafletMapResize';
 
 interface LocalUpdatesMapViewProps {
-  updates: LocalUpdate[];
+  updates: LocalUpdatePublic[];
   userLocation: { latitude: number; longitude: number } | null;
-  onUpdateClick: (update: LocalUpdate) => void;
+  onUpdateClick: (update: LocalUpdatePublic) => void;
 }
 
 export default function LocalUpdatesMapView({
@@ -23,39 +25,26 @@ export default function LocalUpdatesMapView({
   const userMarkerRef = useRef<any>(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [L, setL] = useState<any>(null);
-  const [selectedUpdate, setSelectedUpdate] = useState<LocalUpdate | null>(null);
+  const [selectedUpdate, setSelectedUpdate] = useState<LocalUpdatePublic | null>(null);
 
-  // Load Leaflet dynamically
+  // Load Leaflet using shared loader
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    let mounted = true;
 
-    if ((window as any).L) {
-      setL((window as any).L);
-      setLeafletLoaded(true);
-      return;
-    }
-
-    const leafletCSS = document.createElement('link');
-    leafletCSS.rel = 'stylesheet';
-    leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    leafletCSS.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-    leafletCSS.crossOrigin = '';
-    document.head.appendChild(leafletCSS);
-
-    const leafletScript = document.createElement('script');
-    leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    leafletScript.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
-    leafletScript.crossOrigin = '';
-    leafletScript.async = true;
-    leafletScript.onload = () => {
-      setL((window as any).L);
-      setLeafletLoaded(true);
-    };
-    document.head.appendChild(leafletScript);
+    loadLeaflet()
+      .then((leaflet) => {
+        if (mounted) {
+          setL(leaflet);
+          setLeafletLoaded(true);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load Leaflet:', error);
+      });
 
     return () => {
-      if (leafletCSS.parentNode) leafletCSS.parentNode.removeChild(leafletCSS);
-      if (leafletScript.parentNode) leafletScript.parentNode.removeChild(leafletScript);
+      mounted = false;
+      unloadLeaflet();
     };
   }, []);
 
@@ -86,7 +75,10 @@ export default function LocalUpdatesMapView({
         mapInstanceRef.current = null;
       }
     };
-  }, [leafletLoaded, L, userLocation]);
+  }, [leafletLoaded, L]);
+
+  // Use resize hook to ensure proper map display
+  useLeafletMapResize(mapInstanceRef.current, true);
 
   // Update markers
   useEffect(() => {

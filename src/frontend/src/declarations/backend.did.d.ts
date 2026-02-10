@@ -30,12 +30,13 @@ export type LocalCategory = { 'nature' : null } |
   { 'general' : null } |
   { 'power' : null } |
   { 'police' : null };
-export interface LocalUpdate {
+export interface LocalUpdatePublic {
   'id' : bigint,
   'latitude' : number,
   'content' : string,
   'author' : Principal,
   'longitude' : number,
+  'thumbsUp' : bigint,
   'timestamp' : bigint,
   'category' : LocalCategory,
   'radius' : bigint,
@@ -160,19 +161,19 @@ export interface _SERVICE {
   'deleteDraft' : ActorMethod<[string], undefined>,
   'getActiveLocalUpdatesByProximity' : ActorMethod<
     [Location],
-    Array<LocalUpdate>
+    Array<LocalUpdatePublic>
   >,
-  'getAllActiveLocalUpdates' : ActorMethod<[], Array<LocalUpdate>>,
+  'getAllActiveLocalUpdates' : ActorMethod<[], Array<LocalUpdatePublic>>,
   'getAllStories' : ActorMethod<[], Array<Story>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComments' : ActorMethod<[string], Array<Comment>>,
   'getDraft' : ActorMethod<[string], [] | [StoryDraft]>,
   'getLikedStoriesByUser' : ActorMethod<[Principal], Array<StoryView>>,
-  'getLocalUpdateById' : ActorMethod<[bigint], LocalUpdate>,
+  'getLocalUpdateById' : ActorMethod<[bigint], LocalUpdatePublic>,
   'getLocalUpdatesByCategory' : ActorMethod<
     [LocalCategory],
-    Array<LocalUpdate>
+    Array<LocalUpdatePublic>
   >,
   'getPinnedStoriesByUser' : ActorMethod<[Principal], Array<StoryView>>,
   'getReports' : ActorMethod<[], Array<Report>>,
@@ -188,13 +189,14 @@ export interface _SERVICE {
   'markIntroSeen' : ActorMethod<[], undefined>,
   'pinStory' : ActorMethod<[string], undefined>,
   'publishDraft' : ActorMethod<[string], string>,
-  'queryByProximity' : ActorMethod<[ProximityQuery], Array<LocalUpdate>>,
+  'queryByProximity' : ActorMethod<[ProximityQuery], Array<LocalUpdatePublic>>,
   'removeLocalUpdate' : ActorMethod<[bigint], undefined>,
   'removeReport' : ActorMethod<[bigint], undefined>,
   'removeStory' : ActorMethod<[string], undefined>,
   'reportStory' : ActorMethod<[string, string, bigint], bigint>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'searchStories' : ActorMethod<[SearchParams], Array<Story>>,
+  'thumbsUpLocalUpdate' : ActorMethod<[bigint], undefined>,
   'unlikeStory' : ActorMethod<[string], undefined>,
   'unpinStory' : ActorMethod<[string], undefined>,
   'updateDraft' : ActorMethod<

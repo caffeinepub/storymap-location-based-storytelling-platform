@@ -1,7 +1,8 @@
-import type { LocalUpdate } from '../../backend';
+import { useEffect } from 'react';
+import type { LocalUpdatePublic } from '../../backend';
 import { computeRelevance, getLocalCategoryLabel, getLocalCategoryColor, formatRadius } from '../../lib/localUpdates';
 import { formatDistanceValue } from '../../lib/utils';
-import { useRemoveLocalUpdate } from '../../hooks/useLocalUpdates';
+import { useRemoveLocalUpdate, useIncrementLocalUpdateViewCount, useThumbsUpLocalUpdate } from '../../hooks/useLocalUpdates';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
 import { useIsCallerAdmin } from '../../hooks/useQueries';
 import {
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Clock, Radio, Trash2, Loader2 } from 'lucide-react';
+import { MapPin, Clock, Radio, Trash2, Loader2, Eye, ThumbsUp } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,8 +28,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useState } from 'react';
 
+// Extended type to include viewCount (backend updated but interface not yet regenerated)
+type LocalUpdateWithViews = LocalUpdatePublic & { viewCount?: bigint };
+
 interface LocalUpdateDetailDialogProps {
-  update: LocalUpdate | null;
+  update: LocalUpdatePublic | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userLocation: { latitude: number; longitude: number } | null;
@@ -43,14 +47,26 @@ export default function LocalUpdateDetailDialog({
   const { identity } = useInternetIdentity();
   const { data: isAdmin } = useIsCallerAdmin();
   const removeUpdateMutation = useRemoveLocalUpdate();
+  const incrementViewMutation = useIncrementLocalUpdateViewCount();
+  const thumbsUpMutation = useThumbsUpLocalUpdate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Increment view count when dialog opens
+  useEffect(() => {
+    if (open && update && identity) {
+      incrementViewMutation.mutate(update.id);
+    }
+  }, [open, update?.id, identity]);
 
   if (!update) return null;
 
+  const updateWithViews = update as LocalUpdateWithViews;
   const relevance = computeRelevance(update, userLocation);
   const timestamp = new Date(Number(update.timestamp) / 1000000);
   const isAuthor = identity?.getPrincipal().toString() === update.author.toString();
   const canDelete = isAuthor || isAdmin;
+  const viewCount = updateWithViews.viewCount !== undefined ? Number(updateWithViews.viewCount) : 0;
+  const thumbsUpCount = Number(update.thumbsUp);
 
   const handleDelete = async () => {
     try {
@@ -60,6 +76,10 @@ export default function LocalUpdateDetailDialog({
     } catch (error) {
       // Error handled by mutation
     }
+  };
+
+  const handleThumbsUp = () => {
+    thumbsUpMutation.mutate(update.id);
   };
 
   return (
@@ -104,6 +124,18 @@ export default function LocalUpdateDetailDialog({
 
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Views:</span>
+                <span className="font-medium">{viewCount}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <ThumbsUp className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Thumbs up:</span>
+                <span className="font-medium">{thumbsUpCount}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Radius:</span>
                 <span className="font-medium">{formatRadius(Number(update.radius))}</span>
@@ -124,6 +156,27 @@ export default function LocalUpdateDetailDialog({
                 <span className="text-muted-foreground">Posted:</span>
                 <span className="font-medium">{timestamp.toLocaleString()}</span>
               </div>
+            </div>
+
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                onClick={handleThumbsUp}
+                disabled={thumbsUpMutation.isPending}
+                className="w-full"
+              >
+                {thumbsUpMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Giving thumbs up...
+                  </>
+                ) : (
+                  <>
+                    <ThumbsUp className="h-4 w-4 mr-2" />
+                    Thumbs up ({thumbsUpCount})
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 

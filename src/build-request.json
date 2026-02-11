@@ -1,51 +1,89 @@
 {
   "kind": "build_request",
-  "title": "Make Local Updates Back button navigate to Home page",
+  "title": "Add location name field to Share Your Story dialog",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Add a user-visible \"Back\" button on the Local Updates page that navigates the user to the Home page when clicked.",
+      "text": "In the \"Share Your Story\" (CreateStoryDialog) dialog, add an optional text input that lets the user enter a human-readable location name (e.g., \"Central Park\"). The field must be editable regardless of how the coordinates are chosen (auto location, manual coordinates, or map picker).",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "Give \"Back\" button in Local Updates to go to the home page."
+          "In Share your story dialog box give option to add the name of the location."
         ]
       },
       "acceptanceCriteria": [
-        "When the user is viewing Local Updates, a \"Back\" button is visible in the Local Updates UI.",
-        "Clicking the \"Back\" button returns the user to the Home page view (same destination as existing Home navigation).",
-        "The button label is in English and reads \"Back\" (or \"Back to Home\" if consistent with existing UI copy), and it is accessible (keyboard focusable and has appropriate semantics)."
+        "When the dialog is open, a clearly labeled optional input for location name is visible (English label and placeholder).",
+        "User can type a location name and submit the story successfully with or without a value in this field.",
+        "Closing and reopening the dialog resets the location name field along with the other form fields (consistent with current reset behavior)."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Wire Local Updates page navigation to the app-level view router so the Local Updates \"Back\" button can switch the current view to \"home\".",
-      "target": "frontend",
+      "text": "Persist the optional location name with new stories by extending the backend data model and APIs so that a story can store an optional locationName (Text) alongside the existing coordinates. Update the create story flow end-to-end so the frontend sends the value and the backend stores and returns it.",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "Give \"Back\" button in Local Updates to go to the home page."
+          "In Share your story dialog box give option to add the name of the location."
         ]
       },
       "acceptanceCriteria": [
-        "Local Updates page receives a navigation callback from the top-level app (where view state is managed) and uses it for the \"Back\" button.",
-        "No backend changes are required to navigate back to Home."
+        "Backend Story type includes an optional locationName field, and createStory accepts an additional optional parameter for locationName.",
+        "Creating a story with a location name and then fetching/searching the story returns the same locationName value.",
+        "Creating a story without a location name continues to work and returns null/empty optional for locationName."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Persist the optional location name in story drafts: extend the StoryDraft model and the draft save/load/publish flows so drafts can store and restore the location name value when a draft is loaded back into the CreateStoryDialog.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "In Share your story dialog box give option to add the name of the location."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Saving a draft stores the entered location name.",
+        "Loading a saved draft repopulates the location name input with the stored value.",
+        "Publishing a draft publishes the stored location name along with the story coordinates."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Add a conditional data migration for existing deployed state so previously stored stories and drafts remain readable after introducing the new optional locationName field (defaulting to null/empty optional).",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "In Share your story dialog box give option to add the name of the location."
+        ]
+      },
+      "acceptanceCriteria": [
+        "After upgrade, existing stories and drafts can still be listed/fetched without traps.",
+        "For pre-existing records, locationName is absent (null optional) unless newly set via updated create/update flows."
       ]
     }
   ],
   "constraints": [
-    "Do not edit files under frontend/src/components/ui (shadcn UI components are read-only).",
-    "Keep routing consistent with the existing app-level view state in frontend/src/App.tsx (no new routing framework)."
+    "Backend must remain a single-actor Motoko canister (all logic in backend/main.mo).",
+    "Do not edit files under frontend/src/components/ui (compose existing UI components instead).",
+    "Use English for any new user-facing UI text."
   ],
   "nonGoals": [
-    "Add browser URL routing or deep links for Local Updates.",
-    "Change any Local Updates fetching, notifications, muting, or map/list behavior."
+    "Do not implement reverse-geocoding or automatic location name suggestions.",
+    "Do not change map behavior, location permission flows, or story search/sort logic.",
+    "Do not add new authentication methods (Internet Identity remains the only auth)."
   ],
   "imageRequirements": {
     "required": [],

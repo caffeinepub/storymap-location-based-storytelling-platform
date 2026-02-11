@@ -2,10 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-add-a-user-visible-back-button-on-the-local-updates-page-that-navigates-the-user-to-the-home-page-when-clicked",
-      "featureTitle": "Add a user-visible \"Back\" button on the Local Updates page that navigates the user to the Home page when clicked.",
+      "featureId": "feature-in-the-share-your-story-createstorydialog-dialog-add-an-optional-text-input-that-lets-the-user-enter-a-human-readable-location-name-e-g-central-park-the-field-must-be-editable-regardless-of-how-the-coordinates-are-chosen-auto-location-manual-coordinates-or-map-picker",
+      "featureTitle": "In the \"Share Your Story\" (CreateStoryDialog) dialog, add an optional text input that lets the user enter a human-readable location name (e.g., \"Central Park\"). The field must be editable regardless of how the coordinates are chosen (auto location, manual coordinates, or map picker).",
       "files": [
-        "frontend/src/pages/LocalUpdatesPage.tsx"
+        "frontend/src/components/CreateStoryDialog.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -22,11 +22,11 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-wire-local-updates-page-navigation-to-the-app-level-view-router-so-the-local-updates-back-button-can-switch-the-current-view-to-home",
-      "featureTitle": "Wire Local Updates page navigation to the app-level view router so the Local Updates \"Back\" button can switch the current view to \"home\".",
+      "featureId": "feature-persist-the-optional-location-name-with-new-stories-by-extending-the-backend-data-model-and-apis-so-that-a-story-can-store-an-optional-locationname-text-alongside-the-existing-coordinates-update-the-create-story-flow-end-to-end-so-the-frontend-sends-the-value-and-the-backend-stores-and-returns-it",
+      "featureTitle": "Persist the optional location name with new stories by extending the backend data model and APIs so that a story can store an optional locationName (Text) alongside the existing coordinates. Update the create story flow end-to-end so the frontend sends the value and the backend stores and returns it.",
       "files": [
-        "frontend/src/App.tsx",
-        "frontend/src/pages/LocalUpdatesPage.tsx"
+        "frontend/src/components/CreateStoryDialog.tsx",
+        "frontend/src/hooks/useQueries.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -39,6 +39,27 @@
       ],
       "testIds": [
         "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-persist-the-optional-location-name-in-story-drafts-extend-the-storydraft-model-and-the-draft-save-load-publish-flows-so-drafts-can-store-and-restore-the-location-name-value-when-a-draft-is-loaded-back-into-the-createstorydialog",
+      "featureTitle": "Persist the optional location name in story drafts: extend the StoryDraft model and the draft save/load/publish flows so drafts can store and restore the location name value when a draft is loaded back into the CreateStoryDialog.",
+      "files": [
+        "frontend/src/components/CreateStoryDialog.tsx",
+        "frontend/src/hooks/useDrafts.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
       ],
       "confidence": "high"
     }

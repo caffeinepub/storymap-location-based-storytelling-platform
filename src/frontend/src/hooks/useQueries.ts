@@ -298,6 +298,7 @@ export function useCreateStory() {
       title: string;
       content: string;
       category: Category;
+      locationName: string | null;
       location: Location;
       isAnonymous: boolean;
       image: ExternalBlob | null;
@@ -309,11 +310,11 @@ export function useCreateStory() {
       const readyActor = await waitForActor(() => actor);
       const timestamp = BigInt(Date.now() * 1000000);
       
-      // Pass image directly - null is a valid value for optional parameter
       return readyActor.createStory(
         params.title,
         params.content,
         params.category,
+        params.locationName,
         params.location,
         timestamp,
         params.isAnonymous,
@@ -349,6 +350,7 @@ export function useUpdateStory() {
       title: string;
       content: string;
       category: Category;
+      locationName: string | null;
       location: Location;
       isAnonymous: boolean;
       image: ExternalBlob | null;
@@ -364,6 +366,7 @@ export function useUpdateStory() {
         params.title,
         params.content,
         params.category,
+        params.locationName,
         params.location,
         params.isAnonymous,
         params.image
@@ -672,52 +675,7 @@ export function useUnpinStory() {
   });
 }
 
-export function useRemoveStory() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (storyId: string) => {
-      const readyActor = await waitForActor(() => actor);
-      return readyActor.removeStory(storyId);
-    },
-    onMutate: async (storyId) => {
-      // Optimistically remove the story from all caches
-      await queryClient.cancelQueries({ queryKey: ['stories'] });
-      await queryClient.cancelQueries({ queryKey: ['story', storyId] });
-      
-      const previousStory = queryClient.getQueryData(['story', storyId]);
-      
-      // Remove the specific story detail cache
-      queryClient.removeQueries({ queryKey: ['story', storyId] });
-      
-      return { previousStory };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ queryKey: ['postedStories'] });
-      queryClient.invalidateQueries({ queryKey: ['likedStories'] });
-      queryClient.invalidateQueries({ queryKey: ['pinnedStories'] });
-      queryClient.invalidateQueries({ queryKey: ['reports'] });
-      toast.success('Story deleted successfully');
-    },
-    onError: (error: Error, storyId, context) => {
-      // Rollback on error
-      if (context?.previousStory) {
-        queryClient.setQueryData(['story', storyId], context.previousStory);
-      }
-      
-      const message = error.message || 'Failed to delete story';
-      if (message.includes('Unauthorized') || message.includes('author') || message.includes('admin')) {
-        toast.error('You do not have permission to delete this story');
-      } else {
-        toast.error(message);
-      }
-    },
-  });
-}
-
-// Comment Queries
+// Comment Mutations
 export function useGetComments(storyId: string | null) {
   const { actor, isFetching } = useActor();
 
@@ -725,7 +683,12 @@ export function useGetComments(storyId: string | null) {
     queryKey: ['comments', storyId],
     queryFn: async () => {
       if (!actor || !storyId) return [];
-      return actor.getComments(storyId);
+      try {
+        return await actor.getComments(storyId);
+      } catch (error) {
+        console.error('Failed to fetch comments:', error);
+        return [];
+      }
     },
     enabled: !!actor && !isFetching && !!storyId,
   });
@@ -747,43 +710,88 @@ export function useAddComment() {
       }
       const readyActor = await waitForActor(() => actor);
       const timestamp = BigInt(Date.now() * 1000000);
-      return readyActor.addComment(params.storyId, params.content, timestamp, params.isAnonymous);
+      return readyActor.addComment(
+        params.storyId,
+        params.content,
+        timestamp,
+        params.isAnonymous
+      );
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['comments', variables.storyId] });
-      toast.success('Comment added');
+      toast.success('Comment added successfully');
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to add comment. Please try again.';
-      if (message.includes('Unauthorized')) {
-        throw new Error('You must be logged in to comment');
-      } else {
-        throw new Error(message);
+      const message = error.message || 'Failed to add comment';
+      if (!message.includes('log in')) {
+        toast.error(message);
       }
     },
   });
 }
 
-// Report Mutation
+// Report Mutations
 export function useReportStory() {
   const { actor } = useActor();
+  const { identity } = useInternetIdentity();
 
   return useMutation({
-    mutationFn: async (params: { storyId: string; reason: string }) => {
+    mutationFn: async (params: {
+      storyId: string;
+      reason: string;
+    }) => {
+      if (!identity) {
+        throw new Error('Please log in to report stories');
+      }
       const readyActor = await waitForActor(() => actor);
       const timestamp = BigInt(Date.now() * 1000000);
       return readyActor.reportStory(params.storyId, params.reason, timestamp);
     },
     onSuccess: () => {
-      toast.success('Story reported. Thank you for keeping our community safe.');
+      toast.success('Story reported successfully');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to report story');
+      const message = error.message || 'Failed to report story';
+      if (!message.includes('log in')) {
+        toast.error(message);
+      }
     },
   });
 }
 
-// Admin Moderation Queries
+export function useRemoveStory() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (storyId: string) => {
+      if (!identity) {
+        throw new Error('Please log in to remove stories');
+      }
+      const readyActor = await waitForActor(() => actor);
+      return readyActor.removeStory(storyId);
+    },
+    onSuccess: (_, storyId) => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+      queryClient.invalidateQueries({ queryKey: ['postedStories'] });
+      queryClient.invalidateQueries({ queryKey: ['likedStories'] });
+      queryClient.invalidateQueries({ queryKey: ['pinnedStories'] });
+      toast.success('Story removed successfully');
+    },
+    onError: (error: Error) => {
+      const message = error.message || 'Failed to remove story';
+      if (message.includes('Unauthorized') || message.includes('author') || message.includes('permission')) {
+        toast.error('You do not have permission to remove this story');
+      } else if (!message.includes('log in')) {
+        toast.error(message);
+      }
+    },
+  });
+}
+
+// Admin Queries
 export function useGetReports() {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity, isInitializing } = useInternetIdentity();
@@ -794,13 +802,9 @@ export function useGetReports() {
       if (!actor) return [];
       try {
         return await actor.getReports();
-      } catch (error: any) {
-        // Handle authorization errors gracefully
-        if (error.message?.includes('Unauthorized') || error.message?.includes('admin')) {
-          console.warn('User is not authorized to view reports');
-          return [];
-        }
-        throw error;
+      } catch (error) {
+        console.error('Failed to fetch reports:', error);
+        return [];
       }
     },
     enabled: !!actor && !actorFetching && !!identity && !isInitializing,
@@ -810,22 +814,26 @@ export function useGetReports() {
 
 export function useRemoveReport() {
   const { actor } = useActor();
+  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (reportId: bigint) => {
+      if (!identity) {
+        throw new Error('Please log in to remove reports');
+      }
       const readyActor = await waitForActor(() => actor);
       return readyActor.removeReport(reportId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
-      toast.success('Report dismissed');
+      toast.success('Report dismissed successfully');
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to dismiss report';
+      const message = error.message || 'Failed to remove report';
       if (message.includes('Unauthorized') || message.includes('admin')) {
-        toast.error('You do not have permission to dismiss reports');
-      } else {
+        toast.error('You do not have permission to remove reports');
+      } else if (!message.includes('log in')) {
         toast.error(message);
       }
     },

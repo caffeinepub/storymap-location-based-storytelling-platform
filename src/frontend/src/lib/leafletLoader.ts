@@ -15,6 +15,8 @@ interface LoaderState {
   clusterScript: HTMLScriptElement | null;
   leafletLoadPromise: Promise<any> | null;
   clusterLoadPromise: Promise<void> | null;
+  leafletLoadError: Error | null;
+  clusterLoadError: Error | null;
 }
 
 const state: LoaderState = {
@@ -29,6 +31,8 @@ const state: LoaderState = {
   clusterScript: null,
   leafletLoadPromise: null,
   clusterLoadPromise: null,
+  leafletLoadError: null,
+  clusterLoadError: null,
 };
 
 export function loadLeaflet(): Promise<any> {
@@ -38,44 +42,97 @@ export function loadLeaflet(): Promise<any> {
 
   state.leafletRefCount++;
 
-  // Already loaded
-  if ((window as any).L && state.leafletLoaded) {
+  // Already loaded successfully
+  if ((window as any).L && state.leafletLoaded && !state.leafletLoadError) {
     return Promise.resolve((window as any).L);
   }
 
   // Currently loading - return existing promise
-  if (state.leafletLoadPromise) {
+  if (state.leafletLoadPromise && !state.leafletLoadError) {
     return state.leafletLoadPromise;
   }
 
-  // Load for the first time
+  // Reset error state for retry
+  state.leafletLoadError = null;
+
+  // Load for the first time or retry after error
   state.leafletLoadPromise = new Promise((resolve, reject) => {
-    if (!state.leafletCSS) {
+    // Check if CSS already exists in DOM
+    const existingCSS = document.querySelector('link[href*="leaflet"][href*=".css"]');
+    if (!state.leafletCSS && !existingCSS) {
       const leafletCSS = document.createElement('link');
       leafletCSS.rel = 'stylesheet';
       leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
       leafletCSS.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
       leafletCSS.crossOrigin = '';
+      
+      leafletCSS.onerror = (error) => {
+        console.error('Failed to load Leaflet CSS:', error);
+        state.leafletLoadError = new Error('Failed to load Leaflet CSS');
+        state.leafletLoadPromise = null;
+        reject(state.leafletLoadError);
+      };
+      
       document.head.appendChild(leafletCSS);
       state.leafletCSS = leafletCSS;
+    } else if (existingCSS && !state.leafletCSS) {
+      state.leafletCSS = existingCSS as HTMLLinkElement;
     }
 
-    if (!state.leafletScript) {
+    // Check if script already exists in DOM
+    const existingScript = document.querySelector('script[src*="leaflet"][src*=".js"]');
+    if (!state.leafletScript && !existingScript) {
       const leafletScript = document.createElement('script');
       leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
       leafletScript.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
       leafletScript.crossOrigin = '';
       leafletScript.async = true;
+      
       leafletScript.onload = () => {
-        state.leafletLoaded = true;
-        resolve((window as any).L);
+        if ((window as any).L) {
+          state.leafletLoaded = true;
+          state.leafletLoadError = null;
+          resolve((window as any).L);
+        } else {
+          const error = new Error('Leaflet loaded but L is undefined');
+          state.leafletLoadError = error;
+          state.leafletLoadPromise = null;
+          reject(error);
+        }
       };
+      
       leafletScript.onerror = (error) => {
-        state.leafletLoadPromise = null; // Reset promise on error
-        reject(error);
+        console.error('Failed to load Leaflet JS:', error);
+        state.leafletLoadError = new Error('Failed to load Leaflet JS');
+        state.leafletLoadPromise = null;
+        reject(state.leafletLoadError);
       };
+      
       document.head.appendChild(leafletScript);
       state.leafletScript = leafletScript;
+    } else if (existingScript && !state.leafletScript) {
+      state.leafletScript = existingScript as HTMLScriptElement;
+      // If script already exists, check if L is available
+      if ((window as any).L) {
+        state.leafletLoaded = true;
+        resolve((window as any).L);
+      } else {
+        // Wait for it to load
+        existingScript.addEventListener('load', () => {
+          if ((window as any).L) {
+            state.leafletLoaded = true;
+            resolve((window as any).L);
+          } else {
+            const error = new Error('Leaflet loaded but L is undefined');
+            state.leafletLoadError = error;
+            reject(error);
+          }
+        });
+      }
+    } else if ((window as any).L) {
+      // Already loaded
+      state.leafletLoaded = true;
+      resolve((window as any).L);
     }
   });
 
@@ -94,8 +151,8 @@ export function loadMarkerCluster(): Promise<void> {
 
   state.clusterRefCount++;
 
-  // Already loaded
-  if ((window as any).L?.markerClusterGroup && state.clusterLoaded) {
+  // Already loaded successfully
+  if ((window as any).L?.markerClusterGroup && state.clusterLoaded && !state.clusterLoadError) {
     return Promise.resolve();
   }
 
@@ -105,44 +162,81 @@ export function loadMarkerCluster(): Promise<void> {
   }
 
   // Currently loading - return existing promise
-  if (state.clusterLoadPromise) {
+  if (state.clusterLoadPromise && !state.clusterLoadError) {
     return state.clusterLoadPromise;
   }
 
-  // Load for the first time
+  // Reset error state for retry
+  state.clusterLoadError = null;
+
+  // Load for the first time or retry after error
   state.clusterLoadPromise = new Promise((resolve) => {
-    if (!state.clusterCSS) {
+    // Check if CSS already exists
+    const existingClusterCSS = document.querySelector('link[href*="markercluster"][href*="MarkerCluster.css"]');
+    if (!state.clusterCSS && !existingClusterCSS) {
       const clusterCSS = document.createElement('link');
       clusterCSS.rel = 'stylesheet';
       clusterCSS.href = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css';
+      clusterCSS.crossOrigin = '';
       document.head.appendChild(clusterCSS);
       state.clusterCSS = clusterCSS;
+    } else if (existingClusterCSS && !state.clusterCSS) {
+      state.clusterCSS = existingClusterCSS as HTMLLinkElement;
     }
 
-    if (!state.clusterDefaultCSS) {
+    const existingDefaultCSS = document.querySelector('link[href*="markercluster"][href*="Default.css"]');
+    if (!state.clusterDefaultCSS && !existingDefaultCSS) {
       const clusterDefaultCSS = document.createElement('link');
       clusterDefaultCSS.rel = 'stylesheet';
       clusterDefaultCSS.href = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css';
+      clusterDefaultCSS.crossOrigin = '';
       document.head.appendChild(clusterDefaultCSS);
       state.clusterDefaultCSS = clusterDefaultCSS;
+    } else if (existingDefaultCSS && !state.clusterDefaultCSS) {
+      state.clusterDefaultCSS = existingDefaultCSS as HTMLLinkElement;
     }
 
-    if (!state.clusterScript) {
+    // Check if script already exists
+    const existingScript = document.querySelector('script[src*="markercluster"]');
+    if (!state.clusterScript && !existingScript) {
       const clusterScript = document.createElement('script');
       clusterScript.src = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js';
       clusterScript.async = true;
+      clusterScript.crossOrigin = '';
+      
       clusterScript.onload = () => {
         state.clusterLoaded = true;
+        state.clusterLoadError = null;
         resolve();
       };
+      
       clusterScript.onerror = (error) => {
         // Don't reject on error, just log it and resolve anyway
         console.warn('MarkerCluster failed to load, clustering will be disabled:', error);
-        state.clusterLoadPromise = null; // Reset promise on error
+        state.clusterLoadError = new Error('MarkerCluster load failed');
+        state.clusterLoadPromise = null;
         resolve();
       };
+      
       document.head.appendChild(clusterScript);
       state.clusterScript = clusterScript;
+    } else if (existingScript && !state.clusterScript) {
+      state.clusterScript = existingScript as HTMLScriptElement;
+      // If script already exists, check if markerClusterGroup is available
+      if ((window as any).L?.markerClusterGroup) {
+        state.clusterLoaded = true;
+        resolve();
+      } else {
+        // Wait for it to load
+        existingScript.addEventListener('load', () => {
+          state.clusterLoaded = true;
+          resolve();
+        });
+      }
+    } else if ((window as any).L?.markerClusterGroup) {
+      // Already loaded
+      state.clusterLoaded = true;
+      resolve();
     }
   });
 

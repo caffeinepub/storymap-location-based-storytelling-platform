@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * Hook to invalidate Leaflet map size when container becomes visible or resizes.
@@ -9,40 +9,74 @@ export function useLeafletMapResize(
   isVisible: boolean,
   dependencies: any[] = []
 ) {
-  const [lastMapInstance, setLastMapInstance] = useState<any>(null);
-
-  // Track when mapInstance changes to trigger resize
-  useEffect(() => {
-    if (mapInstance !== lastMapInstance) {
-      setLastMapInstance(mapInstance);
-    }
-  }, [mapInstance, lastMapInstance]);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const containerRef = useRef<HTMLElement | null>(null);
+  const lastVisibilityRef = useRef<boolean>(isVisible);
 
   useEffect(() => {
-    if (!mapInstance || !isVisible) return;
-
-    // Invalidate immediately
-    if (typeof mapInstance.invalidateSize === 'function') {
-      mapInstance.invalidateSize();
+    if (!mapInstance || !isVisible) {
+      lastVisibilityRef.current = isVisible;
+      return;
     }
 
-    // Also invalidate after a short delay to handle any animations
-    const timeoutId1 = setTimeout(() => {
+    const invalidateMapSize = () => {
       if (mapInstance && typeof mapInstance.invalidateSize === 'function') {
-        mapInstance.invalidateSize();
+        try {
+          mapInstance.invalidateSize({ animate: false });
+        } catch (error) {
+          console.warn('Error invalidating map size:', error);
+        }
       }
-    }, 150);
+    };
 
-    // Additional delayed invalidate for dialog scenarios
-    const timeoutId2 = setTimeout(() => {
-      if (mapInstance && typeof mapInstance.invalidateSize === 'function') {
-        mapInstance.invalidateSize();
+    // Invalidate immediately when becoming visible
+    if (!lastVisibilityRef.current && isVisible) {
+      invalidateMapSize();
+    }
+    lastVisibilityRef.current = isVisible;
+
+    // Get the map container element
+    try {
+      const container = mapInstance.getContainer?.();
+      if (container) {
+        containerRef.current = container;
+
+        // Use ResizeObserver to detect container size changes
+        if (typeof ResizeObserver !== 'undefined') {
+          resizeObserverRef.current = new ResizeObserver(() => {
+            // Use requestAnimationFrame to batch resize operations
+            requestAnimationFrame(() => {
+              invalidateMapSize();
+            });
+          });
+          resizeObserverRef.current.observe(container);
+        }
       }
-    }, 350);
+    } catch (error) {
+      console.warn('Error setting up resize observer:', error);
+    }
+
+    // Multiple delayed invalidations to handle various animation scenarios
+    const timeouts: NodeJS.Timeout[] = [];
+    
+    // Immediate
+    invalidateMapSize();
+    
+    // After short delay (for CSS transitions)
+    timeouts.push(setTimeout(invalidateMapSize, 100));
+    
+    // After medium delay (for dialog animations)
+    timeouts.push(setTimeout(invalidateMapSize, 250));
+    
+    // After longer delay (for complex animations)
+    timeouts.push(setTimeout(invalidateMapSize, 500));
 
     return () => {
-      clearTimeout(timeoutId1);
-      clearTimeout(timeoutId2);
+      timeouts.forEach(clearTimeout);
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
     };
-  }, [mapInstance, isVisible, lastMapInstance, ...dependencies]);
+  }, [mapInstance, isVisible, ...dependencies]);
 }

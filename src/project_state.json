@@ -7,18 +7,26 @@
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-add-a-user-visible-back-button-on-the-local-updates-page-that-navigates-the-user-to-the-home-page-when-clicked",
-      "title": "Add a user-visible \"Back\" button on the Local Updates page that navigates the user to the Home page when clicked.",
+      "id": "feature-in-the-share-your-story-createstorydialog-dialog-add-an-optional-text-input-that-lets-the-user-enter-a-human-readable-location-name-e-g-central-park-the-field-must-be-editable-regardless-of-how-the-coordinates-are-chosen-auto-location-manual-coordinates-or-map-picker",
+      "title": "In the \"Share Your Story\" (CreateStoryDialog) dialog, add an optional text input that lets the user enter a human-readable location name (e.g., \"Central Park\"). The field must be editable regardless of how the coordinates are chosen (auto location, manual coordinates, or map picker).",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-wire-local-updates-page-navigation-to-the-app-level-view-router-so-the-local-updates-back-button-can-switch-the-current-view-to-home",
-      "title": "Wire Local Updates page navigation to the app-level view router so the Local Updates \"Back\" button can switch the current view to \"home\".",
+      "id": "feature-persist-the-optional-location-name-with-new-stories-by-extending-the-backend-data-model-and-apis-so-that-a-story-can-store-an-optional-locationname-text-alongside-the-existing-coordinates-update-the-create-story-flow-end-to-end-so-the-frontend-sends-the-value-and-the-backend-stores-and-returns-it",
+      "title": "Persist the optional location name with new stories by extending the backend data model and APIs so that a story can store an optional locationName (Text) alongside the existing coordinates. Update the create story flow end-to-end so the frontend sends the value and the backend stores and returns it.",
       "reqIds": [
         "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-persist-the-optional-location-name-in-story-drafts-extend-the-storydraft-model-and-the-draft-save-load-publish-flows-so-drafts-can-store-and-restore-the-location-name-value-when-a-draft-is-loaded-back-into-the-createstorydialog",
+      "title": "Persist the optional location name in story drafts: extend the StoryDraft model and the draft save/load/publish flows so drafts can store and restore the location name value when a draft is loaded back into the CreateStoryDialog.",
+      "reqIds": [
+        "REQ-3"
       ],
       "version": 1
     }
@@ -26,12 +34,20 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Add a Back button on the Local Updates page that navigates to the home page",
+      "summary": "Add an option in the \"Share your story\" dialog to input the name of the location.",
       "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Add a conditional data migration for existing deployed state so previously stored stories and drafts remain readable after introducing the new optional locationName field (defaulting to null/empty optional).",
+      "reqIds": [
+        "REQ-4"
+      ],
       "status": "pending"
     }
   ],
-  "projectName": "Make Local Updates Back button navigate to Home page",
+  "projectName": "Add location name field to Share Your Story dialog",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

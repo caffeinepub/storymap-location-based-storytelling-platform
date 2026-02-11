@@ -41,6 +41,7 @@ export interface Story {
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
+    locationName?: string;
     location: Location;
     pinCount: bigint;
 }
@@ -81,6 +82,7 @@ export interface StoryDraft {
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
+    locationName?: string;
     location?: Location;
 }
 export interface StoryView {
@@ -95,6 +97,7 @@ export interface StoryView {
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
+    locationName?: string;
     location: Location;
     pinCount: bigint;
 }
@@ -148,8 +151,8 @@ export interface backendInterface {
     addComment(storyId: string, content: string, timestamp: bigint, isAnonymous: boolean): Promise<bigint>;
     addLocalUpdate(content: string, latitude: number, longitude: number, radius: bigint, category: LocalCategory, image: ExternalBlob | null): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createDraft(title: string, content: string, category: Category, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
-    createStory(title: string, content: string, category: Category, location: Location, timestamp: bigint, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
+    createDraft(title: string, content: string, category: Category, locationName: string | null, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
+    createStory(title: string, content: string, category: Category, locationName: string | null, location: Location, timestamp: bigint, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
     deleteDraft(draftId: string): Promise<void>;
     getActiveLocalUpdatesByProximity(location: Location): Promise<Array<LocalUpdatePublic>>;
     getAllActiveLocalUpdates(): Promise<Array<LocalUpdatePublic>>;
@@ -185,6 +188,6 @@ export interface backendInterface {
     thumbsUpLocalUpdate(updateId: bigint): Promise<void>;
     unlikeStory(storyId: string): Promise<void>;
     unpinStory(storyId: string): Promise<void>;
-    updateDraft(draftId: string, title: string, content: string, category: Category, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
-    updateStory(storyId: string, title: string, content: string, category: Category, location: Location, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
+    updateDraft(draftId: string, title: string, content: string, category: Category, locationName: string | null, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
+    updateStory(storyId: string, title: string, content: string, category: Category, locationName: string | null, location: Location, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
 }

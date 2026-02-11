@@ -1,10 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Add a Back button on the Local Updates page that returns the user to the Home view using the existing app-level view state routing.
+**Goal:** Let users optionally add and persist a human-readable location name when creating, saving drafts of, and publishing stories.
 
 **Planned changes:**
-- Add a user-visible, accessible "Back" (or consistent "Back to Home") button to the Local Updates UI.
-- Wire Local Updates to receive an app-level navigation callback and use it to switch the current view to "home" when the Back button is clicked.
+- Add an optional “Location name” text input (English label + placeholder) to the Share Your Story (CreateStoryDialog) form, editable regardless of how coordinates are selected.
+- Extend the Story data model and create-story API to accept, store, and return an optional `locationName` alongside coordinates.
+- Extend the StoryDraft model and draft save/load/publish flows to persist and restore the optional `locationName` value in the dialog.
+- Add a backend migration/compatibility update so existing stored stories and drafts remain readable, with `locationName` defaulting to null/empty.
 
-**User-visible outcome:** While viewing Local Updates, the user can click a Back button to return to the Home page.
+**User-visible outcome:** In the Share Your Story dialog, users can optionally enter a location name (e.g., “Central Park”), submit stories with or without it, and have the value preserved in drafts and published stories.

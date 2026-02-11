@@ -50,6 +50,7 @@ export default function CreateStoryDialog({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<Category>(Category.other);
+  const [locationName, setLocationName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(true);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(initialUserLocation);
@@ -158,6 +159,7 @@ export default function CreateStoryDialog({
     setTitle('');
     setContent('');
     setCategory(Category.other);
+    setLocationName('');
     setIsAnonymous(false);
     removeImage();
     setUploadProgress(0);
@@ -172,6 +174,7 @@ export default function CreateStoryDialog({
     setTitle(draft.title);
     setContent(draft.content);
     setCategory(draft.category);
+    setLocationName(draft.locationName || '');
     setIsAnonymous(draft.isAnonymous);
     setSelectedDraftId(draft.id);
     setShowDraftsList(false);
@@ -226,6 +229,7 @@ export default function CreateStoryDialog({
       title: title.trim(),
       content: content.trim(),
       category,
+      locationName: locationName.trim() || null,
       location: userLocation,
       isAnonymous,
       image: imageBlob,
@@ -295,6 +299,7 @@ export default function CreateStoryDialog({
         title: title.trim(),
         content: content.trim(),
         category,
+        locationName: locationName.trim() || null,
         location: userLocation,
         isAnonymous,
         image: imageBlob,
@@ -503,6 +508,22 @@ export default function CreateStoryDialog({
               </Select>
             </div>
 
+            {/* Location Name (Optional) */}
+            <div className="space-y-2">
+              <Label htmlFor="locationName">Location Name (Optional)</Label>
+              <Input
+                id="locationName"
+                placeholder="e.g., Central Park"
+                value={locationName}
+                onChange={(e) => setLocationName(e.target.value)}
+                maxLength={100}
+                disabled={!isAuthenticated}
+              />
+              <p className="text-xs text-muted-foreground">
+                Add a custom name for this location
+              </p>
+            </div>
+
             {/* Image Upload */}
             <div className="space-y-2">
               <Label htmlFor="image">Image (Optional)</Label>
@@ -534,19 +555,13 @@ export default function CreateStoryDialog({
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                </div>
-              )}
-              {isUploading && (
-                <div className="space-y-1">
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Uploading... {uploadProgress}%
-                  </p>
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                      <div className="text-white text-sm">
+                        Uploading: {uploadProgress}%
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -555,136 +570,155 @@ export default function CreateStoryDialog({
 
             {/* Location Section */}
             <div className="space-y-3">
-              <Label className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Location (Required)
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Location
+                </Label>
+                {userLocation && (
+                  <span className="text-xs text-muted-foreground">
+                    {userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}
+                  </span>
+                )}
+              </div>
 
+              {/* Location Status */}
               {userLocation ? (
                 <Alert>
-                  <MapPin className="h-4 w-4 text-green-600" />
+                  <MapPin className="h-4 w-4" />
                   <AlertDescription className="text-sm">
-                    Location set: {userLocation.latitude.toFixed(6)}, {userLocation.longitude.toFixed(6)}
+                    Location set successfully
                   </AlertDescription>
                 </Alert>
               ) : (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
-                    {locationCopy.description}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Primary: Map Picker */}
-              <Button
-                type="button"
-                variant="default"
-                className="w-full"
-                onClick={handleOpenLocationPicker}
-                disabled={!isAuthenticated}
-              >
-                <Map className="h-4 w-4 mr-2" />
-                {userLocation ? 'Change Location on Map' : 'Pick Location on Map'}
-              </Button>
-
-              {/* Secondary: Browser Geolocation */}
-              {!userLocation && (
                 <>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">Or</span>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleRequestLocation}
-                    disabled={!isAuthenticated || isRequestingLocation || permissionState === 'denied'}
-                  >
-                    {isRequestingLocation ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Getting location...
-                      </>
-                    ) : (
-                      <>
-                        <Navigation className="h-4 w-4 mr-2" />
-                        Use My Current Location
-                      </>
-                    )}
-                  </Button>
-
-                  {(showLocationDenied || showLocationUnsupported || showLocationInsecure) && (
+                  {showLocationDenied && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        {locationCopy.description}
+                      <AlertDescription className="text-sm">
+                        <div className="font-medium">{locationCopy.title}</div>
+                        <div className="mt-1">{locationCopy.description}</div>
                         {diagnostics?.userFriendlyDetail && (
-                          <div className="mt-1 text-xs opacity-75">
+                          <div className="mt-1 text-xs opacity-80">
                             {diagnostics.userFriendlyDetail}
                           </div>
                         )}
                       </AlertDescription>
                     </Alert>
                   )}
+
+                  {showLocationUnsupported && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-sm">
+                        <div className="font-medium">{locationCopy.title}</div>
+                        <div className="mt-1">{locationCopy.description}</div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {showLocationInsecure && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-sm">
+                        <div className="font-medium">{locationCopy.title}</div>
+                        <div className="mt-1">{locationCopy.description}</div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </>
               )}
 
-              {/* Fallback: Manual Entry */}
-              {!userLocation && (
-                <>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">Or enter manually</span>
-                    </div>
-                  </div>
+              {/* Location Actions */}
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRequestLocation}
+                  disabled={isRequestingLocation || !isAuthenticated}
+                  className="w-full"
+                >
+                  {isRequestingLocation ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Getting location...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="mr-2 h-4 w-4" />
+                      Use My Location
+                    </>
+                  )}
+                </Button>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label htmlFor="latitude" className="text-xs">Latitude</Label>
-                      <Input
-                        id="latitude"
-                        type="number"
-                        step="any"
-                        placeholder="e.g., 40.7128"
-                        value={manualLatitude}
-                        onChange={(e) => setManualLatitude(e.target.value)}
-                        disabled={!isAuthenticated}
-                      />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleOpenLocationPicker}
+                  disabled={!isAuthenticated}
+                  className="w-full"
+                >
+                  <Map className="mr-2 h-4 w-4" />
+                  Pick Location on Map
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="manual-location"
+                    checked={useManualLocation}
+                    onCheckedChange={setUseManualLocation}
+                    disabled={!isAuthenticated}
+                  />
+                  <Label htmlFor="manual-location" className="text-sm cursor-pointer">
+                    Enter coordinates manually
+                  </Label>
+                </div>
+
+                {useManualLocation && (
+                  <div className="space-y-2 p-3 border rounded-lg">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="latitude" className="text-xs">
+                          Latitude
+                        </Label>
+                        <Input
+                          id="latitude"
+                          type="number"
+                          step="any"
+                          placeholder="e.g., 40.7128"
+                          value={manualLatitude}
+                          onChange={(e) => setManualLatitude(e.target.value)}
+                          disabled={!isAuthenticated}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="longitude" className="text-xs">
+                          Longitude
+                        </Label>
+                        <Input
+                          id="longitude"
+                          type="number"
+                          step="any"
+                          placeholder="e.g., -74.0060"
+                          value={manualLongitude}
+                          onChange={(e) => setManualLongitude(e.target.value)}
+                          disabled={!isAuthenticated}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="longitude" className="text-xs">Longitude</Label>
-                      <Input
-                        id="longitude"
-                        type="number"
-                        step="any"
-                        placeholder="e.g., -74.0060"
-                        value={manualLongitude}
-                        onChange={(e) => setManualLongitude(e.target.value)}
-                        disabled={!isAuthenticated}
-                      />
-                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleManualLocationSubmit}
+                      disabled={!isAuthenticated}
+                      className="w-full"
+                    >
+                      Set Manual Location
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleManualLocationSubmit}
-                    disabled={!isAuthenticated || !manualLatitude || !manualLongitude}
-                  >
-                    Set Manual Location
-                  </Button>
-                </>
-              )}
+                )}
+              </div>
             </div>
 
             <Separator />
@@ -709,23 +743,25 @@ export default function CreateStoryDialog({
             {showGuidelines && (
               <Alert>
                 <Info className="h-4 w-4" />
-                <AlertDescription className="text-xs space-y-1">
-                  <p className="font-medium">Community Guidelines:</p>
-                  <ul className="list-disc list-inside space-y-0.5 ml-2">
-                    <li>Be respectful and kind</li>
-                    <li>No hate speech or harassment</li>
-                    <li>Keep content appropriate for all ages</li>
-                    <li>Respect others' privacy</li>
-                  </ul>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowGuidelines(false)}
-                    className="mt-2"
-                  >
-                    Got it
-                  </Button>
+                <AlertDescription className="text-sm">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 flex-1">
+                      <p className="font-medium">Community Guidelines</p>
+                      <ul className="text-xs space-y-1 list-disc list-inside">
+                        <li>Be respectful and kind</li>
+                        <li>No hate speech or harassment</li>
+                        <li>Keep content appropriate for all ages</li>
+                      </ul>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowGuidelines(false)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
@@ -740,20 +776,12 @@ export default function CreateStoryDialog({
                   disabled={!canSaveDraft}
                   className="flex-1"
                 >
-                  {saveDraftMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Draft
-                    </>
-                  )}
+                  <Save className="mr-2 h-4 w-4" />
+                  {saveDraftMutation.isPending ? 'Saving...' : 'Save Draft'}
                 </Button>
               )}
-              {selectedDraftId ? (
+
+              {selectedDraftId && canPublish ? (
                 <Button
                   type="button"
                   onClick={handlePublishDraft}
@@ -762,7 +790,7 @@ export default function CreateStoryDialog({
                 >
                   {publishDraftMutation.isPending ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Publishing...
                     </>
                   ) : (
@@ -777,7 +805,7 @@ export default function CreateStoryDialog({
                 >
                   {createMutation.isPending ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Posting...
                     </>
                   ) : (
@@ -790,13 +818,12 @@ export default function CreateStoryDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Location Picker Dialog */}
       <LocationPickerDialog
         open={showLocationPicker}
         onOpenChange={setShowLocationPicker}
-        initialLocation={userLocation}
         onConfirm={handleLocationPickerConfirm}
         onCancel={handleLocationPickerCancel}
+        initialLocation={userLocation}
       />
     </>
   );

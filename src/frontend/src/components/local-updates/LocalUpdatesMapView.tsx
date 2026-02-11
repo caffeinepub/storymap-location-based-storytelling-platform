@@ -4,7 +4,9 @@ import { getLocalCategoryLabel, getLocalCategoryIconColor, formatRadius } from '
 import { formatDistanceValue, calculateDistance } from '../../lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { MapPin, Clock, AlertCircle } from 'lucide-react';
 import { loadLeaflet, unloadLeaflet } from '../../lib/leafletLoader';
 import { useLeafletMapResize } from '../../hooks/useLeafletMapResize';
 
@@ -24,22 +26,31 @@ export default function LocalUpdatesMapView({
   const markersRef = useRef<any[]>([]);
   const userMarkerRef = useRef<any>(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [leafletError, setLeafletError] = useState<string | null>(null);
   const [L, setL] = useState<any>(null);
   const [selectedUpdate, setSelectedUpdate] = useState<LocalUpdatePublic | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [isLoadingMap, setIsLoadingMap] = useState(true);
 
   // Load Leaflet using shared loader
   useEffect(() => {
     let mounted = true;
+    setIsLoadingMap(true);
 
     loadLeaflet()
       .then((leaflet) => {
         if (mounted) {
           setL(leaflet);
           setLeafletLoaded(true);
+          setLeafletError(null);
         }
       })
       .catch((error) => {
         console.error('Failed to load Leaflet:', error);
+        if (mounted) {
+          setLeafletError('Failed to load map library. Please refresh the page.');
+          setIsLoadingMap(false);
+        }
       });
 
     return () => {
@@ -52,45 +63,84 @@ export default function LocalUpdatesMapView({
   useEffect(() => {
     if (!leafletLoaded || !L || !mapContainerRef.current || mapInstanceRef.current) return;
 
-    const defaultCenter: [number, number] = userLocation
-      ? [userLocation.latitude, userLocation.longitude]
-      : [40.7128, -74.006];
+    try {
+      const defaultCenter: [number, number] = userLocation
+        ? [userLocation.latitude, userLocation.longitude]
+        : [40.7128, -74.006];
 
-    const map = L.map(mapContainerRef.current, {
-      center: defaultCenter,
-      zoom: 12,
-      zoomControl: true,
-    });
+      const map = L.map(mapContainerRef.current, {
+        center: defaultCenter,
+        zoom: 12,
+        zoomControl: true,
+      });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map);
+      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      });
 
-    mapInstanceRef.current = map;
+      tileLayer.on('load', () => {
+        setIsLoadingMap(false);
+      });
+
+      tileLayer.on('tileerror', (error: any) => {
+        console.warn('Tile load error:', error);
+      });
+
+      tileLayer.addTo(map);
+
+      mapInstanceRef.current = map;
+      setMapReady(true);
+      setLeafletError(null);
+
+      // Set loading to false after a short delay to ensure tiles start loading
+      setTimeout(() => {
+        setIsLoadingMap(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to initialize map:', error);
+      setLeafletError('Failed to initialize map. Please refresh the page.');
+      setIsLoadingMap(false);
+    }
 
     return () => {
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+        try {
+          mapInstanceRef.current.remove();
+        } catch (error) {
+          console.error('Error removing map:', error);
+        }
         mapInstanceRef.current = null;
+        setMapReady(false);
       }
     };
-  }, [leafletLoaded, L]);
+  }, [leafletLoaded, L, userLocation]);
 
   // Use resize hook to ensure proper map display
-  useLeafletMapResize(mapInstanceRef.current, true);
+  useLeafletMapResize(mapReady ? mapInstanceRef.current : null, true);
 
   // Update markers
   useEffect(() => {
-    if (!leafletLoaded || !L || !mapInstanceRef.current) return;
+    if (!mapReady || !L || !mapInstanceRef.current) return;
 
     const map = mapInstanceRef.current;
 
     // Clear existing markers
-    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current.forEach((marker) => {
+      try {
+        marker.remove();
+      } catch (error) {
+        console.warn('Error removing marker:', error);
+      }
+    });
     markersRef.current = [];
+    
     if (userMarkerRef.current) {
-      userMarkerRef.current.remove();
+      try {
+        userMarkerRef.current.remove();
+      } catch (error) {
+        console.warn('Error removing user marker:', error);
+      }
       userMarkerRef.current = null;
     }
 
@@ -217,13 +267,17 @@ export default function LocalUpdatesMapView({
 
     // Fit bounds
     if (bounds.length > 0) {
-      const latLngBounds = L.latLngBounds(bounds);
-      map.fitBounds(latLngBounds, {
-        padding: [50, 50],
-        maxZoom: 15,
-      });
+      try {
+        const latLngBounds = L.latLngBounds(bounds);
+        map.fitBounds(latLngBounds, {
+          padding: [50, 50],
+          maxZoom: 15,
+        });
+      } catch (error) {
+        console.warn('Error fitting bounds:', error);
+      }
     }
-  }, [leafletLoaded, L, updates, userLocation]);
+  }, [mapReady, L, updates, userLocation]);
 
   // Handle marker clicks
   useEffect(() => {
@@ -250,12 +304,33 @@ export default function LocalUpdatesMapView({
           background: 'linear-gradient(to bottom right, oklch(var(--muted)), oklch(var(--background)))',
         }}
       >
-        {!leafletLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20">
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-              <p className="text-sm text-muted-foreground">Loading map...</p>
+        {/* Loading State */}
+        {isLoadingMap && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 z-10">
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p className="text-sm font-medium text-muted-foreground">Loading map...</p>
             </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {leafletError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 z-10">
+            <Alert variant="destructive" className="max-w-md">
+              <AlertCircle className="h-5 w-5" />
+              <AlertDescription className="ml-2">
+                <p className="font-semibold mb-2">{leafletError}</p>
+                <Button
+                  onClick={() => window.location.reload()}
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                >
+                  Refresh Page
+                </Button>
+              </AlertDescription>
+            </Alert>
           </div>
         )}
       </div>
@@ -300,6 +375,13 @@ export default function LocalUpdatesMapView({
         .custom-user-marker {
           background: transparent;
           border: none;
+        }
+        .custom-popup .leaflet-popup-content-wrapper {
+          border-radius: 0.5rem;
+          padding: 0;
+        }
+        .custom-popup .leaflet-popup-content {
+          margin: 0;
         }
       `}</style>
     </div>

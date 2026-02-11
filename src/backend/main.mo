@@ -15,9 +15,9 @@ import AccessControl "authorization/access-control";
 import Storage "blob-storage/Storage";
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
+import Migration "migration";
 
-
-
+(with migration = Migration.run)
 actor {
   include MixinStorage();
 
@@ -39,6 +39,7 @@ actor {
     title : Text;
     content : Text;
     category : Category;
+    locationName : ?Text;
     location : Location;
     timestamp : Int;
     author : Principal;
@@ -54,6 +55,7 @@ actor {
     title : Text;
     content : Text;
     category : Category;
+    locationName : ?Text;
     location : Location;
     timestamp : Int;
     author : Principal;
@@ -161,6 +163,7 @@ actor {
     title : Text;
     content : Text;
     category : Category;
+    locationName : ?Text;
     location : Location;
     timestamp : Int;
     author : Principal;
@@ -177,6 +180,7 @@ actor {
     title : Text;
     content : Text;
     category : Category;
+    locationName : ?Text;
     location : ?Location;
     timestamp : Int;
     author : Principal;
@@ -250,6 +254,7 @@ actor {
       title = story.title;
       content = story.content;
       category = story.category;
+      locationName = story.locationName;
       location = story.location;
       timestamp = story.timestamp;
       author = story.author;
@@ -315,6 +320,7 @@ actor {
     title : Text,
     content : Text,
     category : Category,
+    locationName : ?Text,
     location : Location,
     isAnonymous : Bool,
     image : ?Storage.ExternalBlob,
@@ -333,6 +339,7 @@ actor {
           title = title;
           content = content;
           category = category;
+          locationName = locationName;
           location = location;
           isAnonymous = isAnonymous;
           image = image;
@@ -541,6 +548,7 @@ actor {
     title : Text,
     content : Text,
     category : Category,
+    locationName : ?Text,
     location : Location,
     timestamp : Int,
     isAnonymous : Bool,
@@ -556,6 +564,7 @@ actor {
       title = title;
       content = content;
       category = category;
+      locationName = locationName;
       location = location;
       timestamp = timestamp;
       author = caller;
@@ -973,6 +982,7 @@ actor {
     title : Text,
     content : Text,
     category : Category,
+    locationName : ?Text,
     location : ?Location,
     isAnonymous : Bool,
     image : ?Storage.ExternalBlob,
@@ -988,6 +998,7 @@ actor {
       title = title;
       content = content;
       category = category;
+      locationName = locationName;
       location = location;
       timestamp = Time.now();
       author = caller;
@@ -1006,6 +1017,7 @@ actor {
     title : Text,
     content : Text,
     category : Category,
+    locationName : ?Text,
     location : ?Location,
     isAnonymous : Bool,
     image : ?Storage.ExternalBlob,
@@ -1026,6 +1038,7 @@ actor {
           title = title;
           content = content;
           category = category;
+          locationName = locationName;
           location = location;
           isAnonymous = isAnonymous;
           image = image;
@@ -1076,6 +1089,7 @@ actor {
           title = draft.title;
           content = draft.content;
           category = draft.category;
+          locationName = draft.locationName;
           location = finalLocation;
           timestamp = Time.now();
           author = draft.author;
@@ -1381,4 +1395,3 @@ actor {
     };
   };
 };
-

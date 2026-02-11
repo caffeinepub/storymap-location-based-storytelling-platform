@@ -67,6 +67,7 @@ export const Story = IDL.Record({
   'timestamp' : IDL.Int,
   'category' : Category,
   'image' : IDL.Opt(ExternalBlob),
+  'locationName' : IDL.Opt(IDL.Text),
   'location' : Location,
   'pinCount' : IDL.Nat,
 });
@@ -97,6 +98,7 @@ export const StoryDraft = IDL.Record({
   'timestamp' : IDL.Int,
   'category' : Category,
   'image' : IDL.Opt(ExternalBlob),
+  'locationName' : IDL.Opt(IDL.Text),
   'location' : IDL.Opt(Location),
 });
 export const StoryView = IDL.Record({
@@ -111,6 +113,7 @@ export const StoryView = IDL.Record({
   'timestamp' : IDL.Int,
   'category' : Category,
   'image' : IDL.Opt(ExternalBlob),
+  'locationName' : IDL.Opt(IDL.Text),
   'location' : Location,
   'pinCount' : IDL.Nat,
 });
@@ -191,6 +194,7 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         Category,
+        IDL.Opt(IDL.Text),
         IDL.Opt(Location),
         IDL.Bool,
         IDL.Opt(ExternalBlob),
@@ -203,6 +207,7 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         Category,
+        IDL.Opt(IDL.Text),
         Location,
         IDL.Int,
         IDL.Bool,
@@ -288,6 +293,7 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         Category,
+        IDL.Opt(IDL.Text),
         IDL.Opt(Location),
         IDL.Bool,
         IDL.Opt(ExternalBlob),
@@ -301,6 +307,7 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         Category,
+        IDL.Opt(IDL.Text),
         Location,
         IDL.Bool,
         IDL.Opt(ExternalBlob),
@@ -372,6 +379,7 @@ export const idlFactory = ({ IDL }) => {
     'timestamp' : IDL.Int,
     'category' : Category,
     'image' : IDL.Opt(ExternalBlob),
+    'locationName' : IDL.Opt(IDL.Text),
     'location' : Location,
     'pinCount' : IDL.Nat,
   });
@@ -402,6 +410,7 @@ export const idlFactory = ({ IDL }) => {
     'timestamp' : IDL.Int,
     'category' : Category,
     'image' : IDL.Opt(ExternalBlob),
+    'locationName' : IDL.Opt(IDL.Text),
     'location' : IDL.Opt(Location),
   });
   const StoryView = IDL.Record({
@@ -416,6 +425,7 @@ export const idlFactory = ({ IDL }) => {
     'timestamp' : IDL.Int,
     'category' : Category,
     'image' : IDL.Opt(ExternalBlob),
+    'locationName' : IDL.Opt(IDL.Text),
     'location' : Location,
     'pinCount' : IDL.Nat,
   });
@@ -496,6 +506,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           Category,
+          IDL.Opt(IDL.Text),
           IDL.Opt(Location),
           IDL.Bool,
           IDL.Opt(ExternalBlob),
@@ -508,6 +519,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           Category,
+          IDL.Opt(IDL.Text),
           Location,
           IDL.Int,
           IDL.Bool,
@@ -593,6 +605,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           Category,
+          IDL.Opt(IDL.Text),
           IDL.Opt(Location),
           IDL.Bool,
           IDL.Opt(ExternalBlob),
@@ -606,6 +619,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           Category,
+          IDL.Opt(IDL.Text),
           Location,
           IDL.Bool,
           IDL.Opt(ExternalBlob),

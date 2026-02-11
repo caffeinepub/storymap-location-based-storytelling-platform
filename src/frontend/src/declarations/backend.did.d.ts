@@ -74,6 +74,7 @@ export interface Story {
   'timestamp' : bigint,
   'category' : Category,
   'image' : [] | [ExternalBlob],
+  'locationName' : [] | [string],
   'location' : Location,
   'pinCount' : bigint,
 }
@@ -88,6 +89,7 @@ export interface StoryDraft {
   'timestamp' : bigint,
   'category' : Category,
   'image' : [] | [ExternalBlob],
+  'locationName' : [] | [string],
   'location' : [] | [Location],
 }
 export interface StoryView {
@@ -102,6 +104,7 @@ export interface StoryView {
   'timestamp' : bigint,
   'category' : Category,
   'image' : [] | [ExternalBlob],
+  'locationName' : [] | [string],
   'location' : Location,
   'pinCount' : bigint,
 }
@@ -151,11 +154,28 @@ export interface _SERVICE {
   >,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createDraft' : ActorMethod<
-    [string, string, Category, [] | [Location], boolean, [] | [ExternalBlob]],
+    [
+      string,
+      string,
+      Category,
+      [] | [string],
+      [] | [Location],
+      boolean,
+      [] | [ExternalBlob],
+    ],
     string
   >,
   'createStory' : ActorMethod<
-    [string, string, Category, Location, bigint, boolean, [] | [ExternalBlob]],
+    [
+      string,
+      string,
+      Category,
+      [] | [string],
+      Location,
+      bigint,
+      boolean,
+      [] | [ExternalBlob],
+    ],
     string
   >,
   'deleteDraft' : ActorMethod<[string], undefined>,
@@ -205,6 +225,7 @@ export interface _SERVICE {
       string,
       string,
       Category,
+      [] | [string],
       [] | [Location],
       boolean,
       [] | [ExternalBlob],
@@ -212,7 +233,16 @@ export interface _SERVICE {
     undefined
   >,
   'updateStory' : ActorMethod<
-    [string, string, string, Category, Location, boolean, [] | [ExternalBlob]],
+    [
+      string,
+      string,
+      string,
+      Category,
+      [] | [string],
+      Location,
+      boolean,
+      [] | [ExternalBlob],
+    ],
     undefined
   >,
 }

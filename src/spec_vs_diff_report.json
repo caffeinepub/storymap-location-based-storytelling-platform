@@ -1,65 +1,84 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-10T04:16:46.687Z",
-  "summary": "Diff introduces a LocalUpdatesPage prop for a home-navigation callback, but the provided truncated snippets do not show an actual user-visible \"Back\" button or confirm that App.tsx passes the callback and that LocalUpdatesPage uses it in the UI. Several unrelated features/changes were also made outside the requested back-navigation behavior.",
+  "generatedAt": "2026-02-11T05:08:19.603Z",
+  "summary": "Diff adds an optional `locationName` across some frontend and backend types plus a migration module, but also introduces several unrequested UI/behavior changes (including reverse-geocoded location display) and it’s not fully evidenced (due to truncation) that all API/draft publish flows were updated end-to-end as required.",
   "missing_requirements": [
     {
-      "id": "REQ-1",
-      "requirement": "Add a user-visible \"Back\" button on the Local Updates page that navigates the user to the Home page when clicked (accessible, English label).",
-      "reason": "LocalUpdatesPage defines an onBackHome prop, but the diff snippet is truncated before the rendered UI and does not show any \"Back\" button element (or its label/semantics) being rendered and wired to navigation.",
+      "id": "REQ-2",
+      "requirement": "Backend create story API is extended to accept an additional optional locationName parameter and store/return it end-to-end (create + fetch/search).",
+      "reason": "The diff shows `Story`/`StoryView` types now include `locationName`, but the `createStory` function/API signature and the code paths for storing and returning `locationName` on fetch/search are not visible in the truncated `backend/main.mo` excerpt.",
       "evidence": [
-        "frontend/src/pages/LocalUpdatesPage.tsx"
+        "backend/main.mo (truncated)"
       ]
     },
     {
-      "id": "REQ-2",
-      "requirement": "Wire Local Updates page navigation to the app-level view router so the Local Updates \"Back\" button can switch the current view to \"home\".",
-      "reason": "LocalUpdatesPage expects an onBackHome callback, but the App.tsx diff is truncated before the LocalUpdatesPage render, so there is no visible evidence that App passes a callback that sets the view to \"home\", nor that LocalUpdatesPage calls it from a Back button.",
+      "id": "REQ-3",
+      "requirement": "Draft save/load/publish flows persist and restore the optional locationName value.",
+      "reason": "Frontend draft hooks now pass `locationName` to `createDraft`/`updateDraft`, but the backend draft types/APIs and the publish-draft-to-story flow changes are not shown in the provided backend diff excerpt (and CreateStoryDialog’s draft load/repopulate behavior is not visible due to truncation).",
       "evidence": [
-        "frontend/src/App.tsx",
-        "frontend/src/pages/LocalUpdatesPage.tsx"
+        "frontend/src/hooks/useDrafts.ts (truncated)",
+        "frontend/src/components/CreateStoryDialog.tsx (truncated)",
+        "backend/main.mo (truncated)"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Runtime guard/polling to detect and recover from non-interactive UI state (pointer-events/inert) in App.",
-      "reason": "Not requested by the BuildRequest; unrelated to Local Updates back navigation.",
+      "description": "Reverse-geocoded place name shown on story cards (\"<distance> away from <place name>\").",
+      "reason": "Explicitly disallowed by the non-goals (“Do not implement reverse-geocoding…”), yet the diff summary states StoryCard displays a reverse-geocoded place name.",
       "evidence": [
-        "frontend/src/App.tsx"
+        "frontend-file-summaries.txt (StoryCard description)"
       ]
     },
     {
-      "description": "New/changed React Query hooks including a new useUpdateStory mutation for editing stories.",
-      "reason": "Not requested; BuildRequest explicitly focuses only on Local Updates back navigation and states non-goals around other behavior changes.",
+      "description": "New 'Local Updates' feature/navigation surfaced in the header and app view-state.",
+      "reason": "Not requested in any requirement; appears as new product functionality unrelated to adding `locationName`.",
       "evidence": [
-        "frontend/src/hooks/useQueries.ts",
-        "frontend-file-summaries.txt"
+        "frontend-file-summaries.txt (App.tsx description)",
+        "frontend-file-summaries.txt (Header.tsx description)"
       ]
     },
     {
-      "description": "Header changes: always-visible Local Updates button and user dropdown navigation items.",
-      "reason": "Not requested by the BuildRequest (which only asks for a Back button on Local Updates and wiring to view state).",
+      "description": "Teleport-to-Location button and random selection of story locations affecting feed filtering.",
+      "reason": "Not requested and likely changes map/feed behavior and filtering logic, which are called out as non-goals (“Do not change map behavior… story search/sort logic.”).",
       "evidence": [
-        "frontend/src/components/Header.tsx",
-        "frontend-file-summaries.txt"
+        "frontend-file-summaries.txt (HomePage.tsx description)"
       ]
     },
     {
-      "description": "ProfileSetupModal changes to pointer-events-auto and interact-outside prevention.",
-      "reason": "Not requested; unrelated to Local Updates back navigation.",
+      "description": "Substantial Leaflet map loading/initialization behavior changes (enhanced loading states, lifecycle changes).",
+      "reason": "Not requested and conflicts with the non-goal to not change map behavior/location flows.",
       "evidence": [
-        "frontend/src/components/ProfileSetupModal.tsx",
-        "frontend-file-summaries.txt"
+        "frontend-file-summaries.txt (MapView.tsx description)"
+      ]
+    },
+    {
+      "description": "Author-only inline edit mode for stories in StoryDetailDialog (including editing locationName).",
+      "reason": "Not requested by the BuildRequest (which only asked to add locationName to the create dialog + persistence/migration).",
+      "evidence": [
+        "frontend-file-summaries.txt (StoryDetailDialog.tsx description)",
+        "frontend/src/components/StoryDetailDialog.tsx (truncated: edit mode state includes editLocationName)"
+      ]
+    },
+    {
+      "description": "Backend migration logic implemented as a separate Motoko module file (backend/migration.mo).",
+      "reason": "Violates/risks the stated constraint that backend logic must remain in a single-actor Motoko canister with all logic in backend/main.mo; this introduces additional backend logic outside main.mo.",
+      "evidence": [
+        "backend/migration.mo",
+        "backend/main.mo (imports Migration \"migration\" and uses Migration.run)"
       ]
     }
   ],
   "confidence": 0.62,
   "changed_files": [
+    "backend/main.mo",
+    "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/App.tsx",
-    "frontend/src/pages/LocalUpdatesPage.tsx",
+    "frontend/src/components/CreateStoryDialog.tsx",
+    "frontend/src/components/StoryDetailDialog.tsx",
+    "frontend/src/hooks/useDrafts.ts",
+    "frontend/src/hooks/useQueries.ts",
     "project_state.json"
   ]
 }

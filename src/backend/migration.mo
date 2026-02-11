@@ -1,67 +1,138 @@
-import Storage "blob-storage/Storage";
 import Map "mo:core/Map";
-import Nat "mo:core/Nat";
-import Time "mo:core/Time";
+import Set "mo:core/Set";
+import Principal "mo:core/Principal";
+import Storage "blob-storage/Storage";
 
 module {
-  public type OldLocalUpdate = {
-    id : Nat;
+  type OldStory = {
+    id : Text;
+    title : Text;
     content : Text;
-    latitude : Float;
-    longitude : Float;
-    radius : Nat;
-    timestamp : Int;
     category : {
-      #traffic;
-      #power;
-      #police;
-      #event;
-      #nature;
-      #general;
+      #love;
+      #confession;
+      #funny;
+      #random;
+      #other;
     };
-    author : Principal;
-  };
-
-  public type OldActor = {
-    nextLocalUpdateId : Nat;
-    localUpdates : Map.Map<Nat, OldLocalUpdate>;
-    lastCleanupTimestamp : Time.Time;
-  };
-
-  public type NewLocalUpdate = {
-    id : Nat;
-    content : Text;
-    latitude : Float;
-    longitude : Float;
-    radius : Nat;
+    location : {
+      latitude : Float;
+      longitude : Float;
+    };
     timestamp : Int;
-    category : {
-      #traffic;
-      #power;
-      #police;
-      #event;
-      #nature;
-      #general;
-    };
     author : Principal;
+    isAnonymous : Bool;
+    likeCount : Nat;
+    pinCount : Nat;
     image : ?Storage.ExternalBlob;
+    viewCount : Nat;
+    viewers : Set.Set<Principal>;
   };
 
-  public type NewActor = {
-    nextLocalUpdateId : Nat;
-    localUpdates : Map.Map<Nat, NewLocalUpdate>;
-    lastCleanupTimestamp : Time.Time;
+  type NewStory = {
+    id : Text;
+    title : Text;
+    content : Text;
+    category : {
+      #love;
+      #confession;
+      #funny;
+      #random;
+      #other;
+    };
+    locationName : ?Text;
+    location : {
+      latitude : Float;
+      longitude : Float;
+    };
+    timestamp : Int;
+    author : Principal;
+    isAnonymous : Bool;
+    likeCount : Nat;
+    pinCount : Nat;
+    image : ?Storage.ExternalBlob;
+    viewCount : Nat;
+    viewers : Set.Set<Principal>;
+  };
+
+  type OldStoryDraft = {
+    id : Text;
+    title : Text;
+    content : Text;
+    category : {
+      #love;
+      #confession;
+      #funny;
+      #random;
+      #other;
+    };
+    location : ?{
+      latitude : Float;
+      longitude : Float;
+    };
+    timestamp : Int;
+    author : Principal;
+    isAnonymous : Bool;
+    image : ?Storage.ExternalBlob;
+    createdAt : Int;
+    updatedAt : Int;
+  };
+
+  type NewStoryDraft = {
+    id : Text;
+    title : Text;
+    content : Text;
+    category : {
+      #love;
+      #confession;
+      #funny;
+      #random;
+      #other;
+    };
+    locationName : ?Text;
+    location : ?{
+      latitude : Float;
+      longitude : Float;
+    };
+    timestamp : Int;
+    author : Principal;
+    isAnonymous : Bool;
+    image : ?Storage.ExternalBlob;
+    createdAt : Int;
+    updatedAt : Int;
+  };
+
+  type OldActor = {
+    stories : Map.Map<Text, OldStory>;
+    drafts : Map.Map<Text, OldStoryDraft>;
+    // ... other fields remain unchanged
+  };
+
+  type NewActor = {
+    stories : Map.Map<Text, NewStory>;
+    drafts : Map.Map<Text, NewStoryDraft>;
+    // ... other fields remain unchanged
   };
 
   public func run(old : OldActor) : NewActor {
-    let newLocalUpdates = old.localUpdates.map<Nat, OldLocalUpdate, NewLocalUpdate>(
-      func(_id, oldUpdate) {
-        { oldUpdate with image = null };
+    let newStories = old.stories.map<Text, OldStory, NewStory>(
+      func(_id, oldStory) {
+        {
+          oldStory with locationName = null
+        };
+      }
+    );
+    let newDrafts = old.drafts.map<Text, OldStoryDraft, NewStoryDraft>(
+      func(_id, oldDraft) {
+        {
+          oldDraft with locationName = null
+        };
       }
     );
     {
       old with
-      localUpdates = newLocalUpdates;
+      stories = newStories;
+      drafts = newDrafts;
     };
   };
 };

@@ -71,6 +71,7 @@ export function useCreateDraft() {
       title: string;
       content: string;
       category: Category;
+      locationName: string | null;
       location: Location | null;
       isAnonymous: boolean;
       image: ExternalBlob | null;
@@ -84,6 +85,7 @@ export function useCreateDraft() {
         params.title,
         params.content,
         params.category,
+        params.locationName,
         params.location,
         params.isAnonymous,
         params.image
@@ -112,6 +114,7 @@ export function useUpdateDraft() {
       title: string;
       content: string;
       category: Category;
+      locationName: string | null;
       location: Location | null;
       isAnonymous: boolean;
       image: ExternalBlob | null;
@@ -126,6 +129,7 @@ export function useUpdateDraft() {
         params.title,
         params.content,
         params.category,
+        params.locationName,
         params.location,
         params.isAnonymous,
         params.image
@@ -219,6 +223,7 @@ export function useSaveDraft() {
       title: string;
       content: string;
       category: Category;
+      locationName: string | null;
       location: Location | null;
       isAnonymous: boolean;
       image: ExternalBlob | null;
@@ -229,6 +234,7 @@ export function useSaveDraft() {
           title: params.title,
           content: params.content,
           category: params.category,
+          locationName: params.locationName,
           location: params.location,
           isAnonymous: params.isAnonymous,
           image: params.image,
@@ -238,6 +244,7 @@ export function useSaveDraft() {
           title: params.title,
           content: params.content,
           category: params.category,
+          locationName: params.locationName,
           location: params.location,
           isAnonymous: params.isAnonymous,
           image: params.image,

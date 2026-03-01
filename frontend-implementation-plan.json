@@ -1,0 +1,52 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Fix story feed distance filtering to use story's saved coordinates",
+  "requirements": [
+    {
+      "id": "REQ-2",
+      "summary": "Fix frontend feed distance filtering to compare base location (teleportedLocation or user geolocation) against each story's own latitude/longitude fields, never using uploader location",
+      "acceptanceCriteria": [
+        "In HomePage.tsx (and any other feed view), the distance filter reads story.latitude and story.longitude from each story object as the story coordinates.",
+        "When teleportedLocation is set, baseLat/baseLng is sourced from teleportedLocation.",
+        "When teleportedLocation is not set, baseLat/baseLng is sourced from the user's current geolocation.",
+        "The uploader's profile location or any user-profile-derived coordinates are never used in the distance comparison.",
+        "Stories beyond the selected distance slider value are not rendered in the feed.",
+        "The locationFilter utility in frontend/src/lib/locationFilter.ts (or wherever distance filtering is implemented) compares against story.latitude and story.longitude exclusively."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/HomePage.tsx",
+          "operation": "modify",
+          "description": "Update the story filtering logic in HomePage to determine base coordinates as follows: if teleportedLocation exists, use teleportedLocation.lat/lng; otherwise use currentLocation from foreground tracking. Then filter stories by calling isStoryWithinProximity (or equivalent) with (baseLat, baseLng) and (story.latitude, story.longitude). Remove any references to uploader profile location in the distance calculation. Ensure stories beyond the selected distance slider value are excluded from the feed."
+        },
+        {
+          "path": "frontend/src/lib/locationFilter.ts",
+          "operation": "modify",
+          "description": "Ensure the isStoryWithinProximity function (or equivalent distance filter utility) accepts base coordinates and story coordinates as separate parameters, and computes Haversine distance between them. The function must never access or use story.author or any uploader-related location. Verify that story.latitude and story.longitude are the only story-location fields used in the comparison."
+        },
+        {
+          "path": "frontend/src/components/StoryCard.tsx",
+          "operation": "modify",
+          "description": "Review and update any distance calculation or display logic in StoryCard to use story.latitude and story.longitude when computing distance from the user or teleported location. Ensure no uploader location is referenced for distance display."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Ensure CreateStoryDialog submits the map-picker coordinates (not device geolocation) as the story's latitude and longitude",
+      "acceptanceCriteria": [
+        "CreateStoryDialog.tsx passes the map-picker coordinates as the story's latitude and longitude when calling the create/publish backend function.",
+        "If no location is picked on the map, the story cannot be submitted (or a sensible fallback is applied and documented).",
+        "The user's live device geolocation is not used as the story's latitude/longitude."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/CreateStoryDialog.tsx",
+          "operation": "modify",
+          "description": "Verify that when a story is submitted (both createStory and publishDraft flows), the latitude and longitude sent to the backend are sourced exclusively from the map-picker location state (pickedLocation), not from the user's current device geolocation. If pickedLocation is null or undefined, either disable the submit button or show a validation error requiring the user to pick a location on the map. Remove any fallback logic that substitutes device geolocation for the story's coordinates."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-03-01T02:32:42.243Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 3,
+    "implemented": 2,
+    "items": [
+      {
+        "id": "REQ-1",
+        "summary": "Ensure every story is saved with its own latitude and longitude fields (story.latitude and story.longitude) captured at the time of story creation — these must reflect the story's pinned location, not the uploader's current device location.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Fix the frontend feed distance filtering logic so that the base coordinates for filtering are determined as follows: if a teleportedLocation exists, use its lat/lng as (baseLat, baseLng); otherwise use the user's current geolocation as (baseLat, baseLng). Then compare (baseLat, baseLng) against each story's own (story.latitude, story.longitude) using the Haversine distance. Stories whose distance from the base exceeds the selected distance range must be excluded from the feed. The uploader's location must never be used for this comparison.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/HomePage.tsx",
+          "frontend/src/lib/locationFilter.ts",
+          "frontend/src/components/StoryCard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/HomePage.tsx",
+          "frontend/src/lib/locationFilter.ts",
+          "frontend/src/components/StoryCard.tsx"
+        ]
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Update the CreateStoryDialog so that when a story is submitted, the latitude and longitude sent to the backend are taken from the map location picker (the pinned story location), not from the user's current device geolocation.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/CreateStoryDialog.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/CreateStoryDialog.tsx"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "backend/main.mo",
+    "backend/migration.mo",
+    "build-request.json",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/components/CreateStoryDialog.tsx",
+    "frontend/src/components/MapView.tsx",
+    "frontend/src/components/QissaMapView.tsx",
+    "frontend/src/components/StoryCard.tsx",
+    "frontend/src/components/StoryDetailDialog.tsx",
+    "frontend/src/components/StoryFeed.tsx",
+    "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useDrafts.ts",
+    "frontend/src/hooks/useLocalUpdates.ts",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/lib/locationFilter.ts",
+    "frontend/src/lib/storySorting.ts",
+    "frontend/src/pages/HomePage.tsx",
+    "frontend/src/pages/QissaMapPage.tsx",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-fix-the-frontend-feed-distance-filtering-logic-so-that-the-base-coordinates-for-filtering-are-determined-as-follows-if-a-teleportedlocation-exists-use-its-lat-lng-as-baselat-baselng-otherwise-use-the-user-s-current-geolocation-as-baselat-baselng-then-compare-baselat-baselng-against-each-story-s-own-story-latitude-story-longitude-using-the-haversine-distance-stories-whose-distance-from-the-base-exceeds-the-selected-distance-range-must-be-excluded-from-the-feed-the-uploader-s-location-must-never-be-used-for-this-comparison",
+      "featureTitle": "Fix the frontend feed distance filtering logic so that the base coordinates for filtering are determined as follows: if a teleportedLocation exists, use its lat/lng as (baseLat, baseLng); otherwise use the user's current geolocation as (baseLat, baseLng). Then compare (baseLat, baseLng) against each story's own (story.latitude, story.longitude) using the Haversine distance. Stories whose distance from the base exceeds the selected distance range must be excluded from the feed. The uploader's location must never be used for this comparison.",
+      "files": [
+        "frontend/src/components/StoryCard.tsx",
+        "frontend/src/lib/locationFilter.ts",
+        "frontend/src/pages/HomePage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-the-createstorydialog-so-that-when-a-story-is-submitted-the-latitude-and-longitude-sent-to-the-backend-are-taken-from-the-map-location-picker-the-pinned-story-location-not-from-the-user-s-current-device-geolocation",
+      "featureTitle": "Update the CreateStoryDialog so that when a story is submitted, the latitude and longitude sent to the backend are taken from the map location picker (the pinned story location), not from the user's current device geolocation.",
+      "files": [
+        "frontend/src/components/CreateStoryDialog.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

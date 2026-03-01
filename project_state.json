@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "A location-based story feed app where stories are filtered by proximity using the story's saved latitude/longitude, not the uploader's current location.",
+  "architectural_notes": [
+    "Each story must be saved with story.latitude and story.longitude at upload time.",
+    "Feed filtering: use teleportedLocation (if set) or user's current geolocation as base, then filter stories by distance comparing (baseLat, baseLng) to (story.latitude, story.longitude). Never use uploader's current location for filtering."
+  ],
+  "known_issues": [],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "feature-fix-the-frontend-feed-distance-filtering-logic-so-that-the-base-coordinates-for-filtering-are-determined-as-follows-if-a-teleportedlocation-exists-use-its-lat-lng-as-baselat-baselng-otherwise-use-the-user-s-current-geolocation-as-baselat-baselng-then-compare-baselat-baselng-against-each-story-s-own-story-latitude-story-longitude-using-the-haversine-distance-stories-whose-distance-from-the-base-exceeds-the-selected-distance-range-must-be-excluded-from-the-feed-the-uploader-s-location-must-never-be-used-for-this-comparison",
+      "title": "Fix the frontend feed distance filtering logic so that the base coordinates for filtering are determined as follows: if a teleportedLocation exists, use its lat/lng as (baseLat, baseLng); otherwise use the user's current geolocation as (baseLat, baseLng). Then compare (baseLat, baseLng) against each story's own (story.latitude, story.longitude) using the Haversine distance. Stories whose distance from the base exceeds the selected distance range must be excluded from the feed. The uploader's location must never be used for this comparison.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-createstorydialog-so-that-when-a-story-is-submitted-the-latitude-and-longitude-sent-to-the-backend-are-taken-from-the-map-location-picker-the-pinned-story-location-not-from-the-user-s-current-device-geolocation",
+      "title": "Update the CreateStoryDialog so that when a story is submitted, the latitude and longitude sent to the backend are taken from the map location picker (the pinned story location), not from the user's current device geolocation.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Ensure every story is saved with its own latitude and longitude fields (story.latitude and story.longitude) captured at the time of story creation — these must reflect the story's pinned location, not the uploader's current device location.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "Fix story feed distance filtering to use story's saved coordinates",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

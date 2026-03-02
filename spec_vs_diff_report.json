@@ -1,28 +1,26 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-03-01T02:32:42.240Z",
-  "summary": "The diff implements all three requirements comprehensively. REQ-1 is addressed via backend/main.mo (Story type with latitude/longitude fields) and backend/migration.mo (graceful migration of existing stories). REQ-2 is addressed via frontend/src/lib/locationFilter.ts (Haversine filter against story.latitude/story.longitude), frontend/src/pages/HomePage.tsx (teleportedLocation vs currentLocation base selection, isStoryWithinProximity filter), and related components. REQ-3 is addressed via frontend/src/components/CreateStoryDialog.tsx (pickedLocation state from map picker, never device geolocation). All acceptance criteria appear satisfied.",
-  "missing_requirements": [],
+  "generatedAt": "2026-03-02T07:53:48.515Z",
+  "summary": "The diff implements all three requirements with high fidelity. REQ-1 is covered by the new QissaMapSearchBar component and Nominatim geocoding in QissaMapPage. REQ-2 is covered by searchLocationMarker.ts and map fly/pan logic in QissaMapView. REQ-3 is covered by popularStoryMarker.ts, proximity story fetching via useGetNearbyStoriesForMap, popularity sorting, and rendering popular story markers. One acceptance criterion under REQ-3 — each floating story indicator showing the story title and a brief excerpt or category badge — is only partially satisfied as the marker shows a category emoji but no title label is visible in the marker HTML.",
+  "missing_requirements": [
+    {
+      "id": "REQ-3",
+      "requirement": "Each floating story indicator shows the story title and a brief excerpt or category badge.",
+      "reason": "The popularStoryMarker.ts only renders a category emoji and a colored pin shape. No story title or excerpt text is rendered in the marker HTML. While a category emoji badge is present, the title and excerpt portion of this AC is not implemented.",
+      "evidence": [
+        "frontend/src/lib/popularStoryMarker.ts"
+      ]
+    }
+  ],
   "hallucinated_features": [],
-  "confidence": 0.92,
+  "confidence": 0.72,
   "changed_files": [
-    "backend/main.mo",
-    "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/CreateStoryDialog.tsx",
-    "frontend/src/components/MapView.tsx",
+    "frontend/src/components/QissaMapSearchBar.tsx",
     "frontend/src/components/QissaMapView.tsx",
-    "frontend/src/components/StoryCard.tsx",
-    "frontend/src/components/StoryDetailDialog.tsx",
-    "frontend/src/components/StoryFeed.tsx",
-    "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
-    "frontend/src/hooks/useDrafts.ts",
-    "frontend/src/hooks/useLocalUpdates.ts",
-    "frontend/src/hooks/useQueries.ts",
-    "frontend/src/lib/locationFilter.ts",
-    "frontend/src/lib/storySorting.ts",
-    "frontend/src/pages/HomePage.tsx",
+    "frontend/src/lib/popularStoryMarker.ts",
+    "frontend/src/lib/searchLocationMarker.ts",
     "frontend/src/pages/QissaMapPage.tsx",
     "project_state.json"
   ]

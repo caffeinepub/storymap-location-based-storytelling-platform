@@ -1,11 +1,16 @@
 # Specification
 
 ## Summary
-**Goal:** Fix story feed distance filtering so it uses each story's own saved coordinates (pinned map location) rather than any uploader profile location.
+**Goal:** Add a working location search feature to the QissaMap page that lets users find a location, pin it on the map, and see popular stories nearby.
 
 **Planned changes:**
-- Ensure the `Story` type in `backend/main.mo` includes `latitude` and `longitude` fields that store the pinned map location provided at story creation time, with graceful fallback for existing stories without coordinates.
-- Update `CreateStoryDialog.tsx` to pass the map location picker coordinates (not the user's live device geolocation) as the story's latitude and longitude when submitting to the backend.
-- Fix the feed distance filtering logic in the frontend so that it uses `teleportedLocation` as the base coordinates when set, otherwise falls back to the user's current geolocation, and compares that base against each story's own `story.latitude` and `story.longitude` via Haversine distance — never using uploader profile location.
+- Add a visible search input bar (top-center overlay) on the QissaMap page with Enter key and button submission support
+- Integrate the Nominatim geocoding API to resolve typed location names to coordinates
+- Show a "No location found" message when the search yields no results
+- Pan/fly the map smoothly to the searched location's coordinates upon a successful search
+- Place a distinct marker (visually different from story markers) at the searched location; remove it when the search input is cleared
+- After a successful search, query for stories near the searched coordinates and rank them by popularity (likes/pins)
+- Display up to 5–10 popular nearby stories as floating cards or enriched markers on the map, each showing the story title and category badge/excerpt
+- Clicking a floating story card/marker opens the existing StoryDetailDialog for that story
 
-**User-visible outcome:** Stories in the feed are correctly filtered by distance from the user's current location (or teleported location), based on where each story was actually pinned on the map.
+**User-visible outcome:** Users can type a location name into a search bar on the QissaMap page, have the map fly to that location with a pin, and immediately see the most popular stories near that location displayed as floating cards on the map.

@@ -23,7 +23,7 @@ export default function StoryFeed({
 }: StoryFeedProps) {
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-64 rounded-lg" />
         ))}
@@ -63,7 +63,7 @@ export default function StoryFeed({
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
       {stories.map((story) => (
         <StoryCard
           key={story.id}

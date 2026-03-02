@@ -1,74 +1,71 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-03-01T02:32:42.243Z",
+  "generatedAt": "2026-03-02T07:53:48.519Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
     "total": 3,
-    "implemented": 2,
+    "implemented": 3,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Ensure every story is saved with its own latitude and longitude fields (story.latitude and story.longitude) captured at the time of story creation — these must reflect the story's pinned location, not the uploader's current device location.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "summary": "Add a visible search input bar to the QissaMap page (QissaMapPage.tsx / QissaMapView.tsx) that allows the user to type a location name and search for it using the Nominatim geocoding API (already used in MapView.tsx).",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/QissaMapPage.tsx",
+          "frontend/src/components/QissaMapSearchBar.tsx",
+          "frontend/src/components/QissaMapView.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/QissaMapPage.tsx",
+          "frontend/src/components/QissaMapSearchBar.tsx",
+          "frontend/src/components/QissaMapView.tsx"
+        ]
       },
       {
         "id": "REQ-2",
-        "summary": "Fix the frontend feed distance filtering logic so that the base coordinates for filtering are determined as follows: if a teleportedLocation exists, use its lat/lng as (baseLat, baseLng); otherwise use the user's current geolocation as (baseLat, baseLng). Then compare (baseLat, baseLng) against each story's own (story.latitude, story.longitude) using the Haversine distance. Stories whose distance from the base exceeds the selected distance range must be excluded from the feed. The uploader's location must never be used for this comparison.",
+        "summary": "When a location is found via search, fly/pan the map to that location and place a distinct pin marker at the searched coordinates to visually indicate the searched location.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/pages/HomePage.tsx",
-          "frontend/src/lib/locationFilter.ts",
-          "frontend/src/components/StoryCard.tsx"
+          "frontend/src/components/QissaMapView.tsx",
+          "frontend/src/lib/searchLocationMarker.ts",
+          "frontend/src/pages/QissaMapPage.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/HomePage.tsx",
-          "frontend/src/lib/locationFilter.ts",
-          "frontend/src/components/StoryCard.tsx"
+          "frontend/src/components/QissaMapView.tsx",
+          "frontend/src/lib/searchLocationMarker.ts",
+          "frontend/src/pages/QissaMapPage.tsx"
         ]
       },
       {
         "id": "REQ-3",
-        "summary": "Update the CreateStoryDialog so that when a story is submitted, the latitude and longitude sent to the backend are taken from the map location picker (the pinned story location), not from the user's current device geolocation.",
+        "summary": "After searching a location, fetch and display the most popular stories (sorted by likes or pins) within a reasonable radius (e.g., 10–20 km) of the searched coordinates, and render them as floating story cards or labeled markers on the map near the pinned location.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/CreateStoryDialog.tsx"
+          "frontend/src/pages/QissaMapPage.tsx",
+          "frontend/src/components/QissaMapView.tsx",
+          "frontend/src/lib/popularStoryMarker.ts"
         ],
         "matchedFiles": [
-          "frontend/src/components/CreateStoryDialog.tsx"
+          "frontend/src/pages/QissaMapPage.tsx",
+          "frontend/src/components/QissaMapView.tsx",
+          "frontend/src/lib/popularStoryMarker.ts"
         ]
       }
     ]
   },
   "changedFiles": [
-    "backend/main.mo",
-    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/components/CreateStoryDialog.tsx",
-    "frontend/src/components/MapView.tsx",
+    "frontend/src/components/QissaMapSearchBar.tsx",
     "frontend/src/components/QissaMapView.tsx",
-    "frontend/src/components/StoryCard.tsx",
-    "frontend/src/components/StoryDetailDialog.tsx",
-    "frontend/src/components/StoryFeed.tsx",
-    "frontend/src/components/local-updates/LocalUpdateDetailDialog.tsx",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
-    "frontend/src/hooks/useDrafts.ts",
-    "frontend/src/hooks/useLocalUpdates.ts",
-    "frontend/src/hooks/useQueries.ts",
-    "frontend/src/lib/locationFilter.ts",
-    "frontend/src/lib/storySorting.ts",
-    "frontend/src/pages/HomePage.tsx",
+    "frontend/src/lib/popularStoryMarker.ts",
+    "frontend/src/lib/searchLocationMarker.ts",
     "frontend/src/pages/QissaMapPage.tsx",
     "project_state.json",
     "scratch/component-selection.json",

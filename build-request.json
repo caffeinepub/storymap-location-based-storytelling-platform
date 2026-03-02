@@ -1,80 +1,77 @@
 {
   "kind": "build_request",
-  "title": "Fix story feed distance filtering to use story's saved coordinates",
-  "priority": "high",
+  "title": "Add working location search to QissaMap with story pins",
+  "projectName": "QissaMap",
+  "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Ensure every story is saved with its own latitude and longitude fields (story.latitude and story.longitude) captured at the time of story creation — these must reflect the story's pinned location, not the uploader's current device location.",
-      "target": "backend",
+      "text": "Add a visible search input bar to the QissaMap page (QissaMapPage.tsx / QissaMapView.tsx) that allows the user to type a location name and search for it using the Nominatim geocoding API (already used in MapView.tsx).",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-13"
+          "msg-6"
         ],
         "quotes": [
-          "Each story must be saved with: story.latitude, story.longitude"
+          "make workable search option. Where I enter name of the location"
         ]
       },
       "acceptanceCriteria": [
-        "The Story type in backend/main.mo includes latitude and longitude fields.",
-        "When a story is created, the latitude and longitude stored are those provided by the creator (the picked/pinned map location), not derived from any user profile location.",
-        "Existing stories without explicit coordinates do not cause runtime errors (graceful fallback)."
+        "A search input field is visible on the QissaMap page, positioned prominently (e.g., top-center overlay on the map).",
+        "User can type a location name and submit (Enter key or search button).",
+        "The Nominatim API is called with the entered query to resolve coordinates.",
+        "If no results are found, a user-friendly 'No location found' message is shown."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Fix the frontend feed distance filtering logic so that the base coordinates for filtering are determined as follows: if a teleportedLocation exists, use its lat/lng as (baseLat, baseLng); otherwise use the user's current geolocation as (baseLat, baseLng). Then compare (baseLat, baseLng) against each story's own (story.latitude, story.longitude) using the Haversine distance. Stories whose distance from the base exceeds the selected distance range must be excluded from the feed. The uploader's location must never be used for this comparison.",
+      "text": "When a location is found via search, fly/pan the map to that location and place a distinct pin marker at the searched coordinates to visually indicate the searched location.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-13"
+          "msg-6"
         ],
         "quotes": [
-          "If teleportedLocation exists → filter stories within selected distance from teleportedLocation",
-          "Else → filter stories within selected distance from user's current geolocation",
-          "Distance filtering must compare: (baseLat, baseLng) with (story.latitude, story.longitude)",
-          "Do NOT use uploader location for filtering.",
-          "If story is outside selected distance range → do not show in feed."
+          "it will pin in that location"
         ]
       },
       "acceptanceCriteria": [
-        "In HomePage.tsx (and any other feed view), the distance filter reads story.latitude and story.longitude from each story object as the story coordinates.",
-        "When teleportedLocation is set, baseLat/baseLng is sourced from teleportedLocation.",
-        "When teleportedLocation is not set, baseLat/baseLng is sourced from the user's current geolocation.",
-        "The uploader's profile location or any user-profile-derived coordinates are never used in the distance comparison.",
-        "Stories beyond the selected distance slider value are not rendered in the feed.",
-        "The locationFilter utility in frontend/src/lib/locationFilter.ts (or wherever distance filtering is implemented) compares against story.latitude and story.longitude exclusively."
+        "The map smoothly pans/zooms to the searched location's coordinates.",
+        "A distinct marker (different style from story markers) is placed at the searched location.",
+        "The pin remains visible as long as the search result is active.",
+        "Clearing the search input removes the location pin."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Update the CreateStoryDialog so that when a story is submitted, the latitude and longitude sent to the backend are taken from the map location picker (the pinned story location), not from the user's current device geolocation.",
+      "text": "After searching a location, fetch and display the most popular stories (sorted by likes or pins) within a reasonable radius (e.g., 10–20 km) of the searched coordinates, and render them as floating story cards or labeled markers on the map near the pinned location.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-13"
+          "msg-6"
         ],
         "quotes": [
-          "Each story must be saved with: story.latitude, story.longitude",
-          "Do NOT use uploader location for filtering."
+          "certain popular story will float in map"
         ]
       },
       "acceptanceCriteria": [
-        "CreateStoryDialog.tsx passes the map-picker coordinates as the story's latitude and longitude when calling the create/publish backend function.",
-        "If no location is picked on the map, the story cannot be submitted (or a sensible fallback is applied and documented).",
-        "The user's live device geolocation is not used as the story's latitude/longitude."
+        "Upon successful location search, the app queries for stories near those coordinates.",
+        "Stories are ranked/filtered by popularity (likes or pins count).",
+        "Up to 5–10 popular stories are displayed as floating cards or enriched markers on the map near the pinned location.",
+        "Each floating story indicator shows the story title and a brief excerpt or category badge.",
+        "Clicking a floating story opens the StoryDetailDialog for that story."
       ]
     }
   ],
   "constraints": [
-    "Do not change uploader profile data or any user profile location fields.",
-    "Do not modify files listed in frontend.immutablePaths.",
-    "All Motoko changes must remain within the single actor in backend/main.mo."
+    "Use the Nominatim API for geocoding (already integrated in MapView.tsx) — do not introduce a new geocoding service.",
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
+    "All backend story fetching must go through the existing useQueries hooks."
   ],
   "nonGoals": [
-    "Changing the UI appearance of story cards or the feed layout.",
-    "Adding new filtering dimensions beyond distance.",
-    "Modifying the teleportedLocation feature itself — only consume it correctly in the filter."
+    "Replacing or redesigning the existing QissaMap sidebar or clustering behavior.",
+    "Adding a new backend search endpoint — use existing proximity/search queries.",
+    "Persistent saved searches or search history."
   ],
   "imageRequirements": {
     "required": [],

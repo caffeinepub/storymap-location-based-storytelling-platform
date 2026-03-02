@@ -1,50 +1,87 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix story feed distance filtering to use story's saved coordinates",
+  "title": "Add working location search to QissaMap with story pins",
   "requirements": [
     {
-      "id": "REQ-2",
-      "summary": "Fix frontend feed distance filtering to compare base location (teleportedLocation or user geolocation) against each story's own latitude/longitude fields, never using uploader location",
+      "id": "REQ-1",
+      "summary": "Add visible search input bar to QissaMap page allowing users to search locations using Nominatim geocoding API",
       "acceptanceCriteria": [
-        "In HomePage.tsx (and any other feed view), the distance filter reads story.latitude and story.longitude from each story object as the story coordinates.",
-        "When teleportedLocation is set, baseLat/baseLng is sourced from teleportedLocation.",
-        "When teleportedLocation is not set, baseLat/baseLng is sourced from the user's current geolocation.",
-        "The uploader's profile location or any user-profile-derived coordinates are never used in the distance comparison.",
-        "Stories beyond the selected distance slider value are not rendered in the feed.",
-        "The locationFilter utility in frontend/src/lib/locationFilter.ts (or wherever distance filtering is implemented) compares against story.latitude and story.longitude exclusively."
+        "A search input field is visible on the QissaMap page, positioned prominently (e.g., top-center overlay on the map).",
+        "User can type a location name and submit (Enter key or search button).",
+        "The Nominatim API is called with the entered query to resolve coordinates.",
+        "If no results are found, a user-friendly 'No location found' message is shown."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/HomePage.tsx",
+          "path": "frontend/src/pages/QissaMapPage.tsx",
           "operation": "modify",
-          "description": "Update the story filtering logic in HomePage to determine base coordinates as follows: if teleportedLocation exists, use teleportedLocation.lat/lng; otherwise use currentLocation from foreground tracking. Then filter stories by calling isStoryWithinProximity (or equivalent) with (baseLat, baseLng) and (story.latitude, story.longitude). Remove any references to uploader profile location in the distance calculation. Ensure stories beyond the selected distance slider value are excluded from the feed."
+          "description": "Add state management for search query, search results, and selected search location. Import and integrate the search input component overlay. Handle search submission by calling Nominatim API (reuse the geocoding logic from MapView.tsx). Display error toast when no location is found. Pass the searched location coordinates to QissaMapView for map panning and marker placement."
         },
         {
-          "path": "frontend/src/lib/locationFilter.ts",
-          "operation": "modify",
-          "description": "Ensure the isStoryWithinProximity function (or equivalent distance filter utility) accepts base coordinates and story coordinates as separate parameters, and computes Haversine distance between them. The function must never access or use story.author or any uploader-related location. Verify that story.latitude and story.longitude are the only story-location fields used in the comparison."
+          "path": "frontend/src/components/QissaMapSearchBar.tsx",
+          "operation": "create",
+          "description": "Create a new search bar component that renders a text input with a search icon/button, positioned as an absolute overlay at the top-center of the map. Accept props for onChange, onSearch callbacks, and current search value. Include Enter key handler for submission. Style with semi-transparent background, rounded corners, and shadow for visibility over the map. Ensure mobile-responsive sizing."
         },
         {
-          "path": "frontend/src/components/StoryCard.tsx",
+          "path": "frontend/src/components/QissaMapView.tsx",
           "operation": "modify",
-          "description": "Review and update any distance calculation or display logic in StoryCard to use story.latitude and story.longitude when computing distance from the user or teleported location. Ensure no uploader location is referenced for distance display."
+          "description": "Accept new optional prop `searchedLocation` containing coordinates and location name. When searchedLocation changes, programmatically pan/fly the map to those coordinates using Leaflet's flyTo method with smooth animation. Ensure the map re-centers appropriately when a new search is performed."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Pan map to searched location and place a distinct pin marker at the searched coordinates",
+      "acceptanceCriteria": [
+        "The map smoothly pans/zooms to the searched location's coordinates.",
+        "A distinct marker (different style from story markers) is placed at the searched location.",
+        "The pin remains visible as long as the search result is active.",
+        "Clearing the search input removes the location pin."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/QissaMapView.tsx",
+          "operation": "modify",
+          "description": "Add state to track the searched location marker. When searchedLocation prop is present, create a Leaflet marker with a distinct icon (e.g., a search pin icon or a different colored marker) at the searched coordinates. Use Leaflet's marker API to add this marker to the map. When searchedLocation is cleared (null/undefined), remove the marker from the map. Ensure the marker is visually distinct from story cluster markers and the user location marker."
+        },
+        {
+          "path": "frontend/src/lib/searchLocationMarker.ts",
+          "operation": "create",
+          "description": "Create a factory function that returns a Leaflet divIcon for the searched location marker. Style it distinctly from the current-location marker (frontend/src/lib/currentLocationMarker.ts) using a different color (e.g., red or blue) and shape (e.g., a pin icon or a larger circle with a label). Export the factory function for use in QissaMapView."
+        },
+        {
+          "path": "frontend/src/pages/QissaMapPage.tsx",
+          "operation": "modify",
+          "description": "Add a clear button or X icon inside the search bar that resets the search query and clears the searchedLocation state when clicked. Ensure that clearing the search removes the searched location marker from the map."
         }
       ]
     },
     {
       "id": "REQ-3",
-      "summary": "Ensure CreateStoryDialog submits the map-picker coordinates (not device geolocation) as the story's latitude and longitude",
+      "summary": "Fetch and display popular stories near the searched location as floating story cards or labeled markers on the map",
       "acceptanceCriteria": [
-        "CreateStoryDialog.tsx passes the map-picker coordinates as the story's latitude and longitude when calling the create/publish backend function.",
-        "If no location is picked on the map, the story cannot be submitted (or a sensible fallback is applied and documented).",
-        "The user's live device geolocation is not used as the story's latitude/longitude."
+        "Upon successful location search, the app queries for stories near those coordinates.",
+        "Stories are ranked/filtered by popularity (likes or pins count).",
+        "Up to 5–10 popular stories are displayed as floating cards or enriched markers on the map near the pinned location.",
+        "Each floating story indicator shows the story title and a brief excerpt or category badge.",
+        "Clicking a floating story opens the StoryDetailDialog for that story."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/CreateStoryDialog.tsx",
+          "path": "frontend/src/pages/QissaMapPage.tsx",
           "operation": "modify",
-          "description": "Verify that when a story is submitted (both createStory and publishDraft flows), the latitude and longitude sent to the backend are sourced exclusively from the map-picker location state (pickedLocation), not from the user's current device geolocation. If pickedLocation is null or undefined, either disable the submit button or show a validation error requiring the user to pick a location on the map. Remove any fallback logic that substitutes device geolocation for the story's coordinates."
+          "description": "After a successful search, trigger a backend query using the existing getNearbyStoriesForMap hook with the searched location's coordinates and a fixed radius (e.g., 10–20 km). Sort the returned stories by popularity (pinCount or likeCount) and take the top 5–10 stories. Pass this filtered array of popular stories to QissaMapView for rendering as enriched markers or floating cards."
+        },
+        {
+          "path": "frontend/src/components/QissaMapView.tsx",
+          "operation": "modify",
+          "description": "Accept a new optional prop `popularStories` containing an array of Story objects. When popularStories is provided, render each story as a marker with a popup or custom overlay. Use Leaflet popups or divIcons to display the story title and a brief excerpt (first 50 characters) or category badge. Ensure these markers are visually distinct from the searched location marker and regular story cluster markers (e.g., use a star icon or a colored pin). Attach click handlers to each popular story marker that open the StoryDetailDialog for that story."
+        },
+        {
+          "path": "frontend/src/lib/popularStoryMarker.ts",
+          "operation": "create",
+          "description": "Create a factory function that returns a Leaflet divIcon for popular story markers. Style it with a distinctive icon (e.g., a star or a highlighted pin) and include a small label or badge showing the story's category emoji. Export the factory function for use in QissaMapView."
         }
       ]
     }

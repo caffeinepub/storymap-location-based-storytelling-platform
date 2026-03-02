@@ -4,12 +4,20 @@ import { useLeafletMapResize } from '../hooks/useLeafletMapResize';
 import { calculateDistance, formatDistance } from '../lib/utils';
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getSearchLocationMarkerIcon } from '../lib/searchLocationMarker';
+import { getPopularStoryMarkerIcon } from '../lib/popularStoryMarker';
 import type { Story } from '../backend';
 
 /** Simple lat/lng shape used throughout the frontend */
 interface LatLng {
   latitude: number;
   longitude: number;
+}
+
+interface SearchedLocation {
+  latitude: number;
+  longitude: number;
+  name: string;
 }
 
 interface QissaMapViewProps {
@@ -19,6 +27,8 @@ interface QissaMapViewProps {
   onStorySelect: (story: Story) => void;
   onCenterChange: (center: LatLng) => void;
   isLoading?: boolean;
+  searchedLocation?: SearchedLocation | null;
+  popularStories?: Story[];
 }
 
 export default function QissaMapView({
@@ -28,6 +38,8 @@ export default function QissaMapView({
   onStorySelect,
   onCenterChange,
   isLoading = false,
+  searchedLocation = null,
+  popularStories = [],
 }: QissaMapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -35,6 +47,8 @@ export default function QissaMapView({
   const userMarkerRef = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
   const moveEndTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchMarkerRef = useRef<any>(null);
+  const popularMarkersLayerRef = useRef<any>(null);
 
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -144,9 +158,9 @@ export default function QissaMapView({
         mapInstanceRef.current = null;
       }
     };
-  }, [leafletLoaded, center, onCenterChange]);
+  }, [leafletLoaded]);
 
-  // Update map center when center prop changes
+  // Update map center when center prop changes (fly to if search triggered)
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
@@ -161,12 +175,22 @@ export default function QissaMapView({
     );
 
     if (distance > 0.1) {
-      map.setView([center.latitude, center.longitude], map.getZoom(), {
-        animate: true,
-        duration: 0.5,
-      });
+      // Use flyTo for smooth animation when searching
+      if (searchedLocation &&
+          Math.abs(center.latitude - searchedLocation.latitude) < 0.0001 &&
+          Math.abs(center.longitude - searchedLocation.longitude) < 0.0001) {
+        map.flyTo([center.latitude, center.longitude], 13, {
+          animate: true,
+          duration: 1.2,
+        });
+      } else {
+        map.setView([center.latitude, center.longitude], map.getZoom(), {
+          animate: true,
+          duration: 0.5,
+        });
+      }
     }
-  }, [center]);
+  }, [center, searchedLocation]);
 
   // Render user location marker
   useEffect(() => {
@@ -216,6 +240,168 @@ export default function QissaMapView({
     };
   }, [userLocation]);
 
+  // Render searched location marker
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+
+    const L = (window as any).L;
+    if (!L) return;
+
+    // Remove existing search marker
+    if (searchMarkerRef.current) {
+      try {
+        searchMarkerRef.current.remove();
+      } catch (e) {
+        console.warn('Error removing search marker:', e);
+      }
+      searchMarkerRef.current = null;
+    }
+
+    if (!searchedLocation) return;
+
+    try {
+      const icon = getSearchLocationMarkerIcon(L, searchedLocation.name);
+      const marker = L.marker(
+        [searchedLocation.latitude, searchedLocation.longitude],
+        { icon, zIndexOffset: 900 }
+      );
+
+      marker.bindPopup(
+        `<div style="padding: 8px; min-width: 150px;">
+          <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">📍 ${searchedLocation.name}</div>
+          <div style="font-size: 11px; color: #666;">Searched location</div>
+        </div>`,
+        { maxWidth: 250 }
+      );
+
+      marker.addTo(mapInstanceRef.current);
+      searchMarkerRef.current = marker;
+    } catch (error) {
+      console.error('Error rendering search marker:', error);
+    }
+
+    return () => {
+      if (searchMarkerRef.current) {
+        try {
+          searchMarkerRef.current.remove();
+        } catch (e) {
+          console.warn('Error cleaning up search marker:', e);
+        }
+        searchMarkerRef.current = null;
+      }
+    };
+  }, [searchedLocation, leafletLoaded]);
+
+  // Render popular story markers
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+
+    const L = (window as any).L;
+    if (!L) return;
+
+    // Clear existing popular markers
+    if (popularMarkersLayerRef.current) {
+      try {
+        popularMarkersLayerRef.current.clearLayers();
+        mapInstanceRef.current.removeLayer(popularMarkersLayerRef.current);
+      } catch (e) {
+        console.warn('Error clearing popular markers:', e);
+      }
+      popularMarkersLayerRef.current = null;
+    }
+
+    if (!popularStories || popularStories.length === 0) return;
+
+    try {
+      const layer = L.layerGroup();
+
+      popularStories.forEach((story, index) => {
+        const icon = getPopularStoryMarkerIcon(L, story.category, index);
+        const marker = L.marker([story.latitude, story.longitude], {
+          icon,
+          zIndexOffset: 800,
+        });
+
+        const previewText = story.content.length > 80
+          ? story.content.substring(0, 80) + '...'
+          : story.content;
+
+        const likeCount = Number(story.likeCount);
+        const pinCount = Number(story.pinCount);
+
+        const popupContent = `
+          <div style="min-width: 200px; max-width: 280px; padding: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+              <span style="
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                color: white;
+                font-size: 10px;
+                font-weight: 700;
+                padding: 2px 6px;
+                border-radius: 10px;
+              ">⭐ Popular</span>
+              ${index < 3 ? `<span style="font-size: 10px; color: #9ca3af;">#${index + 1} nearby</span>` : ''}
+            </div>
+            <h3 style="font-weight: 600; font-size: 13px; margin-bottom: 6px; line-height: 1.3;">${story.title}</h3>
+            <p style="font-size: 11px; color: #666; margin-bottom: 8px; line-height: 1.4;">${previewText}</p>
+            <div style="display: flex; gap: 8px; font-size: 11px; color: #999; margin-bottom: 8px;">
+              <span>❤️ ${likeCount}</span>
+              <span>📌 ${pinCount}</span>
+            </div>
+            <button
+              id="popular-story-${story.id}"
+              style="
+                width: 100%;
+                padding: 6px 12px;
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+              "
+            >
+              Read Full Story
+            </button>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent, { maxWidth: 300 });
+
+        marker.on('popupopen', () => {
+          const button = document.getElementById(`popular-story-${story.id}`);
+          if (button) {
+            button.addEventListener('click', () => {
+              onStorySelect(story);
+            });
+          }
+        });
+
+        layer.addLayer(marker);
+      });
+
+      layer.addTo(mapInstanceRef.current);
+      popularMarkersLayerRef.current = layer;
+    } catch (error) {
+      console.error('Error rendering popular story markers:', error);
+    }
+
+    return () => {
+      if (popularMarkersLayerRef.current) {
+        try {
+          popularMarkersLayerRef.current.clearLayers();
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.removeLayer(popularMarkersLayerRef.current);
+          }
+        } catch (e) {
+          console.warn('Error cleaning up popular markers:', e);
+        }
+        popularMarkersLayerRef.current = null;
+      }
+    };
+  }, [popularStories, leafletLoaded, onStorySelect]);
+
   // Render story markers — uses story.latitude / story.longitude
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
@@ -253,7 +439,6 @@ export default function QissaMapView({
       });
 
       stories.forEach((story) => {
-        // Use story.latitude / story.longitude — the story's pinned coordinates
         const marker = L.marker([story.latitude, story.longitude], {
           icon: storyIcon,
         });
@@ -373,17 +558,31 @@ export default function QissaMapView({
       <div ref={mapContainerRef} className="h-full w-full" />
 
       {isLoading && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border z-[1000] flex items-center gap-2">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border z-[999] flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
           <span className="text-sm font-medium">Loading stories...</span>
         </div>
       )}
 
-      {!isLoading && stories.length > 0 && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border z-[1000]">
+      {!isLoading && stories.length > 0 && !searchedLocation && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border z-[999]">
           <span className="text-sm font-medium">
             {stories.length} {stories.length === 1 ? 'story' : 'stories'} nearby
           </span>
+        </div>
+      )}
+
+      {/* Search result summary badge */}
+      {!isLoading && searchedLocation && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border z-[999] flex items-center gap-2">
+          <span className="text-sm font-medium">
+            {stories.length} {stories.length === 1 ? 'story' : 'stories'} near <strong>{searchedLocation.name.split(',')[0]}</strong>
+          </span>
+          {popularStories.length > 0 && (
+            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+              ⭐ {popularStories.length} popular
+            </span>
+          )}
         </div>
       )}
 

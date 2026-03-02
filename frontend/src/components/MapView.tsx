@@ -1,13 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { Story } from '../backend';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { getCategoryLabel, getCategoryColor } from '../lib/categories';
+import { getCategoryLabel } from '../lib/categories';
 import { calculateDistance, formatDistance } from '../lib/utils';
-import { MapPin, Eye, Search, Loader2, AlertCircle, Maximize2, X } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Search, Loader2, X } from 'lucide-react';
 import { loadLeaflet, unloadLeaflet, loadMarkerCluster, unloadMarkerCluster } from '../lib/leafletLoader';
 import { useLeafletMapResize } from '../hooks/useLeafletMapResize';
 import { getCurrentLocationMarkerIcon } from '../lib/currentLocationMarker';
@@ -22,12 +18,6 @@ interface MapViewProps {
   centerCoordinate?: { latitude: number; longitude: number } | null;
 }
 
-interface SearchResult {
-  lat: string;
-  lon: string;
-  display_name: string;
-}
-
 export default function MapView({
   stories,
   userLocation,
@@ -35,32 +25,27 @@ export default function MapView({
   onMapBackgroundClick,
   selectedLocation,
   isVisible = true,
-  centerCoordinate
+  centerCoordinate,
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const clusterGroupRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
   const tempMarkerRef = useRef<any>(null);
+  const teleportMarkerRef = useRef<any>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const requestIdRef = useRef<number>(0);
   const hasAutoFittedRef = useRef(false);
-  const searchFormRef = useRef<HTMLFormElement>(null);
-  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
-  const [selectedLatLng, setSelectedLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [leafletError, setLeafletError] = useState<string | null>(null);
   const [clusterPluginLoaded, setClusterPluginLoaded] = useState(false);
   const [L, setL] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [lastSearchQuery, setLastSearchQuery] = useState('');
   const [mapReady, setMapReady] = useState(false);
   const [isLoadingMap, setIsLoadingMap] = useState(true);
 
-  // Load Leaflet using shared loader with error handling
+  // Load Leaflet
   useEffect(() => {
     let mounted = true;
     setIsLoadingMap(true);
@@ -87,7 +72,7 @@ export default function MapView({
     };
   }, []);
 
-  // Load clustering plugin after Leaflet is loaded (only if stories exist)
+  // Load clustering plugin after Leaflet is loaded
   useEffect(() => {
     if (!leafletLoaded || !L) return;
 
@@ -100,22 +85,15 @@ export default function MapView({
 
     loadMarkerCluster()
       .then(() => {
-        if (mounted) {
-          setClusterPluginLoaded(true);
-        }
+        if (mounted) setClusterPluginLoaded(true);
       })
-      .catch((error) => {
-        console.error('Failed to load MarkerCluster:', error);
-        if (mounted) {
-          setClusterPluginLoaded(true);
-        }
+      .catch(() => {
+        if (mounted) setClusterPluginLoaded(true);
       });
 
     return () => {
       mounted = false;
-      if (stories.length > 0) {
-        unloadMarkerCluster();
-      }
+      if (stories.length > 0) unloadMarkerCluster();
     };
   }, [leafletLoaded, L, stories.length]);
 
@@ -141,19 +119,12 @@ export default function MapView({
         maxZoom: 19,
       });
 
-      tileLayer.on('load', () => {
-        setIsLoadingMap(false);
-      });
-
-      tileLayer.on('tileerror', (error: any) => {
-        console.warn('Tile load error:', error);
-      });
-
+      tileLayer.on('load', () => setIsLoadingMap(false));
+      tileLayer.on('tileerror', (error: any) => console.warn('Tile load error:', error));
       tileLayer.addTo(map);
 
       map.on('click', (e: any) => {
         const { lat, lng } = e.latlng;
-        setSelectedLatLng({ lat, lng });
         if (onMapBackgroundClick) {
           onMapBackgroundClick(lat, lng);
         }
@@ -163,9 +134,7 @@ export default function MapView({
       setMapReady(true);
       setLeafletError(null);
 
-      setTimeout(() => {
-        setIsLoadingMap(false);
-      }, 1000);
+      setTimeout(() => setIsLoadingMap(false), 1000);
     } catch (error) {
       console.error('Failed to initialize map:', error);
       setLeafletError('Failed to initialize map. Please refresh the page.');
@@ -214,7 +183,6 @@ export default function MapView({
         map.removeLayer(tempMarkerRef.current);
         tempMarkerRef.current = null;
       }
-      setSelectedLatLng(null);
       return;
     }
 
@@ -222,14 +190,19 @@ export default function MapView({
 
     const tempIcon = L.divIcon({
       html: `
-        <div class="relative w-10 h-10 flex items-center justify-center">
-          <div class="absolute inset-0 flex items-center justify-center">
-            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white shadow-lg flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
-            </div>
+        <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+          <div style="
+            width:32px;height:32px;
+            background:linear-gradient(135deg,#4ade80,#10b981);
+            border:2px solid white;
+            border-radius:50%;
+            box-shadow:0 2px 8px rgba(0,0,0,0.3);
+            display:flex;align-items:center;justify-content:center;
+          ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
           </div>
         </div>
       `,
@@ -245,11 +218,9 @@ export default function MapView({
       tempMarkerRef.current = L.marker([latitude, longitude], { icon: tempIcon }).addTo(map);
       tempMarkerRef.current.bindPopup('<div class="p-2 text-sm font-semibold">Selected Location</div>');
     }
-
-    setSelectedLatLng({ lat: latitude, lng: longitude });
   }, [mapReady, L, selectedLocation]);
 
-  // Update markers when stories or user location changes
+  // Update story markers and user location marker
   useEffect(() => {
     if (!mapReady || !L || !mapInstanceRef.current) return;
     if (stories.length > 0 && !clusterPluginLoaded) return;
@@ -268,25 +239,21 @@ export default function MapView({
     if (stories.length > 0) {
       const useCluster = (window as any).L?.markerClusterGroup && stories.length > 1;
 
-      let markerContainer: any;
-
-      if (useCluster) {
-        markerContainer = L.markerClusterGroup({
-          maxClusterRadius: 60,
-          spiderfyOnMaxZoom: true,
-          showCoverageOnHover: true,
-          zoomToBoundsOnClick: true,
-        });
-      } else {
-        markerContainer = L.layerGroup();
-      }
+      const markerContainer = useCluster
+        ? L.markerClusterGroup({
+            maxClusterRadius: 60,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: true,
+            zoomToBoundsOnClick: true,
+          })
+        : L.layerGroup();
 
       const storyIcon = L.divIcon({
         html: `
-          <div class="relative w-12 h-12 flex items-center justify-center">
-            <img src="/assets/generated/story-marker.dim_48x48.png" alt="Story" class="w-full h-full" />
-            <div class="absolute inset-0 flex items-center justify-center">
-              <div class="w-3 h-3 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 animate-pulse"></div>
+          <div style="width:48px;height:48px;position:relative;display:flex;align-items:center;justify-content:center;">
+            <img src="/assets/generated/story-marker.dim_48x48.png" alt="Story" style="width:100%;height:100%;" />
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+              <div style="width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);animation:pulse 2s infinite;"></div>
             </div>
           </div>
         `,
@@ -298,7 +265,6 @@ export default function MapView({
 
       const bounds: [number, number][] = [];
       stories.forEach((story) => {
-        // Use story.latitude / story.longitude — the story's pinned coordinates
         const position: [number, number] = [story.latitude, story.longitude];
         bounds.push(position);
 
@@ -334,7 +300,7 @@ export default function MapView({
                 ${Number(story.viewCount)}
               </span>
             </div>
-            <button 
+            <button
               class="mt-2 w-full px-3 py-1 text-xs bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-md hover:opacity-90 transition-opacity"
               onclick="window.dispatchEvent(new CustomEvent('story-marker-click', { detail: '${story.id}' }))"
             >
@@ -343,15 +309,8 @@ export default function MapView({
           </div>
         `;
 
-        marker.bindPopup(popupContent, {
-          maxWidth: 300,
-          className: 'custom-popup',
-        });
-
-        marker.on('click', (e: any) => {
-          L.DomEvent.stopPropagation(e);
-        });
-
+        marker.bindPopup(popupContent, { maxWidth: 300, className: 'custom-popup' });
+        marker.on('click', (e: any) => L.DomEvent.stopPropagation(e));
         markerContainer.addLayer(marker);
       });
 
@@ -360,279 +319,219 @@ export default function MapView({
 
       if (!hasAutoFittedRef.current && bounds.length > 0) {
         const latLngBounds = L.latLngBounds(bounds);
-        map.fitBounds(latLngBounds, {
-          padding: [50, 50],
-          maxZoom: 15,
-        });
+        map.fitBounds(latLngBounds, { padding: [50, 50], maxZoom: 15 });
         hasAutoFittedRef.current = true;
       }
     }
 
     if (userLocation) {
       const userIcon = getCurrentLocationMarkerIcon(L);
-
-      userMarkerRef.current = L.marker([userLocation.latitude, userLocation.longitude], {
-        icon: userIcon,
-      }).addTo(map);
-
+      userMarkerRef.current = L.marker(
+        [userLocation.latitude, userLocation.longitude],
+        { icon: userIcon }
+      ).addTo(map);
       userMarkerRef.current.bindPopup('<div class="p-2 text-sm font-semibold">Your Location</div>');
     }
   }, [mapReady, clusterPluginLoaded, L, stories, userLocation]);
 
-  // Handle marker clicks
+  // Handle story marker clicks via custom event
   useEffect(() => {
     const handleMarkerClick = (event: any) => {
       const storyId = event.detail;
       const story = stories.find((s) => s.id === storyId);
-      if (story) {
-        onStoryClick(story);
-      }
+      if (story) onStoryClick(story);
     };
 
     window.addEventListener('story-marker-click', handleMarkerClick);
-    return () => {
-      window.removeEventListener('story-marker-click', handleMarkerClick);
-    };
+    return () => window.removeEventListener('story-marker-click', handleMarkerClick);
   }, [stories, onStoryClick]);
 
-  // Location search functionality
-  const handleSearch = async (e: React.FormEvent) => {
+  // Geocode location name and teleport map
+  const handleSearch = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim() || !mapInstanceRef.current || !L) return;
+    const query = searchQuery.trim();
+    if (!query || !mapInstanceRef.current || !L) return;
 
-    setIsSearching(true);
+    // Clear previous error and abort any in-flight request
     setSearchError(null);
-    setSearchResults([]);
-
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-
-    const currentRequestId = ++requestIdRef.current;
     abortControllerRef.current = new AbortController();
+
+    setIsSearching(true);
 
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
         {
           signal: abortControllerRef.current.signal,
-          headers: {
-            'Accept': 'application/json',
-          },
+          headers: { Accept: 'application/json' },
         }
       );
 
-      if (!response.ok) {
-        throw new Error('Search failed');
-      }
+      if (!response.ok) throw new Error('Search request failed');
 
       const data = await response.json();
 
-      if (currentRequestId === requestIdRef.current) {
-        if (data.length === 0) {
-          setSearchError('No results found');
-        } else {
-          setSearchResults(data);
-          setLastSearchQuery(searchQuery);
-        }
+      if (!data || data.length === 0) {
+        setSearchError('Location not found');
+        setIsSearching(false);
+        return;
       }
-    } catch (error: any) {
-      if (error.name !== 'AbortError' && currentRequestId === requestIdRef.current) {
-        console.error('Search error:', error);
-        setSearchError('Search failed. Please try again.');
+
+      const result = data[0];
+      const lat = parseFloat(result.lat);
+      const lng = parseFloat(result.lon);
+
+      if (isNaN(lat) || isNaN(lng)) {
+        setSearchError('Location not found');
+        setIsSearching(false);
+        return;
       }
-    } finally {
-      if (currentRequestId === requestIdRef.current) {
+
+      const map = mapInstanceRef.current;
+
+      // Remove previous teleport marker
+      if (teleportMarkerRef.current) {
+        map.removeLayer(teleportMarkerRef.current);
+        teleportMarkerRef.current = null;
+      }
+
+      // Fly to the geocoded location at zoom 15
+      map.flyTo([lat, lng], 15, { animate: true, duration: 1.2 });
+
+      // Place a distinct teleport pin marker
+      const teleportIcon = L.divIcon({
+        className: '',
+        html: `
+          <div style="
+            width: 28px;
+            height: 28px;
+            background: #ef4444;
+            border: 3px solid white;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            position: relative;
+          ">
+            <div style="
+              width: 8px;
+              height: 8px;
+              background: white;
+              border-radius: 50%;
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+            "></div>
+          </div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+        popupAnchor: [0, -32],
+      });
+
+      const locationLabel = result.display_name
+        ? result.display_name.split(',').slice(0, 2).join(', ')
+        : query;
+
+      const marker = L.marker([lat, lng], { icon: teleportIcon, zIndexOffset: 900 }).addTo(map);
+      marker.bindPopup(`<div class="p-2 text-sm font-semibold">${locationLabel}</div>`);
+      teleportMarkerRef.current = marker;
+
+      setIsSearching(false);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setSearchError('Location not found');
         setIsSearching(false);
       }
     }
-  };
+  }, [searchQuery, L]);
 
-  const handleResultClick = (result: SearchResult) => {
-    if (!mapInstanceRef.current || !L) return;
-
-    const lat = parseFloat(result.lat);
-    const lon = parseFloat(result.lon);
-
-    mapInstanceRef.current.setView([lat, lon], 14, {
-      animate: true,
-    });
-
-    if (onMapBackgroundClick) {
-      onMapBackgroundClick(lat, lon);
-    }
-
-    setSearchResults([]);
-    setSearchQuery('');
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    if (searchError) setSearchError(null);
   };
 
   const clearSearch = () => {
     setSearchQuery('');
-    setSearchResults([]);
     setSearchError(null);
-    setLastSearchQuery('');
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
   };
-
-  // Selected story panel (shown when a story marker is clicked via custom event)
-  useEffect(() => {
-    const handleMarkerClickForPanel = (event: any) => {
-      const storyId = event.detail;
-      const story = stories.find((s) => s.id === storyId);
-      if (story) {
-        setSelectedStory(story);
-      }
-    };
-    window.addEventListener('story-marker-click', handleMarkerClickForPanel);
-    return () => window.removeEventListener('story-marker-click', handleMarkerClickForPanel);
-  }, [stories]);
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
+      {/* Search Bar — only shown when map is used as a location picker */}
       {onMapBackgroundClick && (
-        <form ref={searchFormRef} onSubmit={handleSearch} className="relative">
+        <form onSubmit={handleSearch} className="relative">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               type="text"
               placeholder="Search for a location..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-10"
+              onChange={handleSearchChange}
+              className="pl-10 pr-20"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={clearSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          {searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-background border rounded-lg shadow-lg overflow-hidden">
-              {searchResults.map((result, index) => (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              {searchQuery && (
                 <button
-                  key={index}
                   type="button"
-                  className="w-full text-left px-4 py-3 hover:bg-muted transition-colors text-sm border-b last:border-b-0"
-                  onClick={() => handleResultClick(result)}
+                  onClick={clearSearch}
+                  className="text-muted-foreground hover:text-foreground p-1"
+                  aria-label="Clear search"
                 >
-                  {result.display_name}
+                  <X className="h-3.5 w-3.5" />
                 </button>
-              ))}
+              )}
+              <button
+                type="submit"
+                disabled={isSearching || !searchQuery.trim()}
+                className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+              >
+                {isSearching ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Search className="h-3 w-3" />
+                )}
+                Go
+              </button>
             </div>
-          )}
-
+          </div>
           {searchError && (
-            <p className="text-xs text-destructive mt-1">{searchError}</p>
+            <p className="text-xs text-destructive mt-1 ml-1">{searchError}</p>
           )}
         </form>
       )}
 
       {/* Map Container */}
       <div className="relative">
-        {(isLoadingMap || leafletError) && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted/50 rounded-lg">
-            {leafletError ? (
-              <Alert variant="destructive" className="max-w-sm">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{leafletError}</AlertDescription>
-              </Alert>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Loading map...</p>
-              </div>
-            )}
+        {isLoadingMap && !leafletError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10 rounded-lg">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Loading map…</span>
+            </div>
+          </div>
+        )}
+
+        {leafletError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10 rounded-lg">
+            <div className="text-center p-4">
+              <p className="text-sm text-destructive font-medium">{leafletError}</p>
+            </div>
           </div>
         )}
 
         <div
           ref={mapContainerRef}
-          className="w-full rounded-lg border overflow-hidden"
-          style={{ height: '500px' }}
+          className="w-full rounded-lg"
+          style={{ height: '400px' }}
         />
-
-        {selectedLatLng && onMapBackgroundClick && (
-          <div className="absolute bottom-4 left-4 right-4 z-10">
-            <Card className="shadow-lg">
-              <CardContent className="p-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-green-600 flex-shrink-0" />
-                  <span className="font-medium">Selected:</span>
-                  <span className="text-muted-foreground">
-                    {selectedLatLng.lat.toFixed(6)}, {selectedLatLng.lng.toFixed(6)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
-
-      {/* Selected story info panel */}
-      {selectedStory && (
-        <Card className="border-primary/20">
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge
-                    variant="secondary"
-                    className={`text-xs ${getCategoryColor(selectedStory.category)}`}
-                  >
-                    {getCategoryLabel(selectedStory.category)}
-                  </Badge>
-                  {userLocation && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {formatDistance(
-                        calculateDistance(
-                          userLocation.latitude,
-                          userLocation.longitude,
-                          selectedStory.latitude,
-                          selectedStory.longitude
-                        )
-                      )} away
-                    </span>
-                  )}
-                </div>
-                <h3 className="font-semibold text-sm truncate">{selectedStory.title}</h3>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                  {selectedStory.content}
-                </p>
-                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Eye className="h-3 w-3" />
-                    {Number(selectedStory.viewCount)}
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2 flex-shrink-0">
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    onStoryClick(selectedStory);
-                    setSelectedStory(null);
-                  }}
-                >
-                  Read Story
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedStory(null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

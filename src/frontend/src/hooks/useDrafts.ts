@@ -1,21 +1,21 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useActor } from './useActor';
-import { useInternetIdentity } from './useInternetIdentity';
-import type { StoryDraft, Category, Location, ExternalBlob } from '../backend';
-import { toast } from 'sonner';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import type { Category, ExternalBlob, StoryDraft } from "../backend";
+import { useActor } from "./useActor";
+import { useInternetIdentity } from "./useInternetIdentity";
 
 // Helper function to wait for actor with timeout
 async function waitForActor(
   getActor: () => any,
-  maxAttempts: number = 10,
-  delayMs: number = 300
+  maxAttempts = 10,
+  delayMs = 300,
 ): Promise<any> {
   for (let i = 0; i < maxAttempts; i++) {
     const actor = getActor();
     if (actor) return actor;
-    await new Promise(resolve => setTimeout(resolve, delayMs));
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
-  throw new Error('Backend connection not available. Please try again.');
+  throw new Error("Backend connection not available. Please try again.");
 }
 
 // List all drafts for the current user
@@ -24,13 +24,13 @@ export function useListDrafts() {
   const { identity, isInitializing } = useInternetIdentity();
 
   return useQuery<StoryDraft[]>({
-    queryKey: ['drafts'],
+    queryKey: ["drafts"],
     queryFn: async () => {
       if (!actor) return [];
       try {
         return await actor.listDrafts();
       } catch (error) {
-        console.error('Failed to fetch drafts:', error);
+        console.error("Failed to fetch drafts:", error);
         return [];
       }
     },
@@ -45,22 +45,23 @@ export function useGetDraft(draftId: string | null) {
   const { identity, isInitializing } = useInternetIdentity();
 
   return useQuery<StoryDraft | null>({
-    queryKey: ['draft', draftId],
+    queryKey: ["draft", draftId],
     queryFn: async () => {
       if (!actor || !draftId) return null;
       try {
         return await actor.getDraft(draftId);
       } catch (error) {
-        console.error('Failed to fetch draft:', error);
+        console.error("Failed to fetch draft:", error);
         return null;
       }
     },
-    enabled: !!actor && !actorFetching && !!identity && !isInitializing && !!draftId,
+    enabled:
+      !!actor && !actorFetching && !!identity && !isInitializing && !!draftId,
     retry: false,
   });
 }
 
-// Create a new draft
+// Create a new draft — uses latitude/longitude directly (not a nested location object)
 export function useCreateDraft() {
   const { actor } = useActor();
   const { identity } = useInternetIdentity();
@@ -72,12 +73,13 @@ export function useCreateDraft() {
       content: string;
       category: Category;
       locationName: string | null;
-      location: Location | null;
+      latitude: number | null;
+      longitude: number | null;
       isAnonymous: boolean;
       image: ExternalBlob | null;
     }) => {
       if (!identity) {
-        throw new Error('Please log in to save drafts');
+        throw new Error("Please log in to save drafts");
       }
 
       const readyActor = await waitForActor(() => actor);
@@ -86,23 +88,24 @@ export function useCreateDraft() {
         params.content,
         params.category,
         params.locationName,
-        params.location,
+        params.latitude,
+        params.longitude,
         params.isAnonymous,
-        params.image
+        params.image,
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['drafts'] });
-      toast.success('Draft saved successfully');
+      queryClient.invalidateQueries({ queryKey: ["drafts"] });
+      toast.success("Draft saved successfully");
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to save draft';
+      const message = error.message || "Failed to save draft";
       toast.error(message);
     },
   });
 }
 
-// Update an existing draft
+// Update an existing draft — uses latitude/longitude directly
 export function useUpdateDraft() {
   const { actor } = useActor();
   const { identity } = useInternetIdentity();
@@ -115,12 +118,13 @@ export function useUpdateDraft() {
       content: string;
       category: Category;
       locationName: string | null;
-      location: Location | null;
+      latitude: number | null;
+      longitude: number | null;
       isAnonymous: boolean;
       image: ExternalBlob | null;
     }) => {
       if (!identity) {
-        throw new Error('Please log in to update drafts');
+        throw new Error("Please log in to update drafts");
       }
 
       const readyActor = await waitForActor(() => actor);
@@ -130,18 +134,19 @@ export function useUpdateDraft() {
         params.content,
         params.category,
         params.locationName,
-        params.location,
+        params.latitude,
+        params.longitude,
         params.isAnonymous,
-        params.image
+        params.image,
       );
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['drafts'] });
-      queryClient.invalidateQueries({ queryKey: ['draft', variables.draftId] });
-      toast.success('Draft updated successfully');
+      queryClient.invalidateQueries({ queryKey: ["drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["draft", variables.draftId] });
+      toast.success("Draft updated successfully");
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to update draft';
+      const message = error.message || "Failed to update draft";
       toast.error(message);
     },
   });
@@ -156,19 +161,19 @@ export function useDeleteDraft() {
   return useMutation({
     mutationFn: async (draftId: string) => {
       if (!identity) {
-        throw new Error('Please log in to delete drafts');
+        throw new Error("Please log in to delete drafts");
       }
 
       const readyActor = await waitForActor(() => actor);
       return readyActor.deleteDraft(draftId);
     },
     onSuccess: (_, draftId) => {
-      queryClient.invalidateQueries({ queryKey: ['drafts'] });
-      queryClient.removeQueries({ queryKey: ['draft', draftId] });
-      toast.success('Draft deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ["drafts"] });
+      queryClient.removeQueries({ queryKey: ["draft", draftId] });
+      toast.success("Draft deleted successfully");
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to delete draft';
+      const message = error.message || "Failed to delete draft";
       toast.error(message);
     },
   });
@@ -183,28 +188,28 @@ export function usePublishDraft() {
   return useMutation({
     mutationFn: async (draftId: string) => {
       if (!identity) {
-        throw new Error('Please log in to publish drafts');
+        throw new Error("Please log in to publish drafts");
       }
 
       const readyActor = await waitForActor(() => actor);
       return readyActor.publishDraft(draftId);
     },
     onSuccess: (_, draftId) => {
-      // Invalidate drafts list
-      queryClient.invalidateQueries({ queryKey: ['drafts'] });
-      queryClient.removeQueries({ queryKey: ['draft', draftId] });
-      
-      // Invalidate story feeds so the newly published story appears
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      queryClient.invalidateQueries({ queryKey: ['postedStories'] });
-      
-      toast.success('Draft published successfully!');
+      queryClient.invalidateQueries({ queryKey: ["drafts"] });
+      queryClient.removeQueries({ queryKey: ["draft", draftId] });
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["postedStories"] });
+      toast.success("Draft published successfully!");
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to publish draft';
-      if (message.includes('must have a location')) {
-        toast.error('Please add a location before publishing');
+      const message = error.message || "Failed to publish draft";
+      if (
+        message.includes("must have a") ||
+        message.includes("latitude") ||
+        message.includes("longitude")
+      ) {
+        toast.error("Please add a location before publishing");
       } else {
         toast.error(message);
       }
@@ -224,7 +229,8 @@ export function useSaveDraft() {
       content: string;
       category: Category;
       locationName: string | null;
-      location: Location | null;
+      latitude: number | null;
+      longitude: number | null;
       isAnonymous: boolean;
       image: ExternalBlob | null;
     }) => {
@@ -235,7 +241,8 @@ export function useSaveDraft() {
           content: params.content,
           category: params.category,
           locationName: params.locationName,
-          location: params.location,
+          latitude: params.latitude,
+          longitude: params.longitude,
           isAnonymous: params.isAnonymous,
           image: params.image,
         });
@@ -245,7 +252,8 @@ export function useSaveDraft() {
           content: params.content,
           category: params.category,
           locationName: params.locationName,
-          location: params.location,
+          latitude: params.latitude,
+          longitude: params.longitude,
           isAnonymous: params.isAnonymous,
           image: params.image,
         });

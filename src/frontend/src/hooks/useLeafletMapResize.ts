@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 /**
  * Hook to invalidate Leaflet map size when container becomes visible or resizes.
@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react';
 export function useLeafletMapResize(
   mapInstance: any | null,
   isVisible: boolean,
-  dependencies: any[] = []
+  dependencies: any[] = [],
 ) {
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
@@ -20,11 +20,11 @@ export function useLeafletMapResize(
     }
 
     const invalidateMapSize = () => {
-      if (mapInstance && typeof mapInstance.invalidateSize === 'function') {
+      if (mapInstance && typeof mapInstance.invalidateSize === "function") {
         try {
           mapInstance.invalidateSize({ animate: false });
         } catch (error) {
-          console.warn('Error invalidating map size:', error);
+          console.warn("Error invalidating map size:", error);
         }
       }
     };
@@ -42,7 +42,7 @@ export function useLeafletMapResize(
         containerRef.current = container;
 
         // Use ResizeObserver to detect container size changes
-        if (typeof ResizeObserver !== 'undefined') {
+        if (typeof ResizeObserver !== "undefined") {
           resizeObserverRef.current = new ResizeObserver(() => {
             // Use requestAnimationFrame to batch resize operations
             requestAnimationFrame(() => {
@@ -53,21 +53,21 @@ export function useLeafletMapResize(
         }
       }
     } catch (error) {
-      console.warn('Error setting up resize observer:', error);
+      console.warn("Error setting up resize observer:", error);
     }
 
     // Multiple delayed invalidations to handle various animation scenarios
     const timeouts: NodeJS.Timeout[] = [];
-    
+
     // Immediate
     invalidateMapSize();
-    
+
     // After short delay (for CSS transitions)
     timeouts.push(setTimeout(invalidateMapSize, 100));
-    
+
     // After medium delay (for dialog animations)
     timeouts.push(setTimeout(invalidateMapSize, 250));
-    
+
     // After longer delay (for complex animations)
     timeouts.push(setTimeout(invalidateMapSize, 500));
 

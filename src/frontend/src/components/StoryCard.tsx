@@ -1,246 +1,247 @@
-import { useState, useEffect } from 'react';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  useLikeStory,
-  useUnlikeStory,
-  usePinStory,
-  useUnpinStory,
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
+import {
+  Eye,
+  Heart,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  MapPin as PinIcon,
+  Share2,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import type { Story } from "../backend";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import {
   useGetCallerUserProfile,
-} from '../hooks/useQueries';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Heart, MapPin as PinIcon, MessageCircle, Share2, Loader2, Eye } from 'lucide-react';
-import type { Story } from '../backend';
-import { calculateDistance, formatLocationWithDistance } from '../lib/utils';
-import { getCategoryLabel, getCategoryColor } from '../lib/categories';
-import { useReverseGeocodedPlace } from '../hooks/useReverseGeocodedPlace';
-import { toast } from 'sonner';
+  useLikeStory,
+  usePinStory,
+  useUnlikeStory,
+  useUnpinStory,
+} from "../hooks/useQueries";
+import { getCategoryColor, getCategoryLabel } from "../lib/categories";
+import { calculateDistance, formatDistance } from "../lib/utils";
 
 interface StoryCardProps {
   story: Story;
   userLocation: { latitude: number; longitude: number } | null;
+  teleportedLocation?: { latitude: number; longitude: number } | null;
   onClick: () => void;
 }
 
-export default function StoryCard({ story, userLocation, onClick }: StoryCardProps) {
+export default function StoryCard({
+  story,
+  userLocation,
+  teleportedLocation,
+  onClick,
+}: StoryCardProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const { identity, isInitializing } = useInternetIdentity();
-  const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
+  const { data: userProfile, isLoading: _profileLoading } =
+    useGetCallerUserProfile();
   const likeMutation = useLikeStory();
   const unlikeMutation = useUnlikeStory();
   const pinMutation = usePinStory();
   const unpinMutation = useUnpinStory();
 
-  // Fetch place name for story location
-  const { placeName, isLoading: placeLoading } = useReverseGeocodedPlace(
-    story.location.latitude,
-    story.location.longitude
-  );
-
   useEffect(() => {
     if (story.image) {
       setImageUrl(story.image.getDirectURL());
     } else {
-      // Clear image URL when story has no image to prevent stale UI
       setImageUrl(null);
     }
   }, [story.image]);
 
-  const distance = userLocation
-    ? calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        story.location.latitude,
-        story.location.longitude
-      )
-    : null;
+  // Determine base location for distance calculation:
+  // teleportedLocation takes priority over userLocation.
+  // Distance is computed against story.latitude / story.longitude (the story's pinned coordinates).
+  // The uploader's location is NEVER used here.
+  const baseLocation = teleportedLocation ?? userLocation;
 
-  const preview = story.content.length > 120 ? story.content.slice(0, 120) + '...' : story.content;
+  const distance =
+    baseLocation != null &&
+    typeof story.latitude === "number" &&
+    typeof story.longitude === "number"
+      ? calculateDistance(
+          baseLocation.latitude,
+          baseLocation.longitude,
+          story.latitude,
+          story.longitude,
+        )
+      : null;
+
+  const distanceLabel = distance !== null ? formatDistance(distance) : null;
+
+  const preview =
+    story.content.length > 120
+      ? `${story.content.slice(0, 120)}...`
+      : story.content;
 
   const isAuthenticated = !!identity && !isInitializing;
   const hasLiked = userProfile?.likedStories.includes(story.id) || false;
   const hasPinned = userProfile?.pinnedStories.includes(story.id) || false;
-  const isInteractionDisabled = !isAuthenticated || profileLoading;
-
-  const isLikeLoading = likeMutation.isPending || unlikeMutation.isPending;
-  const isPinLoading = pinMutation.isPending || unpinMutation.isPending;
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated) {
-      toast.error('Please log in to like stories');
+      toast.error("Please log in to like stories");
       return;
     }
-    
     try {
       if (hasLiked) {
         await unlikeMutation.mutateAsync(story.id);
       } else {
         await likeMutation.mutateAsync(story.id);
       }
-    } catch (error) {
-      // Error already handled by mutation
+    } catch {
+      // Error handled by mutation
     }
   };
 
   const handlePin = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated) {
-      toast.error('Please log in to pin stories');
+      toast.error("Please log in to pin stories");
       return;
     }
-    
     try {
       if (hasPinned) {
         await unpinMutation.mutateAsync(story.id);
       } else {
         await pinMutation.mutateAsync(story.id);
       }
-    } catch (error) {
-      // Error already handled by mutation
+    } catch {
+      // Error handled by mutation
     }
-  };
-
-  const handleComment = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isAuthenticated) {
-      toast.error('Please log in to comment');
-      return;
-    }
-    onClick();
   };
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const shareUrl = window.location.origin + '/?story=' + story.id;
-    const shareData = {
-      title: story.title,
-      text: story.content.substring(0, 100) + (story.content.length > 100 ? '...' : ''),
-      url: shareUrl,
-    };
-
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
-        toast.success('Story shared successfully!');
-        return;
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          console.error('Share failed:', error);
-        }
-      }
-    }
-
     try {
-      await navigator.clipboard.writeText(shareUrl);
-      toast.success('Link copied to clipboard!');
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Link copied to clipboard!");
     } catch {
-      toast.error('Failed to copy link');
+      toast.error("Failed to copy link");
     }
   };
 
-  // Build location display string
-  const locationText = formatLocationWithDistance(distance, placeName);
+  const isLikeLoading = likeMutation.isPending || unlikeMutation.isPending;
+  const isPinLoading = pinMutation.isPending || unpinMutation.isPending;
 
   return (
     <Card
-      className="cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col"
+      className="cursor-pointer hover:shadow-md transition-shadow duration-200 overflow-hidden"
       onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick();
-        }
-      }}
     >
       {imageUrl && (
-        <div className="w-full h-48 overflow-hidden rounded-t-lg">
+        <div className="w-full">
           <img
             src={imageUrl}
             alt={story.title}
-            className="w-full h-full object-cover"
+            className="w-full h-auto block object-cover max-h-48"
+            onError={() => setImageUrl(null)}
           />
         </div>
       )}
-      <CardHeader className="space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-lg line-clamp-2">{story.title}</h3>
-          <Badge variant="secondary" className={getCategoryColor(story.category)}>
+
+      <CardHeader className="pb-2">
+        {/* Location name pill */}
+        {story.locationName && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+            <MapPin className="w-3 h-3 shrink-0" />
+            <span className="truncate">{story.locationName}</span>
+          </div>
+        )}
+        <h3 className="font-semibold text-sm leading-snug line-clamp-2">
+          {story.title}
+        </h3>
+      </CardHeader>
+
+      <CardContent className="pb-2">
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          {preview}
+        </p>
+
+        <div className="flex items-center gap-2 mt-2">
+          <Badge
+            variant="secondary"
+            className={`text-xs ${getCategoryColor(story.category)}`}
+          >
             {getCategoryLabel(story.category)}
           </Badge>
+          {distanceLabel && (
+            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+              <MapPin className="w-3 h-3" />
+              {distanceLabel}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground flex items-center gap-0.5 ml-auto">
+            <Eye className="w-3 h-3" />
+            {Number(story.viewCount)}
+          </span>
         </div>
-      </CardHeader>
-      <CardContent className="flex-1">
-        <p className="text-sm text-muted-foreground line-clamp-3">{preview}</p>
       </CardContent>
-      <CardFooter className="flex flex-col gap-3 pt-4">
-        <div className="flex items-center gap-2 w-full">
+
+      <CardFooter className="pt-0">
+        <div className="flex items-center gap-1 w-full">
           <Button
-            variant={hasLiked ? 'default' : 'outline'}
+            variant="ghost"
             size="sm"
+            className={`gap-1 h-8 px-2 text-xs ${hasLiked ? "text-rose-500" : ""}`}
             onClick={handleLike}
-            disabled={isLikeLoading || isInteractionDisabled}
-            className="gap-1.5 flex-1"
+            disabled={isLikeLoading}
           >
             {isLikeLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <Heart className={`h-4 w-4 ${hasLiked ? 'fill-current' : ''}`} />
+              <Heart
+                className={`w-3.5 h-3.5 ${hasLiked ? "fill-current" : ""}`}
+              />
             )}
-            <span className="text-xs">{Number(story.likeCount)}</span>
+            <span>{Number(story.likeCount)}</span>
           </Button>
+
           <Button
-            variant={hasPinned ? 'default' : 'outline'}
+            variant="ghost"
             size="sm"
+            className={`gap-1 h-8 px-2 text-xs ${hasPinned ? "text-amber-500" : ""}`}
             onClick={handlePin}
-            disabled={isPinLoading || isInteractionDisabled}
-            className="gap-1.5 flex-1"
+            disabled={isPinLoading}
           >
             {isPinLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <PinIcon className={`h-4 w-4 ${hasPinned ? 'fill-current' : ''}`} />
+              <PinIcon
+                className={`w-3.5 h-3.5 ${hasPinned ? "fill-current" : ""}`}
+              />
             )}
-            <span className="text-xs">{Number(story.pinCount)}</span>
+            <span>{Number(story.pinCount)}</span>
           </Button>
+
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={handleComment}
-            disabled={isInteractionDisabled}
-            className="gap-1.5 flex-1"
+            className="gap-1 h-8 px-2 text-xs"
+            onClick={(e) => e.stopPropagation()}
           >
-            <MessageCircle className="h-4 w-4" />
+            <MessageCircle className="w-3.5 h-3.5" />
           </Button>
+
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
+            className="gap-1 h-8 px-2 text-xs ml-auto"
             onClick={handleShare}
-            className="gap-1.5 flex-1"
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="w-3.5 h-3.5" />
           </Button>
-        </div>
-        <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-          {locationText && (
-            <div className="flex items-center gap-1 flex-1 min-w-0">
-              <svg className="h-3 w-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span className="truncate">{locationText}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Eye className="h-3 w-3" />
-            <span>{Number(story.viewCount)}</span>
-          </div>
         </div>
       </CardFooter>
     </Card>

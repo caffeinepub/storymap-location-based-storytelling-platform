@@ -9,7 +9,7 @@
  * @returns The environment variable value or undefined if not set
  */
 export function getEnv(key: keyof ImportMetaEnv): string | undefined {
-    return import.meta.env[key];
+  return import.meta.env[key];
 }
 
 /**
@@ -18,6 +18,9 @@ export function getEnv(key: keyof ImportMetaEnv): string | undefined {
  * @param fallback - The fallback value if the environment variable is not set
  * @returns The environment variable value or the fallback
  */
-export function getEnvWithFallback(key: keyof ImportMetaEnv, fallback: string): string {
-    return import.meta.env[key] ?? fallback;
+export function getEnvWithFallback(
+  key: keyof ImportMetaEnv,
+  fallback: string,
+): string {
+  return import.meta.env[key] ?? fallback;
 }

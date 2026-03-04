@@ -16,8 +16,8 @@ interface NominatimResponse {
 }
 
 // Round coordinates to reduce cache key variations
-function roundCoordinate(coord: number, precision: number = 3): number {
-  const factor = Math.pow(10, precision);
+function roundCoordinate(coord: number, precision = 3): number {
+  const factor = 10 ** precision;
   return Math.round(coord * factor) / factor;
 }
 
@@ -42,7 +42,7 @@ function getCachedPlace(key: string): string | null {
       memoryCache.set(key, cached);
       return cached;
     }
-  } catch (error) {
+  } catch (_error) {
     // localStorage might be unavailable
   }
   return null;
@@ -55,7 +55,7 @@ function setCachedPlace(key: string, placeName: string): void {
   // Set in localStorage
   try {
     localStorage.setItem(`geocode_${key}`, placeName);
-  } catch (error) {
+  } catch (_error) {
     // localStorage might be full or unavailable
   }
 }
@@ -65,9 +65,14 @@ function extractPlaceName(data: NominatimResponse): string {
   const addr = data.address;
   if (addr) {
     // Prefer city/town/village names
-    const place = addr.city || addr.town || addr.village || addr.suburb || addr.neighbourhood;
+    const place =
+      addr.city ||
+      addr.town ||
+      addr.village ||
+      addr.suburb ||
+      addr.neighbourhood;
     if (place) return place;
-    
+
     // Fall back to county or state
     if (addr.county) return addr.county;
     if (addr.state) return addr.state;
@@ -76,17 +81,17 @@ function extractPlaceName(data: NominatimResponse): string {
   // Fall back to display_name, but try to shorten it
   if (data.display_name) {
     // Take first 2-3 components of the display name
-    const parts = data.display_name.split(',').slice(0, 3);
-    return parts.join(',').trim();
+    const parts = data.display_name.split(",").slice(0, 3);
+    return parts.join(",").trim();
   }
 
-  return 'Unknown location';
+  return "Unknown location";
 }
 
 export async function reverseGeocode(
   lat: number,
   lon: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<string> {
   const cacheKey = getCacheKey(lat, lon);
 
@@ -103,8 +108,8 @@ export async function reverseGeocode(
     const response = await fetch(url, {
       signal,
       headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'StoryMap/1.0', // Nominatim requires a User-Agent
+        Accept: "application/json",
+        "User-Agent": "StoryMap/1.0", // Nominatim requires a User-Agent
       },
     });
 
@@ -120,10 +125,10 @@ export async function reverseGeocode(
 
     return placeName;
   } catch (error: any) {
-    if (error.name === 'AbortError') {
+    if (error.name === "AbortError") {
       throw error;
     }
     // Return a fallback instead of throwing
-    return 'Unknown location';
+    return "Unknown location";
   }
 }

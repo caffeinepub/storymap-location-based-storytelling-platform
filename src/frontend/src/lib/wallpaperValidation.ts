@@ -4,36 +4,38 @@ const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
 ];
 
-export type ValidationErrorCode = 
-  | 'FILE_TOO_LARGE'
-  | 'INVALID_FILE_TYPE'
-  | 'NO_FILE';
+export type ValidationErrorCode =
+  | "FILE_TOO_LARGE"
+  | "INVALID_FILE_TYPE"
+  | "NO_FILE";
 
 export interface ValidationError {
   code: ValidationErrorCode;
   message: string;
 }
 
-export type ValidationResult = 
+export type ValidationResult =
   | { ok: true }
   | { ok: false; error: ValidationError };
 
 /**
  * Validates a wallpaper file for size and type constraints
  */
-export function validateWallpaperFile(file: File | null | undefined): ValidationResult {
+export function validateWallpaperFile(
+  file: File | null | undefined,
+): ValidationResult {
   if (!file) {
     return {
       ok: false,
       error: {
-        code: 'NO_FILE',
-        message: 'No file selected',
+        code: "NO_FILE",
+        message: "No file selected",
       },
     };
   }
@@ -43,7 +45,7 @@ export function validateWallpaperFile(file: File | null | undefined): Validation
     return {
       ok: false,
       error: {
-        code: 'FILE_TOO_LARGE',
+        code: "FILE_TOO_LARGE",
         message: `File size exceeds ${MAX_FILE_SIZE_MB}MB limit`,
       },
     };
@@ -54,8 +56,8 @@ export function validateWallpaperFile(file: File | null | undefined): Validation
     return {
       ok: false,
       error: {
-        code: 'INVALID_FILE_TYPE',
-        message: 'File must be JPEG, PNG, WebP, or GIF',
+        code: "INVALID_FILE_TYPE",
+        message: "File must be JPEG, PNG, WebP, or GIF",
       },
     };
   }
@@ -74,7 +76,7 @@ export function getMaxFileSizeLabel(): string {
  * Get allowed file types as a string
  */
 export function getAllowedTypesLabel(): string {
-  return 'JPEG, PNG, WebP, GIF';
+  return "JPEG, PNG, WebP, GIF";
 }
 
 export default {

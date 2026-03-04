@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { MapPin, Check, X, AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import MapView from './MapView';
+} from "@/components/ui/dialog";
+import { AlertCircle, Check, MapPin, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import MapView from "./MapView";
 
 interface LocationPickerDialogProps {
   open: boolean;
@@ -27,20 +27,28 @@ export default function LocationPickerDialog({
   onConfirm,
   onCancel,
 }: LocationPickerDialogProps) {
-  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(
-    initialLocation || null
+  const [selectedLocation, setSelectedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(initialLocation || null);
+  const [centerCoordinate, setCenterCoordinate] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [_geolocationStatus, setGeolocationStatus] = useState<
+    "idle" | "requesting" | "granted" | "denied"
+  >("idle");
+  const [geolocationMessage, setGeolocationMessage] = useState<string | null>(
+    null,
   );
-  const [centerCoordinate, setCenterCoordinate] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [geolocationStatus, setGeolocationStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle');
-  const [geolocationMessage, setGeolocationMessage] = useState<string | null>(null);
 
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
       setSelectedLocation(initialLocation || null);
-      setGeolocationStatus('idle');
+      setGeolocationStatus("idle");
       setGeolocationMessage(null);
-      
+
       // Determine initial center deterministically
       if (initialLocation) {
         // If we have an initial location, center on it
@@ -57,15 +65,17 @@ export default function LocationPickerDialog({
 
   const requestGeolocation = () => {
     if (!navigator.geolocation) {
-      setGeolocationStatus('denied');
-      setGeolocationMessage('Geolocation is not supported by your browser. Please click on the map to select a location.');
+      setGeolocationStatus("denied");
+      setGeolocationMessage(
+        "Geolocation is not supported by your browser. Please click on the map to select a location.",
+      );
       // Use default fallback center
       setCenterCoordinate({ latitude: 40.7128, longitude: -74.006 });
       return;
     }
 
-    setGeolocationStatus('requesting');
-    setGeolocationMessage('Requesting your location...');
+    setGeolocationStatus("requesting");
+    setGeolocationMessage("Requesting your location...");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -74,22 +84,26 @@ export default function LocationPickerDialog({
           longitude: position.coords.longitude,
         };
         setCenterCoordinate(coords);
-        setGeolocationStatus('granted');
+        setGeolocationStatus("granted");
         setGeolocationMessage(null);
       },
       (error) => {
-        console.error('Geolocation error:', error);
-        setGeolocationStatus('denied');
-        
-        let message = 'Location access is not available. Please click on the map to select a location.';
+        console.error("Geolocation error:", error);
+        setGeolocationStatus("denied");
+
+        let message =
+          "Location access is not available. Please click on the map to select a location.";
         if (error.code === error.PERMISSION_DENIED) {
-          message = 'Location access was denied. Please click on the map to select a location.';
+          message =
+            "Location access was denied. Please click on the map to select a location.";
         } else if (error.code === error.POSITION_UNAVAILABLE) {
-          message = 'Location information is unavailable. Please click on the map to select a location.';
+          message =
+            "Location information is unavailable. Please click on the map to select a location.";
         } else if (error.code === error.TIMEOUT) {
-          message = 'Location request timed out. Please click on the map to select a location.';
+          message =
+            "Location request timed out. Please click on the map to select a location.";
         }
-        
+
         setGeolocationMessage(message);
         // Use default fallback center
         setCenterCoordinate({ latitude: 40.7128, longitude: -74.006 });
@@ -98,7 +112,7 @@ export default function LocationPickerDialog({
         enableHighAccuracy: false,
         timeout: 5000,
         maximumAge: 0,
-      }
+      },
     );
   };
 
@@ -131,7 +145,8 @@ export default function LocationPickerDialog({
             Pick Location on Map
           </DialogTitle>
           <DialogDescription>
-            Click anywhere on the map to set your story's location. You can also search for a place using the search box.
+            Click anywhere on the map to set your story's location. You can also
+            search for a place using the search box.
           </DialogDescription>
         </DialogHeader>
 
@@ -161,7 +176,8 @@ export default function LocationPickerDialog({
             <MapPin className="h-4 w-4 text-green-600" />
             <span className="font-medium">Selected:</span>
             <span className="text-muted-foreground">
-              {selectedLocation.latitude.toFixed(6)}, {selectedLocation.longitude.toFixed(6)}
+              {selectedLocation.latitude.toFixed(6)},{" "}
+              {selectedLocation.longitude.toFixed(6)}
             </span>
           </div>
         )}

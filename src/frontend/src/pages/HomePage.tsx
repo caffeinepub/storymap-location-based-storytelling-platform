@@ -1,413 +1,383 @@
-import { useState, useEffect } from 'react';
-import { useSearchStories, useGetCallerUserProfile, useMarkIntroSeen } from '../hooks/useQueries';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useGeolocationPermission } from '../hooks/useGeolocationPermission';
-import StoryFeed from '../components/StoryFeed';
-import MapView from '../components/MapView';
-import CreateStoryFAB from '../components/CreateStoryFAB';
-import CreateStoryDialog from '../components/CreateStoryDialog';
-import StoryDetailDialog from '../components/StoryDetailDialog';
-import FilterBar from '../components/FilterBar';
-import DistanceKmSlider from '../components/DistanceKmSlider';
-import SortControl from '../components/SortControl';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { List, Map as MapIcon, MapPin, X, Info, Zap } from 'lucide-react';
-import type { Category, Story } from '../backend';
-import type { SortOption } from '../lib/storySorting';
-import { LOCATION_FILTER_RADIUS_KM } from '../lib/locationFilter';
-import { getLocationCopy } from '../lib/locationPermissionCopy';
-import { toast } from 'sonner';
+import {
+  ArrowLeft,
+  LayoutGrid,
+  Map as MapIcon,
+  MapPin,
+  Navigation,
+  X,
+  Zap,
+} from "lucide-react";
+import React, { useState } from "react";
+import type { Category, Story } from "../backend";
+import CreateStoryDialog from "../components/CreateStoryDialog";
+import CreateStoryFAB from "../components/CreateStoryFAB";
+import DistanceKmSlider from "../components/DistanceKmSlider";
+import FilterBar from "../components/FilterBar";
+import MapView from "../components/MapView";
+import SortControl from "../components/SortControl";
+import StoryDetailDialog from "../components/StoryDetailDialog";
+import StoryFeed from "../components/StoryFeed";
+import { Button } from "../components/ui/button";
+import { useForegroundLocationTracking } from "../hooks/useForegroundLocationTracking";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useGetCallerUserProfile, useSearchStories } from "../hooks/useQueries";
+import {
+  DEFAULT_PROXIMITY_RADIUS_KM,
+  isStoryWithinProximity,
+} from "../lib/locationFilter";
+import { type LatLng, type SortOption, sortStories } from "../lib/storySorting";
 
-export default function HomePage() {
-  const [view, setView] = useState<'feed' | 'map'>('feed');
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+// ── Random teleport destinations ──
+const TELEPORT_DESTINATIONS = [
+  { label: "Tokyo, Japan", latitude: 35.6762, longitude: 139.6503 },
+  { label: "New York, USA", latitude: 40.7128, longitude: -74.006 },
+  { label: "London, UK", latitude: 51.5074, longitude: -0.1278 },
+  { label: "Paris, France", latitude: 48.8566, longitude: 2.3522 },
+  { label: "Mumbai, India", latitude: 19.076, longitude: 72.8777 },
+  { label: "Dubai, UAE", latitude: 25.2048, longitude: 55.2708 },
+  { label: "Sydney, Australia", latitude: -33.8688, longitude: 151.2093 },
+  { label: "São Paulo, Brazil", latitude: -23.5505, longitude: -46.6333 },
+  { label: "Cairo, Egypt", latitude: 30.0444, longitude: 31.2357 },
+  { label: "Istanbul, Turkey", latitude: 41.0082, longitude: 28.9784 },
+  { label: "Lagos, Nigeria", latitude: 6.5244, longitude: 3.3792 },
+  { label: "Mexico City, Mexico", latitude: 19.4326, longitude: -99.1332 },
+  { label: "Seoul, South Korea", latitude: 37.5665, longitude: 126.978 },
+  { label: "Bangkok, Thailand", latitude: 13.7563, longitude: 100.5018 },
+  { label: "Berlin, Germany", latitude: 52.52, longitude: 13.405 },
+  { label: "Buenos Aires, Argentina", latitude: -34.6037, longitude: -58.3816 },
+  { label: "Nairobi, Kenya", latitude: -1.2921, longitude: 36.8219 },
+  { label: "Karachi, Pakistan", latitude: 24.8607, longitude: 67.0011 },
+  { label: "Jakarta, Indonesia", latitude: -6.2088, longitude: 106.8456 },
+  { label: "Rome, Italy", latitude: 41.9028, longitude: 12.4964 },
+];
+
+function getRandomDestination() {
+  return TELEPORT_DESTINATIONS[
+    Math.floor(Math.random() * TELEPORT_DESTINATIONS.length)
+  ];
+}
+
+// Teleport location uses the same { latitude, longitude } shape as the rest of the app
+interface TeleportLocation {
+  latitude: number;
+  longitude: number;
+  label?: string;
+}
+
+interface HomePageProps {
+  teleportedLocation?: TeleportLocation | null;
+  onTeleportLocation?: (loc: TeleportLocation | null) => void;
+}
+
+type ViewMode = "feed" | "map";
+
+export default function HomePage({
+  teleportedLocation,
+  onTeleportLocation,
+}: HomePageProps) {
+  const { identity: _identity } = useInternetIdentity();
+  const { data: _userProfile } = useGetCallerUserProfile();
+
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
+    null,
+  );
+  const [distanceKm, setDistanceKm] = useState<number>(
+    DEFAULT_PROXIMITY_RADIUS_KM,
+  );
+  const [sortOption, setSortOption] = useState<SortOption>("newest");
+  const [viewMode, setViewMode] = useState<ViewMode>("feed");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [hasCheckedFirstTime, setHasCheckedFirstTime] = useState(false);
-  const [mapSelectedLocation, setMapSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [feedTeleportLocation, setFeedTeleportLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [hasShownDenialToast, setHasShownDenialToast] = useState(false);
-  const [radiusKm, setRadiusKm] = useState(LOCATION_FILTER_RADIUS_KM);
-  const [sortOption, setSortOption] = useState<SortOption>('newest');
-  const [isTeleporting, setIsTeleporting] = useState(false);
 
-  const { identity } = useInternetIdentity();
-  const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
-  const markIntroSeenMutation = useMarkIntroSeen();
+  // Foreground location tracking — returns { latitude, longitude }
+  const { location: currentLocation } = useForegroundLocationTracking();
 
-  const {
-    permissionState,
-    location: userLocation,
-    isRequesting,
-    lastErrorReason,
-    diagnostics,
-    requestLocation,
-    autoFetchIfGranted,
-  } = useGeolocationPermission();
+  // Determine the base location for filtering:
+  // - If teleportedLocation is set → use it
+  // - Otherwise → use user's current geolocation
+  const baseLat =
+    teleportedLocation?.latitude ?? currentLocation?.latitude ?? null;
+  const baseLng =
+    teleportedLocation?.longitude ?? currentLocation?.longitude ?? null;
 
-  // Auto-fetch location if already granted (no prompt)
-  useEffect(() => {
-    autoFetchIfGranted();
-  }, [autoFetchIfGranted]);
+  // Build search params for backend query — always pass the full object shape
+  const searchCoordinates: LatLng | null =
+    baseLat != null && baseLng != null
+      ? { latitude: baseLat, longitude: baseLng }
+      : null;
 
-  // Show denial toast only once per session when user explicitly denies
-  useEffect(() => {
-    if (permissionState === 'denied' && lastErrorReason && !hasShownDenialToast) {
-      setHasShownDenialToast(true);
-      // Don't show toast, rely on stable UI messaging instead
-    }
-  }, [permissionState, lastErrorReason, hasShownDenialToast]);
-
-  // Auto-open create dialog for first-time users
-  useEffect(() => {
-    if (
-      identity &&
-      !profileLoading &&
-      userProfile &&
-      !hasCheckedFirstTime &&
-      userProfile.storiesPosted === BigInt(0) &&
-      !userProfile.seenIntro
-    ) {
-      setHasCheckedFirstTime(true);
-      setCreateDialogOpen(true);
-      markIntroSeenMutation.mutate();
-    }
-  }, [identity, profileLoading, userProfile, hasCheckedFirstTime, markIntroSeenMutation]);
-
-  // Determine the active distance filter center
-  // Priority: feed-teleport location > map-selected location > user location > none
-  const activeFilterCenter = feedTeleportLocation || mapSelectedLocation || userLocation || null;
-  const filterCenterSource = feedTeleportLocation
-    ? 'feed-teleport'
-    : mapSelectedLocation 
-    ? 'map-selection' 
-    : userLocation 
-    ? 'user-location' 
-    : 'none';
-
-  // Determine nearest origin for sorting (same as filter center)
-  const nearestOrigin = activeFilterCenter;
-  const isNearestAvailable = !!nearestOrigin;
-
-  // Auto-switch away from "nearest" if it becomes unavailable
-  useEffect(() => {
-    if (sortOption === 'nearest' && !isNearestAvailable) {
-      setSortOption('newest');
-    }
-  }, [sortOption, isNearestAvailable]);
-
-  // Use backend-powered search with sort option
-  const { data: stories = [], isLoading } = useSearchStories({
+  const { data: rawStories = [], isLoading } = useSearchStories({
     keywords: null,
     category: selectedCategory,
-    radius: activeFilterCenter ? radiusKm : null,
-    coordinates: activeFilterCenter,
+    radius: searchCoordinates ? distanceKm : null,
+    coordinates: searchCoordinates,
     sortOption,
-    nearestOrigin,
+    nearestOrigin: searchCoordinates,
   });
 
-  // Fetch all stories for teleport destination selection (unfiltered)
-  const { data: allStories = [] } = useSearchStories({
-    keywords: null,
-    category: null,
-    radius: null,
-    coordinates: null,
-    sortOption: 'newest',
-    nearestOrigin: null,
-  });
+  // Client-side distance filter: compare base location against story.latitude/story.longitude
+  const filteredStories = React.useMemo(() => {
+    if (baseLat == null || baseLng == null) return rawStories;
 
-  // Unified location request handler - single source of truth
-  const handleRequestLocation = async () => {
-    try {
-      await requestLocation();
-    } catch (error) {
-      // Error already handled by hook with diagnostics
-      // Don't show additional toast to avoid duplication
-    }
-  };
-
-  const handleCreateStoryClick = async () => {
-    // If location is not available, request it from user gesture
-    if (!userLocation && permissionState !== 'denied' && permissionState !== 'unsupported' && permissionState !== 'insecure') {
-      try {
-        await requestLocation();
-        // Success feedback will be shown by dialog if needed
-      } catch (error) {
-        // Continue to open dialog even if location fails
-        // Dialog will handle the denied/manual entry flow
+    return rawStories.filter((story: Story) => {
+      if (
+        typeof story.latitude !== "number" ||
+        typeof story.longitude !== "number"
+      ) {
+        return true;
       }
-    }
-    setCreateDialogOpen(true);
-  };
+      return isStoryWithinProximity(
+        baseLat,
+        baseLng,
+        story.latitude,
+        story.longitude,
+        distanceKm,
+      );
+    });
+  }, [rawStories, baseLat, baseLng, distanceKm]);
 
-  const handleMapBackgroundClick = (latitude: number, longitude: number) => {
-    setMapSelectedLocation({ latitude, longitude });
-    // Clear feed teleport when user manually selects on map
-    setFeedTeleportLocation(null);
-    // Keep user in map view - don't auto-switch to feed
-  };
+  // Client-side sort
+  const sortedStories = React.useMemo(() => {
+    const locationForSort: LatLng | null =
+      baseLat != null && baseLng != null
+        ? { latitude: baseLat, longitude: baseLng }
+        : null;
+    return sortStories(filteredStories, sortOption, locationForSort);
+  }, [filteredStories, sortOption, baseLat, baseLng]);
 
-  const clearLocationFilter = () => {
-    setMapSelectedLocation(null);
-    setFeedTeleportLocation(null);
-  };
-
-  const handleStoryDeleted = () => {
-    setSelectedStory(null);
-  };
+  const locationAvailable = baseLat != null && baseLng != null;
 
   const handleTeleport = () => {
-    setIsTeleporting(true);
-    
-    try {
-      // Get available story locations
-      if (allStories.length === 0) {
-        toast.error('No stories available to teleport to');
-        return;
-      }
-
-      // Extract unique locations from stories
-      const storyLocations = allStories.map(story => story.location);
-      
-      // Filter out current location if possible
-      let availableLocations = storyLocations;
-      if (activeFilterCenter) {
-        const currentLat = activeFilterCenter.latitude;
-        const currentLon = activeFilterCenter.longitude;
-        const differentLocations = storyLocations.filter(
-          loc => Math.abs(loc.latitude - currentLat) > 0.001 || Math.abs(loc.longitude - currentLon) > 0.001
-        );
-        // Use different locations if available, otherwise use all
-        if (differentLocations.length > 0) {
-          availableLocations = differentLocations;
-        }
-      }
-
-      // Pick a random location
-      const randomIndex = Math.floor(Math.random() * availableLocations.length);
-      const randomLocation = availableLocations[randomIndex];
-
-      // Set the teleport location and clear map selection
-      setFeedTeleportLocation(randomLocation);
-      setMapSelectedLocation(null);
-      
-      toast.success('Teleported to a new location!');
-    } catch (error) {
-      toast.error('Failed to teleport');
-    } finally {
-      setIsTeleporting(false);
-    }
+    const dest = getRandomDestination();
+    onTeleportLocation?.({
+      latitude: dest.latitude,
+      longitude: dest.longitude,
+      label: dest.label,
+    });
   };
 
-  const showLocationPrompt = permissionState === 'prompt' || permissionState === 'unknown';
-  const showLocationDenied = permissionState === 'denied';
-  const showLocationInsecure = permissionState === 'insecure';
-  const showLocationUnsupported = permissionState === 'unsupported';
-  const locationCopy = getLocationCopy(permissionState);
-  
-  // Helper text for distance slider - always show meaningful message
-  const getDistanceSliderHelperText = () => {
-    if (!activeFilterCenter) {
-      return 'Enable location or select a point on the map to filter by distance';
-    }
-    if (feedTeleportLocation) {
-      return `Filtering around teleported location`;
-    }
-    if (mapSelectedLocation) {
-      return `Filtering around selected map location`;
-    }
-    if (userLocation) {
-      return `Filtering around your current location`;
-    }
-    return '';
-  };
+  // ── Teleportation view: only show the stories feed ──
+  if (teleportedLocation) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        {/* Teleport header bar */}
+        <div className="flex items-center gap-3 px-4 lg:px-6 py-3 border-b border-border bg-card">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={() => onTeleportLocation?.(null)}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-3 py-1.5 text-sm text-primary min-w-0">
+            <Navigation className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">
+              {teleportedLocation.label
+                ? `Teleported: ${teleportedLocation.label}`
+                : `Teleported (${teleportedLocation.latitude.toFixed(3)}, ${teleportedLocation.longitude.toFixed(3)})`}
+            </span>
+            <button
+              type="button"
+              onClick={() => onTeleportLocation?.(null)}
+              className="ml-1 hover:text-destructive transition-colors shrink-0"
+              aria-label="Clear teleport location"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
 
+        {/* Stories feed only */}
+        <div className="flex-1 px-4 lg:px-6 py-5 overflow-y-auto">
+          <StoryFeed
+            stories={sortedStories}
+            isLoading={isLoading}
+            userLocation={currentLocation}
+            teleportedLocation={teleportedLocation}
+            emptyMessage="No stories found near this location."
+          />
+        </div>
+
+        {/* Create story FAB */}
+        <CreateStoryFAB onClick={() => setIsCreateOpen(true)} />
+
+        {/* Create story dialog */}
+        <CreateStoryDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      </div>
+    );
+  }
+
+  // ── Normal home view ──
   return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-8rem)] gap-0">
-      {/* Sidebar - scrollable on overflow */}
-      <aside className="w-full lg:w-80 lg:h-[calc(100vh-8rem)] lg:sticky lg:top-0 border-b lg:border-b-0 lg:border-r bg-background">
-        <div className="h-full overflow-y-auto">
-          <div className="p-4 space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-xl font-bold">Filters</h2>
-              {(showLocationPrompt || showLocationDenied) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRequestLocation}
-                  disabled={isRequesting}
-                  className="gap-2"
-                >
-                  <MapPin className="h-4 w-4" />
-                  {isRequesting ? 'Requesting...' : 'Enable Location'}
-                </Button>
-              )}
-            </div>
+    <div className="flex min-h-0 flex-1">
+      {/* ── Left Sidebar ── */}
+      <aside className="hidden lg:flex flex-col gap-5 w-72 xl:w-80 shrink-0 border-r border-border bg-card px-5 py-6 overflow-y-auto">
+        {/* Category Filters */}
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Category
+          </h3>
+          <FilterBar
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+          />
+        </div>
 
-            {showLocationDenied && (
-              <Alert variant="destructive">
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm space-y-2">
-                  <p className="font-medium">{locationCopy.title}</p>
-                  <p>{locationCopy.description}</p>
-                  {diagnostics?.userFriendlyDetail && (
-                    <p className="text-xs opacity-75">
-                      Details: {diagnostics.userFriendlyDetail}
-                    </p>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
+        <div className="border-t border-border" />
 
-            {showLocationInsecure && (
-              <Alert variant="destructive">
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm space-y-2">
-                  <p className="font-medium">{locationCopy.title}</p>
-                  <p>{locationCopy.description}</p>
-                </AlertDescription>
-              </Alert>
-            )}
+        {/* Distance Slider */}
+        <div>
+          <DistanceKmSlider
+            value={distanceKm}
+            onChange={setDistanceKm}
+            inactive={!locationAvailable}
+            helperText={
+              locationAvailable
+                ? "Filtering from your current location"
+                : "Set a location to enable distance filtering"
+            }
+          />
+        </div>
 
-            {showLocationUnsupported && (
-              <Alert variant="destructive">
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm space-y-2">
-                  <p className="font-medium">{locationCopy.title}</p>
-                  <p>{locationCopy.description}</p>
-                </AlertDescription>
-              </Alert>
-            )}
+        <div className="border-t border-border" />
 
-            <FilterBar
-              selectedCategory={selectedCategory}
-              onCategoryChange={setSelectedCategory}
-            />
+        {/* Sort Control */}
+        <div>
+          <SortControl
+            value={sortOption}
+            onChange={setSortOption}
+            nearestDisabled={!locationAvailable}
+          />
+        </div>
 
-            {(mapSelectedLocation || feedTeleportLocation) && (
-              <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <MapPin className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                <div className="flex-1 text-sm">
-                  <span className="font-medium text-green-900 dark:text-green-100 block">
-                    {feedTeleportLocation ? 'Teleported location' : 'Near selected location'}
-                  </span>
-                  <span className="text-green-700 dark:text-green-300 text-xs">
-                    (within {radiusKm}km)
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearLocationFilter}
-                  className="h-8 px-2 text-green-700 hover:text-green-900 dark:text-green-300 dark:hover:text-green-100 hover:bg-green-100 dark:hover:bg-green-900/30"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+        <div className="border-t border-border" />
 
-            <DistanceKmSlider
-              value={radiusKm}
-              onChange={setRadiusKm}
-              min={1}
-              max={50}
-              step={1}
-              inactive={!activeFilterCenter}
-              helperText={getDistanceSliderHelperText()}
-            />
-
-            <SortControl
-              value={sortOption}
-              onChange={setSortOption}
-              nearestDisabled={!isNearestAvailable}
-            />
-
-            <div className="pt-2 space-y-2">
-              <div className="flex gap-2">
-                <Button
-                  variant={view === 'feed' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setView('feed')}
-                  className="flex-1"
-                >
-                  <List className="h-4 w-4 mr-2" />
-                  Feed
-                </Button>
-                <Button
-                  variant={view === 'map' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setView('map')}
-                  className="flex-1"
-                >
-                  <MapIcon className="h-4 w-4 mr-2" />
-                  Map
-                </Button>
-              </div>
-            </div>
+        {/* Feed / Map Toggle */}
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            View
+          </h3>
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === "feed" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 gap-1.5"
+              onClick={() => setViewMode("feed")}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Feed
+            </Button>
+            <Button
+              variant={viewMode === "map" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 gap-1.5"
+              onClick={() => setViewMode("map")}
+            >
+              <MapIcon className="w-4 h-4" />
+              Map
+            </Button>
           </div>
         </div>
       </aside>
 
-      {/* Main content area */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="container px-4 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">
-              {view === 'feed' ? 'Story Feed' : 'Story Map'}
-            </h2>
-            
-            {view === 'feed' && (
-              <Button
-                onClick={handleTeleport}
-                disabled={isTeleporting || allStories.length === 0}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg"
-                size="sm"
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Teleport to Location
-              </Button>
+      {/* ── Right Main Section ── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
+        {/* Mobile filter bar (visible on small screens) */}
+        <div className="lg:hidden flex flex-wrap items-center gap-2 px-4 pt-4 pb-2 border-b border-border">
+          <FilterBar
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+          />
+          <div className="flex gap-2 ml-auto">
+            <Button
+              variant={viewMode === "feed" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("feed")}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === "map" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("map")}
+            >
+              <MapIcon className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Top bar: teleport button + location status */}
+        <div className="flex items-center justify-between gap-3 px-4 lg:px-6 py-3 border-b border-border">
+          <div className="flex items-center gap-2 min-w-0">
+            {!locationAvailable && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <MapPin className="w-3 h-3 shrink-0" />
+                Enable location or teleport to filter by distance
+              </span>
             )}
           </div>
 
-          {view === 'feed' ? (
+          {/* Teleport button — top right */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full gap-1.5 shrink-0"
+            onClick={handleTeleport}
+            data-ocid="teleport.primary_button"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            Teleport to Location
+          </Button>
+        </div>
+
+        {/* Content area */}
+        <div className="flex-1 px-4 lg:px-6 py-5">
+          {viewMode === "feed" ? (
             <StoryFeed
-              stories={stories}
+              stories={sortedStories}
               isLoading={isLoading}
-              userLocation={userLocation}
-              onStoryClick={setSelectedStory}
-              isLocationFiltered={!!activeFilterCenter}
+              userLocation={currentLocation}
+              teleportedLocation={null}
+              emptyMessage={
+                locationAvailable
+                  ? `No stories found within ${distanceKm} km${selectedCategory ? " in this category" : ""}.`
+                  : "No stories found. Enable location or teleport to see nearby stories."
+              }
             />
           ) : (
-            <MapView
-              stories={stories}
-              userLocation={userLocation}
-              onStoryClick={setSelectedStory}
-              onMapBackgroundClick={handleMapBackgroundClick}
-              selectedLocation={mapSelectedLocation}
-            />
+            <div className="h-[calc(100vh-220px)] min-h-[400px] rounded-lg overflow-hidden border border-border">
+              <MapView
+                stories={sortedStories}
+                userLocation={currentLocation}
+                onStoryClick={(story) => setSelectedStory(story)}
+                selectedLocation={null}
+                centerCoordinate={currentLocation ?? null}
+                isVisible={viewMode === "map"}
+              />
+            </div>
           )}
         </div>
-      </main>
+      </div>
 
-      {identity && <CreateStoryFAB onClick={handleCreateStoryClick} />}
+      {/* Create story FAB */}
+      <CreateStoryFAB onClick={() => setIsCreateOpen(true)} />
 
-      <CreateStoryDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        userLocation={userLocation}
-        permissionState={permissionState}
-        onRequestLocation={handleRequestLocation}
-        diagnostics={diagnostics}
-      />
+      {/* Create story dialog */}
+      <CreateStoryDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
 
-      <StoryDetailDialog
-        story={selectedStory}
-        open={!!selectedStory}
-        onOpenChange={(open) => !open && setSelectedStory(null)}
-        userLocation={userLocation}
-        onStoryDeleted={handleStoryDeleted}
-      />
+      {/* Story detail dialog (for map view clicks) */}
+      {selectedStory && (
+        <StoryDetailDialog
+          story={selectedStory}
+          open={!!selectedStory}
+          onOpenChange={(open) => {
+            if (!open) setSelectedStory(null);
+          }}
+          userLocation={currentLocation}
+        />
+      )}
     </div>
   );
 }

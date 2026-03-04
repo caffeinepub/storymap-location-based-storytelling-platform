@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from "react";
 
-const WALLPAPER_STORAGE_KEY = 'storymap-wallpaper';
+const WALLPAPER_STORAGE_KEY = "storymap-wallpaper";
 
 interface WallpaperMetadata {
   dataUrl: string;
@@ -35,7 +35,7 @@ export function useWallpaper() {
       }
     } catch (error) {
       // Silently ignore storage errors
-      console.warn('Failed to load wallpaper from storage:', error);
+      console.warn("Failed to load wallpaper from storage:", error);
     }
   }, []);
 
@@ -46,10 +46,10 @@ export function useWallpaper() {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
-        if (typeof reader.result === 'string') {
+        if (typeof reader.result === "string") {
           resolve(reader.result);
         } else {
-          reject(new Error('Failed to read file as data URL'));
+          reject(new Error("Failed to read file as data URL"));
         }
       };
       reader.onerror = () => reject(reader.error);
@@ -60,6 +60,7 @@ export function useWallpaper() {
   /**
    * Apply a new wallpaper from a File
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: no external deps needed; function is stable
   const applyWallpaper = useCallback(async (file: File) => {
     try {
       // Convert file to data URL for persistent storage
@@ -82,10 +83,10 @@ export function useWallpaper() {
         localStorage.setItem(WALLPAPER_STORAGE_KEY, JSON.stringify(metadata));
       } catch (error) {
         // Silently ignore storage errors
-        console.warn('Failed to persist wallpaper to storage:', error);
+        console.warn("Failed to persist wallpaper to storage:", error);
       }
     } catch (error) {
-      console.error('Failed to apply wallpaper:', error);
+      console.error("Failed to apply wallpaper:", error);
       throw error;
     }
   }, []);
@@ -104,7 +105,7 @@ export function useWallpaper() {
       localStorage.removeItem(WALLPAPER_STORAGE_KEY);
     } catch (error) {
       // Silently ignore storage errors
-      console.warn('Failed to remove wallpaper from storage:', error);
+      console.warn("Failed to remove wallpaper from storage:", error);
     }
   }, []);
 

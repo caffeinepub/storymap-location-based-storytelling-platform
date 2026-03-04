@@ -1,21 +1,3 @@
-import { useEffect } from 'react';
-import type { LocalUpdatePublic } from '../../backend';
-import { computeRelevance, getLocalCategoryLabel, getLocalCategoryColor, formatRadius } from '../../lib/localUpdates';
-import { formatDistanceValue } from '../../lib/utils';
-import { useRemoveLocalUpdate, useIncrementLocalUpdateViewCount, useThumbsUpLocalUpdate } from '../../hooks/useLocalUpdates';
-import { useInternetIdentity } from '../../hooks/useInternetIdentity';
-import { useIsCallerAdmin } from '../../hooks/useQueries';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { MapPin, Clock, Radio, Trash2, Loader2, Eye, ThumbsUp } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,8 +7,42 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { useState } from 'react';
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Clock,
+  Eye,
+  Loader2,
+  MapPin,
+  Radio,
+  ThumbsUp,
+  Trash2,
+} from "lucide-react";
+import { useEffect } from "react";
+import { useState } from "react";
+import type { LocalUpdatePublic } from "../../backend";
+import { useInternetIdentity } from "../../hooks/useInternetIdentity";
+import {
+  useRemoveLocalUpdate,
+  useThumbsUpLocalUpdate,
+} from "../../hooks/useLocalUpdates";
+import { useIsCallerAdmin } from "../../hooks/useQueries";
+import {
+  computeRelevance,
+  formatRadius,
+  getLocalCategoryColor,
+  getLocalCategoryLabel,
+} from "../../lib/localUpdates";
+import { formatDistanceValue } from "../../lib/utils";
 
 // Extended type to include viewCount (backend updated but interface not yet regenerated)
 type LocalUpdateWithViews = LocalUpdatePublic & { viewCount?: bigint };
@@ -47,25 +63,21 @@ export default function LocalUpdateDetailDialog({
   const { identity } = useInternetIdentity();
   const { data: isAdmin } = useIsCallerAdmin();
   const removeUpdateMutation = useRemoveLocalUpdate();
-  const incrementViewMutation = useIncrementLocalUpdateViewCount();
   const thumbsUpMutation = useThumbsUpLocalUpdate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // Increment view count when dialog opens
-  useEffect(() => {
-    if (open && update && identity) {
-      incrementViewMutation.mutate(update.id);
-    }
-  }, [open, update?.id, identity]);
 
   if (!update) return null;
 
   const updateWithViews = update as LocalUpdateWithViews;
   const relevance = computeRelevance(update, userLocation);
   const timestamp = new Date(Number(update.timestamp) / 1000000);
-  const isAuthor = identity?.getPrincipal().toString() === update.author.toString();
+  const isAuthor =
+    identity?.getPrincipal().toString() === update.author.toString();
   const canDelete = isAuthor || isAdmin;
-  const viewCount = updateWithViews.viewCount !== undefined ? Number(updateWithViews.viewCount) : 0;
+  const viewCount =
+    updateWithViews.viewCount !== undefined
+      ? Number(updateWithViews.viewCount)
+      : 0;
   const thumbsUpCount = Number(update.thumbsUp);
 
   const handleDelete = async () => {
@@ -73,7 +85,7 @@ export default function LocalUpdateDetailDialog({
       await removeUpdateMutation.mutateAsync(update.id);
       setShowDeleteConfirm(false);
       onOpenChange(false);
-    } catch (error) {
+    } catch (_error) {
       // Error handled by mutation
     }
   };
@@ -99,7 +111,7 @@ export default function LocalUpdateDetailDialog({
                 <img
                   src={update.image.getDirectURL()}
                   alt="Local update"
-                  className="w-full h-64 object-cover"
+                  className="w-full h-auto block"
                 />
               </div>
             )}
@@ -114,7 +126,10 @@ export default function LocalUpdateDetailDialog({
                   {getLocalCategoryLabel(update.category)}
                 </Badge>
                 {relevance.isRelevant && (
-                  <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                  <Badge
+                    variant="default"
+                    className="bg-green-600 hover:bg-green-700"
+                  >
                     <Radio className="h-3 w-3 mr-1" />
                     You are within range
                   </Badge>
@@ -138,7 +153,9 @@ export default function LocalUpdateDetailDialog({
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Radius:</span>
-                <span className="font-medium">{formatRadius(Number(update.radius))}</span>
+                <span className="font-medium">
+                  {formatRadius(Number(update.radius))}
+                </span>
               </div>
 
               {relevance.distanceKm !== null && (
@@ -154,7 +171,9 @@ export default function LocalUpdateDetailDialog({
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Posted:</span>
-                <span className="font-medium">{timestamp.toLocaleString()}</span>
+                <span className="font-medium">
+                  {timestamp.toLocaleString()}
+                </span>
               </div>
             </div>
 
@@ -213,12 +232,16 @@ export default function LocalUpdateDetailDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Local Update?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this local update.
+              This action cannot be undone. This will permanently delete this
+              local update.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

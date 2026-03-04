@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
-import type { LocalUpdatePublic, LocalCategory } from '../backend';
-import { computeRelevance } from '../lib/localUpdates';
-import { formatDistanceValue } from '../lib/utils';
-import { toast } from 'sonner';
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
+import type { LocalCategory, LocalUpdatePublic } from "../backend";
+import { computeRelevance } from "../lib/localUpdates";
+import { formatDistanceValue } from "../lib/utils";
 
 interface UseLocalUpdateNotificationsParams {
   updates: LocalUpdatePublic[];
@@ -26,19 +26,19 @@ export function useLocalUpdateNotifications({
     }
 
     // Request notification permission if not already granted
-    if ('Notification' in window && Notification.permission === 'default') {
+    if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission().catch((err) => {
-        console.warn('Failed to request notification permission:', err);
+        console.warn("Failed to request notification permission:", err);
       });
     }
 
-    updates.forEach((update) => {
+    for (const update of updates) {
       const updateId = update.id.toString();
       const isMuted = mutedCategories[update.category] || false;
 
       // Skip if muted
       if (isMuted) {
-        return;
+        continue;
       }
 
       const relevance = computeRelevance(update, userLocation);
@@ -60,34 +60,37 @@ export function useLocalUpdateNotifications({
         const distanceText =
           relevance.distanceKm !== null
             ? ` (${formatDistanceValue(relevance.distanceKm)} away)`
-            : '';
+            : "";
 
         const notificationBody = `${update.content}${distanceText}`;
 
         // Try system notification first
-        if ('Notification' in window && Notification.permission === 'granted') {
+        if ("Notification" in window && Notification.permission === "granted") {
           try {
-            new Notification('Local Update Nearby', {
+            new Notification("Local Update Nearby", {
               body: notificationBody,
-              icon: '/assets/generated/story-marker.dim_48x48.png',
+              icon: "/assets/generated/story-marker.dim_48x48.png",
               tag: updateId,
             });
           } catch (err) {
-            console.warn('Failed to show system notification, using toast:', err);
+            console.warn(
+              "Failed to show system notification, using toast:",
+              err,
+            );
             toast.info(notificationBody, {
-              description: 'Local Update Nearby',
+              description: "Local Update Nearby",
               duration: 5000,
             });
           }
         } else {
           // Fallback to in-app toast
           toast.info(notificationBody, {
-            description: 'Local Update Nearby',
+            description: "Local Update Nearby",
             duration: 5000,
           });
         }
       }
-    });
+    }
   }, [updates, userLocation, mutedCategories, enabled]);
 
   // Cleanup on unmount

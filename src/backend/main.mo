@@ -15,16 +15,11 @@ import AccessControl "authorization/access-control";
 import Storage "blob-storage/Storage";
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
-import Migration "migration";
 
-(with migration = Migration.run)
+
+
 actor {
   include MixinStorage();
-
-  public type Location = {
-    latitude : Float;
-    longitude : Float;
-  };
 
   public type Category = {
     #love;
@@ -40,7 +35,8 @@ actor {
     content : Text;
     category : Category;
     locationName : ?Text;
-    location : Location;
+    latitude : Float;
+    longitude : Float;
     timestamp : Int;
     author : Principal;
     isAnonymous : Bool;
@@ -56,7 +52,8 @@ actor {
     content : Text;
     category : Category;
     locationName : ?Text;
-    location : Location;
+    latitude : Float;
+    longitude : Float;
     timestamp : Int;
     author : Principal;
     isAnonymous : Bool;
@@ -78,7 +75,7 @@ actor {
 
   public type SortOption = {
     #newest;
-    #nearest : { location : Location };
+    #nearest : { latitude : Float; longitude : Float };
     #mostLiked;
     #mostViewed;
     #mostPinned;
@@ -88,7 +85,8 @@ actor {
     keywords : ?Text;
     category : ?Category;
     radius : ?Float;
-    coordinates : Location;
+    latitude : Float;
+    longitude : Float;
     sort : SortOption;
   };
 
@@ -124,37 +122,37 @@ actor {
       Int.compare(b.timestamp, a.timestamp);
     };
 
-    public func compareByLocation(a : Story, b : Story, location : Location) : Order.Order {
-      let distanceA = calculateDistance(a.location, location);
-      let distanceB = calculateDistance(b.location, location);
+    public func compareByLocation(a : Story, b : Story, latitude : Float, longitude : Float) : Order.Order {
+      let distanceA = calculateDistance(a.latitude, a.longitude, latitude, longitude);
+      let distanceB = calculateDistance(b.latitude, b.longitude, latitude, longitude);
 
       Float.compare(distanceA, distanceB);
     };
 
-    func calculateDistance(loc1 : Location, loc2 : Location) : Float {
+    func calculateDistance(lat1 : Float, lon1 : Float, lat2 : Float, lon2 : Float) : Float {
       let earthRadiusKm : Float = 6371.0;
 
       func degreesToRadians(degrees : Float) : Float {
         degrees * (Float.pi / 180.0);
       };
 
-      func haversine(coord1 : Location, coord2 : Location) : Float {
-        let lat1 = degreesToRadians(coord1.latitude);
-        let lon1 = degreesToRadians(coord1.longitude);
-        let lat2 = degreesToRadians(coord2.latitude);
-        let lon2 = degreesToRadians(coord2.longitude);
+      func haversine(lat1 : Float, lon1 : Float, lat2 : Float, lon2 : Float) : Float {
+        let lat1Rad = degreesToRadians(lat1);
+        let lon1Rad = degreesToRadians(lon1);
+        let lat2Rad = degreesToRadians(lat2);
+        let lon2Rad = degreesToRadians(lon2);
 
-        let dlat = lat2 - lat1;
-        let dlon = lon2 - lon1;
+        let dLat = lat2Rad - lat1Rad;
+        let dLon = lon2Rad - lon1Rad;
 
-        let a = Float.sin(dlat / 2.0) ** 2 +
-                Float.cos(lat1) * Float.cos(lat2) *
-                (Float.sin(dlon / 2.0) ** 2);
+        let a = Float.sin(dLat / 2.0) ** 2 +
+                Float.cos(lat1Rad) * Float.cos(lat2Rad) *
+                (Float.sin(dLon / 2.0) ** 2);
         let c = 2.0 * Float.arctan2(Float.sqrt(a), Float.sqrt(1.0 - a));
         earthRadiusKm * c;
       };
 
-      haversine(loc1, loc2);
+      haversine(lat1, lon1, lat2, lon2);
     };
   };
 
@@ -164,7 +162,8 @@ actor {
     content : Text;
     category : Category;
     locationName : ?Text;
-    location : Location;
+    latitude : Float;
+    longitude : Float;
     timestamp : Int;
     author : Principal;
     isAnonymous : Bool;
@@ -181,7 +180,8 @@ actor {
     content : Text;
     category : Category;
     locationName : ?Text;
-    location : ?Location;
+    latitude : ?Float;
+    longitude : ?Float;
     timestamp : Int;
     author : Principal;
     isAnonymous : Bool;
@@ -255,7 +255,8 @@ actor {
       content = story.content;
       category = story.category;
       locationName = story.locationName;
-      location = story.location;
+      latitude = story.latitude;
+      longitude = story.longitude;
       timestamp = story.timestamp;
       author = story.author;
       isAnonymous = story.isAnonymous;
@@ -321,7 +322,8 @@ actor {
     content : Text,
     category : Category,
     locationName : ?Text,
-    location : Location,
+    latitude : Float,
+    longitude : Float,
     isAnonymous : Bool,
     image : ?Storage.ExternalBlob,
   ) : async () {
@@ -340,7 +342,8 @@ actor {
           content = content;
           category = category;
           locationName = locationName;
-          location = location;
+          latitude = latitude;
+          longitude = longitude;
           isAnonymous = isAnonymous;
           image = image;
         };
@@ -387,32 +390,32 @@ actor {
     };
   };
 
-  func isWithinRadius(story : StoryWithViewers, coordinates : Location, radius : ?Float) : Bool {
+  func isWithinRadius(story : StoryWithViewers, latitude : Float, longitude : Float, radius : ?Float) : Bool {
     let earthRadiusKm : Float = 6371.0;
 
     func degreesToRadians(degrees : Float) : Float {
       degrees * (Float.pi / 180.0);
     };
 
-    func haversine(coord1 : Location, coord2 : Location) : Float {
-      let lat1 = degreesToRadians(coord1.latitude);
-      let lon1 = degreesToRadians(coord1.longitude);
-      let lat2 = degreesToRadians(coord2.latitude);
-      let lon2 = degreesToRadians(coord2.longitude);
+    func haversine(lat1 : Float, lon1 : Float, lat2 : Float, lon2 : Float) : Float {
+      let lat1Rad = degreesToRadians(lat1);
+      let lon1Rad = degreesToRadians(lon1);
+      let lat2Rad = degreesToRadians(lat2);
+      let lon2Rad = degreesToRadians(lon2);
 
-      let dlat = lat2 - lat1;
-      let dlon = lon2 - lon1;
+      let dLat = lat2Rad - lat1Rad;
+      let dLon = lon2Rad - lon1Rad;
 
-      let a = Float.sin(dlat / 2.0) ** 2 +
-              Float.cos(lat1) * Float.cos(lat2) *
-              (Float.sin(dlon / 2.0) ** 2);
+      let a = Float.sin(dLat / 2.0) ** 2 +
+              Float.cos(lat1Rad) * Float.cos(lat2Rad) *
+              (Float.sin(dLon / 2.0) ** 2);
       let c = 2.0 * Float.arctan2(Float.sqrt(a), Float.sqrt(1.0 - a));
       earthRadiusKm * c;
     };
 
     switch (radius) {
       case (null) { true };
-      case (?r) { haversine(story.location, coordinates) <= r };
+      case (?r) { haversine(story.latitude, story.longitude, latitude, longitude) <= r };
     };
   };
 
@@ -420,10 +423,10 @@ actor {
     stories : Map.Map<Text, StoryWithViewers>,
     matchesKeywords : (StoryWithViewers, ?Text) -> Bool,
     matchesCategory : (StoryWithViewers, ?Category) -> Bool,
-    matchesRadius : (StoryWithViewers, Location, ?Float) -> Bool,
+    matchesRadius : (StoryWithViewers, Float, Float, ?Float) -> Bool,
     params : SearchParams
   ) : Iter.Iter<StoryWithViewers> {
-    stories.values().filter(func(story) { matchesKeywords(story, params.keywords) and matchesCategory(story, params.category) and matchesRadius(story, params.coordinates, params.radius) });
+    stories.values().filter(func(story) { matchesKeywords(story, params.keywords) and matchesCategory(story, params.category) and matchesRadius(story, params.latitude, params.longitude, params.radius) });
   };
 
   public query ({ caller }) func searchStories(params : SearchParams) : async [Story] {
@@ -438,6 +441,26 @@ actor {
     sortStories(filteredStories.toArray(), params.sort).sliceToArray(0, 32);
   };
 
+  // Struct for map view searching
+  public type MapSearchRequest = {
+    centerLatitude : Float;
+    centerLongitude : Float;
+    radius : Float; // Radius in kilometers (should match the zoom level)
+  };
+
+  // Separate function to get nearby stories for map view
+  public query ({ caller }) func getNearbyStoriesForMap(
+    mapRequest : MapSearchRequest
+  ) : async [Story] {
+    let filtered = stories.values().toArray().filter(
+      func(story) {
+        // Always check within requested map viewport radius
+        isWithinRadius(story, mapRequest.centerLatitude, mapRequest.centerLongitude, ?mapRequest.radius);
+      }
+    );
+    filtered.sliceToArray(0, 100);
+  };
+
   func sortStories(stories : [StoryWithViewers], sortOption : SortOption) : [StoryWithViewers] {
     switch (sortOption) {
       case (#newest) {
@@ -447,10 +470,10 @@ actor {
           }
         );
       };
-      case (#nearest { location }) {
+      case (#nearest { latitude; longitude }) {
         stories.sort(
           func(a, b) {
-            Story.compareByLocation(a, b, location);
+            Story.compareByLocation(a, b, latitude, longitude);
           }
         );
       };
@@ -549,7 +572,8 @@ actor {
     content : Text,
     category : Category,
     locationName : ?Text,
-    location : Location,
+    latitude : Float,
+    longitude : Float,
     timestamp : Int,
     isAnonymous : Bool,
     image : ?Storage.ExternalBlob
@@ -565,7 +589,8 @@ actor {
       content = content;
       category = category;
       locationName = locationName;
-      location = location;
+      latitude;
+      longitude;
       timestamp = timestamp;
       author = caller;
       isAnonymous = isAnonymous;
@@ -983,7 +1008,8 @@ actor {
     content : Text,
     category : Category,
     locationName : ?Text,
-    location : ?Location,
+    latitude : ?Float,
+    longitude : ?Float,
     isAnonymous : Bool,
     image : ?Storage.ExternalBlob,
   ) : async Text {
@@ -999,7 +1025,8 @@ actor {
       content = content;
       category = category;
       locationName = locationName;
-      location = location;
+      latitude;
+      longitude;
       timestamp = Time.now();
       author = caller;
       isAnonymous = isAnonymous;
@@ -1018,7 +1045,8 @@ actor {
     content : Text,
     category : Category,
     locationName : ?Text,
-    location : ?Location,
+    latitude : ?Float,
+    longitude : ?Float,
     isAnonymous : Bool,
     image : ?Storage.ExternalBlob,
   ) : async () {
@@ -1039,7 +1067,8 @@ actor {
           content = content;
           category = category;
           locationName = locationName;
-          location = location;
+          latitude;
+          longitude;
           isAnonymous = isAnonymous;
           image = image;
           updatedAt = Time.now();
@@ -1079,9 +1108,14 @@ actor {
 
         let storyId = generateStoryId();
 
-        let finalLocation : Location = switch (draft.location) {
-          case (null) { Runtime.trap("Published stories must have a location") };
-          case (?loc) { loc };
+        let finalLatitude : Float = switch (draft.latitude) {
+          case (null) { Runtime.trap("Published stories must have a latitude") };
+          case (?lat) { lat };
+        };
+
+        let finalLongitude : Float = switch (draft.longitude) {
+          case (null) { Runtime.trap("Published stories must have a longitude") };
+          case (?lon) { lon };
         };
 
         let story : StoryWithViewers = {
@@ -1090,7 +1124,8 @@ actor {
           content = draft.content;
           category = draft.category;
           locationName = draft.locationName;
-          location = finalLocation;
+          latitude = finalLatitude;
+          longitude = finalLongitude;
           timestamp = Time.now();
           author = draft.author;
           isAnonymous = draft.isAnonymous;
@@ -1290,10 +1325,10 @@ actor {
     ).toArray();
   };
 
-  public query ({ caller }) func getActiveLocalUpdatesByProximity(location : Location) : async [LocalUpdatePublic] {
+  public query ({ caller }) func getActiveLocalUpdatesByProximity(latitude : Float, longitude : Float) : async [LocalUpdatePublic] {
     let activeUpdatesIter = localUpdates.values().filter(
       func(update) {
-        isLocalUpdateActive(update) and isWithinLocalRadius(update, location.latitude, location.longitude)
+        isLocalUpdateActive(update) and isWithinLocalRadius(update, latitude, longitude)
       }
     );
 

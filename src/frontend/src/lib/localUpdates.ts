@@ -1,23 +1,23 @@
-import { LocalCategory } from '../backend';
-import { calculateDistance } from './utils';
+import { LocalCategory } from "../backend";
+import { calculateDistance } from "./utils";
 
 // Category label mapping
 export function getLocalCategoryLabel(category: LocalCategory): string {
   switch (category) {
     case LocalCategory.traffic:
-      return 'Traffic';
+      return "Traffic";
     case LocalCategory.power:
-      return 'Power';
+      return "Power";
     case LocalCategory.police:
-      return 'Police';
+      return "Police";
     case LocalCategory.event:
-      return 'Event';
+      return "Event";
     case LocalCategory.nature:
-      return 'Nature';
+      return "Nature";
     case LocalCategory.general:
-      return 'General';
+      return "General";
     default:
-      return 'General';
+      return "General";
   }
 }
 
@@ -25,19 +25,19 @@ export function getLocalCategoryLabel(category: LocalCategory): string {
 export function getLocalCategoryColor(category: LocalCategory): string {
   switch (category) {
     case LocalCategory.traffic:
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+      return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300";
     case LocalCategory.power:
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
     case LocalCategory.police:
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
     case LocalCategory.event:
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
     case LocalCategory.nature:
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
     case LocalCategory.general:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+      return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
     default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+      return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
   }
 }
 
@@ -45,19 +45,19 @@ export function getLocalCategoryColor(category: LocalCategory): string {
 export function getLocalCategoryIconColor(category: LocalCategory): string {
   switch (category) {
     case LocalCategory.traffic:
-      return '#f97316'; // orange-500
+      return "#f97316"; // orange-500
     case LocalCategory.power:
-      return '#eab308'; // yellow-500
+      return "#eab308"; // yellow-500
     case LocalCategory.police:
-      return '#3b82f6'; // blue-500
+      return "#3b82f6"; // blue-500
     case LocalCategory.event:
-      return '#a855f7'; // purple-500
+      return "#a855f7"; // purple-500
     case LocalCategory.nature:
-      return '#22c55e'; // green-500
+      return "#22c55e"; // green-500
     case LocalCategory.general:
-      return '#6b7280'; // gray-500
+      return "#6b7280"; // gray-500
     default:
-      return '#6b7280';
+      return "#6b7280";
   }
 }
 
@@ -75,7 +75,7 @@ export function isWithinRadius(
   userLon: number,
   updateLat: number,
   updateLon: number,
-  radiusMeters: number
+  radiusMeters: number,
 ): boolean {
   const distanceKm = calculateDistance(userLat, userLon, updateLat, updateLon);
   const distanceMeters = distanceKm * 1000;
@@ -91,7 +91,7 @@ export interface LocalUpdateRelevance {
 
 export function computeRelevance(
   update: { latitude: number; longitude: number; radius: bigint },
-  userLocation: { latitude: number; longitude: number } | null
+  userLocation: { latitude: number; longitude: number } | null,
 ): LocalUpdateRelevance {
   if (!userLocation) {
     return {
@@ -105,7 +105,7 @@ export function computeRelevance(
     userLocation.latitude,
     userLocation.longitude,
     update.latitude,
-    update.longitude
+    update.longitude,
   );
   const distanceMeters = distanceKm * 1000;
   const radiusMeters = Number(update.radius);

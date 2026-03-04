@@ -1,7 +1,5 @@
-import { useState } from 'react';
-import { useAddLocalUpdate } from '../../hooks/useLocalUpdates';
-import { LocalCategory, ExternalBlob } from '../../backend';
-import { getLocalCategoryLabel } from '../../lib/localUpdates';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,22 +7,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, Loader2, Upload, X } from 'lucide-react';
-import { toast } from 'sonner';
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { Info, Loader2, Upload, X } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { ExternalBlob, LocalCategory } from "../../backend";
+import { useAddLocalUpdate } from "../../hooks/useLocalUpdates";
+import { getLocalCategoryLabel } from "../../lib/localUpdates";
 
 interface CreateLocalUpdateDialogProps {
   open: boolean;
@@ -48,8 +48,10 @@ export default function CreateLocalUpdateDialog({
   userLocation,
   permissionState,
 }: CreateLocalUpdateDialogProps) {
-  const [content, setContent] = useState('');
-  const [category, setCategory] = useState<LocalCategory>(LocalCategory.general);
+  const [content, setContent] = useState("");
+  const [category, setCategory] = useState<LocalCategory>(
+    LocalCategory.general,
+  );
   const [radius, setRadius] = useState(500);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -62,13 +64,13 @@ export default function CreateLocalUpdateDialog({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB');
+      toast.error("Image size must be less than 5MB");
       return;
     }
 
@@ -97,8 +99,8 @@ export default function CreateLocalUpdateDialog({
           const uint8Array = new Uint8Array(arrayBuffer);
           imageBlob = ExternalBlob.fromBytes(uint8Array);
         } catch (error) {
-          console.error('Failed to process image:', error);
-          toast.error('Failed to process image');
+          console.error("Failed to process image:", error);
+          toast.error("Failed to process image");
           return;
         }
       }
@@ -113,27 +115,27 @@ export default function CreateLocalUpdateDialog({
       });
 
       // Reset form
-      setContent('');
+      setContent("");
       setCategory(LocalCategory.general);
       setRadius(500);
       removeImage();
       onOpenChange(false);
-    } catch (error) {
+    } catch (_error) {
       // Error handled by mutation
     }
   };
 
   const getLocationWarningMessage = () => {
-    if (permissionState === 'denied') {
-      return 'Location access is denied. Please enable location permissions in your browser settings to post local updates.';
+    if (permissionState === "denied") {
+      return "Location access is denied. Please enable location permissions in your browser settings to post local updates.";
     }
-    if (permissionState === 'insecure') {
-      return 'Location is not available on insecure connections. Please use HTTPS to post local updates.';
+    if (permissionState === "insecure") {
+      return "Location is not available on insecure connections. Please use HTTPS to post local updates.";
     }
-    if (permissionState === 'unsupported') {
-      return 'Your browser does not support geolocation. Local updates require location access.';
+    if (permissionState === "unsupported") {
+      return "Your browser does not support geolocation. Local updates require location access.";
     }
-    return 'Location is required to post local updates. Please enable location access.';
+    return "Location is required to post local updates. Please enable location access.";
   };
 
   return (
@@ -205,9 +207,7 @@ export default function CreateLocalUpdateDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="radius">
-              Relevance Radius: {radius}m
-            </Label>
+            <Label htmlFor="radius">Relevance Radius: {radius}m</Label>
             <Slider
               id="radius"
               min={200}
@@ -275,7 +275,7 @@ export default function CreateLocalUpdateDialog({
                 Posting...
               </>
             ) : (
-              'Post Update'
+              "Post Update"
             )}
           </Button>
         </DialogFooter>

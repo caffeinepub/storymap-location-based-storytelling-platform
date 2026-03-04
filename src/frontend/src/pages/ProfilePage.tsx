@@ -1,12 +1,16 @@
-import { useState } from 'react';
-import { useGetPostedStories, useGetLikedStories, useGetPinnedStories } from '../hooks/useQueries';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
-import StoryCard from '../components/StoryCard';
-import type { StoryView } from '../backend';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertCircle, ArrowLeft } from "lucide-react";
+import { useState } from "react";
+import type { StoryView } from "../backend";
+import StoryCard from "../components/StoryCard";
+import {
+  useGetLikedStories,
+  useGetPinnedStories,
+  useGetPostedStories,
+} from "../hooks/useQueries";
 
 interface ProfilePageProps {
   onBackHome: () => void;
@@ -41,12 +45,13 @@ export default function ProfilePage({ onBackHome }: ProfilePageProps) {
     isLoading: boolean,
     error: Error | null,
     emptyMessage: string,
-    refetch: () => void
+    refetch: () => void,
   ) => {
     if (isLoading) {
       return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list with no items
             <Skeleton key={i} className="h-64 rounded-lg" />
           ))}
         </div>
@@ -76,6 +81,8 @@ export default function ProfilePage({ onBackHome }: ProfilePageProps) {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              role="img"
+              aria-label="No stories"
             >
               <path
                 strokeLinecap="round"
@@ -112,7 +119,9 @@ export default function ProfilePage({ onBackHome }: ProfilePageProps) {
           Back to Home
         </Button>
         <h1 className="text-3xl font-bold">My Profile</h1>
-        <p className="text-muted-foreground mt-2">View your posted stories, likes, and pins</p>
+        <p className="text-muted-foreground mt-2">
+          View your posted stories, likes, and pins
+        </p>
       </div>
 
       <Tabs defaultValue="posted" className="w-full">
@@ -127,8 +136,8 @@ export default function ProfilePage({ onBackHome }: ProfilePageProps) {
             postedStories,
             postedLoading,
             postedError as Error | null,
-            'No stories posted yet.',
-            refetchPosted
+            "No stories posted yet.",
+            refetchPosted,
           )}
         </TabsContent>
 
@@ -137,8 +146,8 @@ export default function ProfilePage({ onBackHome }: ProfilePageProps) {
             likedStories,
             likedLoading,
             likedError as Error | null,
-            'No liked stories yet.',
-            refetchLiked
+            "No liked stories yet.",
+            refetchLiked,
           )}
         </TabsContent>
 
@@ -147,8 +156,8 @@ export default function ProfilePage({ onBackHome }: ProfilePageProps) {
             pinnedStories,
             pinnedLoading,
             pinnedError as Error | null,
-            'No pinned stories yet.',
-            refetchPinned
+            "No pinned stories yet.",
+            refetchPinned,
           )}
         </TabsContent>
       </Tabs>
@@ -163,12 +172,13 @@ export default function ProfilePage({ onBackHome }: ProfilePageProps) {
               className="absolute right-4 top-4"
               onClick={() => setSelectedStory(null)}
             >
-              <span className="sr-only">Close</span>
-              ×
+              <span className="sr-only">Close</span>×
             </Button>
             <div className="max-h-[80vh] overflow-y-auto">
               <h2 className="text-2xl font-bold mb-4">{selectedStory.title}</h2>
-              <p className="text-muted-foreground whitespace-pre-wrap">{selectedStory.content}</p>
+              <p className="text-muted-foreground whitespace-pre-wrap">
+                {selectedStory.content}
+              </p>
             </div>
           </div>
         </div>

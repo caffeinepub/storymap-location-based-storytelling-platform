@@ -1,23 +1,33 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useActor } from './useActor';
-import { useInternetIdentity } from './useInternetIdentity';
-import type { Story, UserProfile, Comment, Category, Location, ExternalBlob, SearchParams, StoryView, Report } from '../backend';
-import type { SortOption } from '../lib/storySorting';
-import { sortStories, toBackendSortOption } from '../lib/storySorting';
-import { toast } from 'sonner';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import type {
+  Category,
+  Comment,
+  ExternalBlob,
+  MapSearchRequest,
+  Report,
+  SearchParams,
+  Story,
+  StoryView,
+  UserProfile,
+} from "../backend";
+import type { LatLng, SortOption } from "../lib/storySorting";
+import { sortStories, toBackendSortOption } from "../lib/storySorting";
+import { useActor } from "./useActor";
+import { useInternetIdentity } from "./useInternetIdentity";
 
 // Helper function to wait for actor with timeout
 async function waitForActor(
   getActor: () => any,
-  maxAttempts: number = 10,
-  delayMs: number = 300
+  maxAttempts = 10,
+  delayMs = 300,
 ): Promise<any> {
   for (let i = 0; i < maxAttempts; i++) {
     const actor = getActor();
     if (actor) return actor;
-    await new Promise(resolve => setTimeout(resolve, delayMs));
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
-  throw new Error('Backend connection not available. Please try again.');
+  throw new Error("Backend connection not available. Please try again.");
 }
 
 // User Profile Queries
@@ -26,9 +36,9 @@ export function useGetCallerUserProfile() {
   const { identity, isInitializing } = useInternetIdentity();
 
   const query = useQuery<UserProfile | null>({
-    queryKey: ['currentUserProfile'],
+    queryKey: ["currentUserProfile"],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.getCallerUserProfile();
     },
     enabled: !!actor && !actorFetching && !!identity && !isInitializing,
@@ -46,7 +56,7 @@ export function useHasSeenIntro() {
   const { actor, isFetching: actorFetching } = useActor();
 
   return useQuery<boolean>({
-    queryKey: ['hasSeenIntro'],
+    queryKey: ["hasSeenIntro"],
     queryFn: async () => {
       if (!actor) return false;
       return actor.hasSeenIntro();
@@ -66,11 +76,11 @@ export function useMarkIntroSeen() {
       return readyActor.markIntroSeen();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hasSeenIntro'] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
+      queryClient.invalidateQueries({ queryKey: ["hasSeenIntro"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to mark intro as seen');
+      toast.error(error.message || "Failed to mark intro as seen");
     },
   });
 }
@@ -85,11 +95,11 @@ export function useSaveCallerUserProfile() {
       return readyActor.saveCallerUserProfile(profile);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      toast.success('Profile saved successfully');
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      toast.success("Profile saved successfully");
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to save profile');
+      toast.error(error.message || "Failed to save profile");
     },
   });
 }
@@ -100,7 +110,7 @@ export function useIsCallerAdmin() {
   const { identity, isInitializing } = useInternetIdentity();
 
   return useQuery<boolean>({
-    queryKey: ['isCallerAdmin'],
+    queryKey: ["isCallerAdmin"],
     queryFn: async () => {
       if (!actor) return false;
       try {
@@ -111,9 +121,9 @@ export function useIsCallerAdmin() {
     },
     enabled: !!actor && !actorFetching && !!identity && !isInitializing,
     retry: false,
-    staleTime: 5 * 60 * 1000, // Keep admin status stable for 5 minutes
-    gcTime: 10 * 60 * 1000, // Cache for 10 minutes
-    placeholderData: (previousData) => previousData, // Preserve last known value during refetch
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -123,13 +133,13 @@ export function useGetPostedStories() {
   const { identity, isInitializing } = useInternetIdentity();
 
   return useQuery<StoryView[]>({
-    queryKey: ['postedStories', identity?.getPrincipal().toString()],
+    queryKey: ["postedStories", identity?.getPrincipal().toString()],
     queryFn: async () => {
       if (!actor || !identity) return [];
       try {
         return await actor.getStoriesByUser(identity.getPrincipal());
       } catch (error) {
-        console.error('Failed to fetch posted stories:', error);
+        console.error("Failed to fetch posted stories:", error);
         return [];
       }
     },
@@ -143,13 +153,13 @@ export function useGetLikedStories() {
   const { identity, isInitializing } = useInternetIdentity();
 
   return useQuery<StoryView[]>({
-    queryKey: ['likedStories', identity?.getPrincipal().toString()],
+    queryKey: ["likedStories", identity?.getPrincipal().toString()],
     queryFn: async () => {
       if (!actor || !identity) return [];
       try {
         return await actor.getLikedStoriesByUser(identity.getPrincipal());
       } catch (error) {
-        console.error('Failed to fetch liked stories:', error);
+        console.error("Failed to fetch liked stories:", error);
         return [];
       }
     },
@@ -163,13 +173,13 @@ export function useGetPinnedStories() {
   const { identity, isInitializing } = useInternetIdentity();
 
   return useQuery<StoryView[]>({
-    queryKey: ['pinnedStories', identity?.getPrincipal().toString()],
+    queryKey: ["pinnedStories", identity?.getPrincipal().toString()],
     queryFn: async () => {
       if (!actor || !identity) return [];
       try {
         return await actor.getPinnedStoriesByUser(identity.getPrincipal());
       } catch (error) {
-        console.error('Failed to fetch pinned stories:', error);
+        console.error("Failed to fetch pinned stories:", error);
         return [];
       }
     },
@@ -183,71 +193,71 @@ export function useSearchStories(params: {
   keywords: string | null;
   category: Category | null;
   radius: number | null;
-  coordinates: Location | null;
+  coordinates: LatLng | null;
   sortOption: SortOption;
-  nearestOrigin?: Location | null;
+  nearestOrigin?: LatLng | null;
 }) {
   const { actor, isFetching } = useActor();
 
-  // Build search params for backend
+  // Build search params for backend using latitude/longitude (not coordinates)
   const searchParams: SearchParams | null = params.coordinates
     ? {
         keywords: params.keywords || undefined,
         category: params.category || undefined,
         radius: params.radius || undefined,
-        coordinates: params.coordinates,
+        latitude: params.coordinates.latitude,
+        longitude: params.coordinates.longitude,
         sort: toBackendSortOption(params.sortOption, params.nearestOrigin),
       }
     : null;
 
-  // Create stable query key that includes sort option
   const queryKey = [
-    'stories',
-    'search',
+    "stories",
+    "search",
     params.keywords,
     params.category,
     params.radius,
-    params.coordinates,
+    params.coordinates?.latitude,
+    params.coordinates?.longitude,
     params.sortOption,
-    params.nearestOrigin,
+    params.nearestOrigin?.latitude,
+    params.nearestOrigin?.longitude,
   ];
 
   return useQuery<Story[]>({
     queryKey,
     queryFn: async () => {
       if (!actor) return [];
-      
-      // If no coordinates, use a default center point (0,0) with large radius to get all stories
-      // Then apply client-side filtering and sorting
+
+      // If no coordinates, use a default center point with large radius to get all stories
       if (!searchParams) {
         try {
           const fallbackParams: SearchParams = {
-            coordinates: { latitude: 0, longitude: 0 },
-            radius: 20000, // Large radius to get all stories
+            latitude: 0,
+            longitude: 0,
+            radius: 20000,
             sort: toBackendSortOption(params.sortOption, params.nearestOrigin),
           };
-          
+
           const allStories = await actor.searchStories(fallbackParams);
-          
-          // Apply client-side category filtering
-          const filtered = allStories.filter((story) => {
-            if (params.category && story.category !== params.category) return false;
+
+          const filtered = allStories.filter((story: Story) => {
+            if (params.category && story.category !== params.category)
+              return false;
             return true;
           });
 
-          // Apply client-side sorting (nearest will be unavailable/disabled in UI when no coordinates)
           return sortStories(filtered, params.sortOption, params.nearestOrigin);
         } catch (error) {
-          console.error('Fallback search failed:', error);
+          console.error("Fallback search failed:", error);
           return [];
         }
       }
-      
+
       try {
         return await actor.searchStories(searchParams);
       } catch (error) {
-        // Graceful degradation: return empty array on search failure
-        console.error('Search failed:', error);
+        console.error("Search failed:", error);
         return [];
       }
     },
@@ -256,11 +266,43 @@ export function useSearchStories(params: {
   });
 }
 
+// QissaMap: Get nearby stories for map view
+export function useGetNearbyStoriesForMap(center: LatLng, radiusKm: number) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<Story[]>({
+    queryKey: [
+      "nearbyStoriesForMap",
+      center.latitude,
+      center.longitude,
+      radiusKm,
+    ],
+    queryFn: async () => {
+      if (!actor) return [];
+
+      try {
+        const mapRequest: MapSearchRequest = {
+          centerLatitude: center.latitude,
+          centerLongitude: center.longitude,
+          radius: radiusKm,
+        };
+        return await actor.getNearbyStoriesForMap(mapRequest);
+      } catch (error) {
+        console.error("Failed to fetch nearby stories for map:", error);
+        return [];
+      }
+    },
+    enabled: !!actor && !isFetching,
+    retry: false,
+    staleTime: 30000,
+  });
+}
+
 export function useGetStoryById(id: string | null) {
   const { actor, isFetching } = useActor();
 
   return useQuery<Story | null>({
-    queryKey: ['story', id],
+    queryKey: ["story", id],
     queryFn: async () => {
       if (!actor || !id) return null;
       try {
@@ -273,24 +315,26 @@ export function useGetStoryById(id: string | null) {
   });
 }
 
-export function useGetStoriesByCategory(category: Category | null, sortOption: SortOption = 'newest') {
+export function useGetComments(storyId: string | null) {
   const { actor, isFetching } = useActor();
 
-  return useQuery<Story[]>({
-    queryKey: ['stories', 'category', category, sortOption],
+  return useQuery<Comment[]>({
+    queryKey: ["comments", storyId],
     queryFn: async () => {
-      if (!actor || !category) return [];
-      const backendSortOption = toBackendSortOption(sortOption, null);
-      return actor.getStoriesByCategory(category, backendSortOption);
+      if (!actor || !storyId) return [];
+      try {
+        return await actor.getComments(storyId);
+      } catch {
+        return [];
+      }
     },
-    enabled: !!actor && !isFetching && !!category,
+    enabled: !!actor && !isFetching && !!storyId,
   });
 }
 
 // Story Mutations
 export function useCreateStory() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -299,49 +343,39 @@ export function useCreateStory() {
       content: string;
       category: Category;
       locationName: string | null;
-      location: Location;
+      latitude: number;
+      longitude: number;
       isAnonymous: boolean;
       image: ExternalBlob | null;
     }) => {
-      if (!identity) {
-        throw new Error('Please log in to create a story');
-      }
-      
       const readyActor = await waitForActor(() => actor);
-      const timestamp = BigInt(Date.now() * 1000000);
-      
       return readyActor.createStory(
         params.title,
         params.content,
         params.category,
         params.locationName,
-        params.location,
-        timestamp,
+        params.latitude,
+        params.longitude,
+        BigInt(Date.now() * 1000000),
         params.isAnonymous,
-        params.image
+        params.image,
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      queryClient.invalidateQueries({ queryKey: ['hasIntro'] });
-      queryClient.invalidateQueries({ queryKey: ['postedStories'] });
-      toast.success('Story created successfully!');
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      queryClient.invalidateQueries({ queryKey: ["nearbyStoriesForMap"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["postedStories"] });
+      toast.success("Story created successfully!");
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to create story';
-      if (message.includes('not available') || message.includes('connection')) {
-        toast.error('Connection issue. Please check your authentication and try again.');
-      } else {
-        toast.error(message);
-      }
+      toast.error(error.message || "Failed to create story");
     },
   });
 }
 
 export function useUpdateStory() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -351,44 +385,33 @@ export function useUpdateStory() {
       content: string;
       category: Category;
       locationName: string | null;
-      location: Location;
+      latitude: number;
+      longitude: number;
       isAnonymous: boolean;
       image: ExternalBlob | null;
     }) => {
-      if (!identity) {
-        throw new Error('Please log in to update a story');
-      }
-      
       const readyActor = await waitForActor(() => actor);
-      
       return readyActor.updateStory(
         params.storyId,
         params.title,
         params.content,
         params.category,
         params.locationName,
-        params.location,
+        params.latitude,
+        params.longitude,
         params.isAnonymous,
-        params.image
+        params.image,
       );
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['story', variables.storyId] });
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ queryKey: ['postedStories'] });
-      toast.success('Story updated successfully!');
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      queryClient.invalidateQueries({ queryKey: ["nearbyStoriesForMap"] });
+      queryClient.invalidateQueries({ queryKey: ["story", variables.storyId] });
+      queryClient.invalidateQueries({ queryKey: ["postedStories"] });
+      toast.success("Story updated successfully!");
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to update story';
-      if (message.includes('Unauthorized') || message.includes('author') || message.includes('permission')) {
-        toast.error('You do not have permission to edit this story');
-      } else if (message.includes('does not exist')) {
-        toast.error('Story not found');
-      } else if (message.includes('not available') || message.includes('connection')) {
-        toast.error('Connection issue. Please check your authentication and try again.');
-      } else {
-        toast.error(message);
-      }
+      toast.error(error.message || "Failed to update story");
     },
   });
 }
@@ -403,300 +426,114 @@ export function useIncrementStoryViewCount() {
       return readyActor.incrementStoryViewCount(storyId);
     },
     onSuccess: (_, storyId) => {
-      // Invalidate queries to refetch updated view count
-      queryClient.invalidateQueries({ queryKey: ['story', storyId] });
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ["story", storyId] });
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      queryClient.invalidateQueries({ queryKey: ["nearbyStoriesForMap"] });
     },
-    onError: () => {
-      // Silent error - view count increment is not critical and should not show user-facing errors
+    onError: (error: Error) => {
+      console.error("Failed to increment view count:", error);
     },
   });
 }
 
 export function useLikeStory() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (storyId: string) => {
-      if (!identity) {
-        throw new Error('Please log in to like stories');
-      }
       const readyActor = await waitForActor(() => actor);
       return readyActor.likeStory(storyId);
     },
-    onMutate: async (storyId) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['stories'] });
-      await queryClient.cancelQueries({ queryKey: ['story', storyId] });
-      await queryClient.cancelQueries({ queryKey: ['currentUserProfile'] });
-
-      // Snapshot previous values
-      const previousStories = queryClient.getQueryData(['stories', 'search']);
-      const previousStory = queryClient.getQueryData(['story', storyId]);
-      const previousProfile = queryClient.getQueryData(['currentUserProfile']);
-
-      // Optimistically update story like count
-      queryClient.setQueryData(['story', storyId], (old: Story | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          likeCount: old.likeCount + BigInt(1),
-        };
-      });
-
-      // Optimistically update user profile
-      queryClient.setQueryData(['currentUserProfile'], (old: UserProfile | null | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          likedStories: [...old.likedStories, storyId],
-        };
-      });
-
-      return { previousStories, previousStory, previousProfile };
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      queryClient.invalidateQueries({ queryKey: ["nearbyStoriesForMap"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["likedStories"] });
+      toast.success("Story liked!");
     },
-    onError: (error: Error, storyId, context) => {
-      // Rollback on error
-      if (context?.previousStory) {
-        queryClient.setQueryData(['story', storyId], context.previousStory);
+    onError: (error: Error) => {
+      if (error.message.includes("already liked")) {
+        toast.error("You have already liked this story");
+      } else {
+        toast.error(error.message || "Failed to like story");
       }
-      if (context?.previousProfile) {
-        queryClient.setQueryData(['currentUserProfile'], context.previousProfile);
-      }
-
-      const message = error.message || 'Failed to like story';
-      if (message.includes('already liked')) {
-        toast.info('You already liked this story');
-      } else if (!message.includes('log in')) {
-        toast.error(message);
-      }
-    },
-    onSettled: (_, __, storyId) => {
-      // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ queryKey: ['story', storyId] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      queryClient.invalidateQueries({ queryKey: ['likedStories'] });
     },
   });
 }
 
 export function useUnlikeStory() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (storyId: string) => {
-      if (!identity) {
-        throw new Error('Please log in to unlike stories');
-      }
       const readyActor = await waitForActor(() => actor);
       return readyActor.unlikeStory(storyId);
     },
-    onMutate: async (storyId) => {
-      await queryClient.cancelQueries({ queryKey: ['stories'] });
-      await queryClient.cancelQueries({ queryKey: ['story', storyId] });
-      await queryClient.cancelQueries({ queryKey: ['currentUserProfile'] });
-
-      const previousStories = queryClient.getQueryData(['stories', 'search']);
-      const previousStory = queryClient.getQueryData(['story', storyId]);
-      const previousProfile = queryClient.getQueryData(['currentUserProfile']);
-
-      queryClient.setQueryData(['story', storyId], (old: Story | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          likeCount: old.likeCount > BigInt(0) ? old.likeCount - BigInt(1) : BigInt(0),
-        };
-      });
-
-      queryClient.setQueryData(['currentUserProfile'], (old: UserProfile | null | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          likedStories: old.likedStories.filter(id => id !== storyId),
-        };
-      });
-
-      return { previousStories, previousStory, previousProfile };
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      queryClient.invalidateQueries({ queryKey: ["nearbyStoriesForMap"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["likedStories"] });
+      toast.success("Story unliked");
     },
-    onError: (error: Error, storyId, context) => {
-      if (context?.previousStory) {
-        queryClient.setQueryData(['story', storyId], context.previousStory);
-      }
-      if (context?.previousProfile) {
-        queryClient.setQueryData(['currentUserProfile'], context.previousProfile);
-      }
-
-      const message = error.message || 'Failed to unlike story';
-      if (message.includes('not liked')) {
-        toast.info('You have not liked this story');
-      } else if (!message.includes('log in')) {
-        toast.error(message);
-      }
-    },
-    onSettled: (_, __, storyId) => {
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ queryKey: ['story', storyId] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      queryClient.invalidateQueries({ queryKey: ['likedStories'] });
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to unlike story");
     },
   });
 }
 
 export function usePinStory() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (storyId: string) => {
-      if (!identity) {
-        throw new Error('Please log in to pin stories');
-      }
       const readyActor = await waitForActor(() => actor);
       return readyActor.pinStory(storyId);
     },
-    onMutate: async (storyId) => {
-      await queryClient.cancelQueries({ queryKey: ['stories'] });
-      await queryClient.cancelQueries({ queryKey: ['story', storyId] });
-      await queryClient.cancelQueries({ queryKey: ['currentUserProfile'] });
-
-      const previousStories = queryClient.getQueryData(['stories', 'search']);
-      const previousStory = queryClient.getQueryData(['story', storyId]);
-      const previousProfile = queryClient.getQueryData(['currentUserProfile']);
-
-      queryClient.setQueryData(['story', storyId], (old: Story | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pinCount: old.pinCount + BigInt(1),
-        };
-      });
-
-      queryClient.setQueryData(['currentUserProfile'], (old: UserProfile | null | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pinnedStories: [...old.pinnedStories, storyId],
-        };
-      });
-
-      return { previousStories, previousStory, previousProfile };
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      queryClient.invalidateQueries({ queryKey: ["nearbyStoriesForMap"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["pinnedStories"] });
+      toast.success("Story pinned!");
     },
-    onError: (error: Error, storyId, context) => {
-      if (context?.previousStory) {
-        queryClient.setQueryData(['story', storyId], context.previousStory);
+    onError: (error: Error) => {
+      if (error.message.includes("already pinned")) {
+        toast.error("You have already pinned this story");
+      } else {
+        toast.error(error.message || "Failed to pin story");
       }
-      if (context?.previousProfile) {
-        queryClient.setQueryData(['currentUserProfile'], context.previousProfile);
-      }
-
-      const message = error.message || 'Failed to pin story';
-      if (message.includes('already pinned')) {
-        toast.info('You already pinned this story');
-      } else if (!message.includes('log in')) {
-        toast.error(message);
-      }
-    },
-    onSettled: (_, __, storyId) => {
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ queryKey: ['story', storyId] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      queryClient.invalidateQueries({ queryKey: ['pinnedStories'] });
     },
   });
 }
 
 export function useUnpinStory() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (storyId: string) => {
-      if (!identity) {
-        throw new Error('Please log in to unpin stories');
-      }
       const readyActor = await waitForActor(() => actor);
       return readyActor.unpinStory(storyId);
     },
-    onMutate: async (storyId) => {
-      await queryClient.cancelQueries({ queryKey: ['stories'] });
-      await queryClient.cancelQueries({ queryKey: ['story', storyId] });
-      await queryClient.cancelQueries({ queryKey: ['currentUserProfile'] });
-
-      const previousStories = queryClient.getQueryData(['stories', 'search']);
-      const previousStory = queryClient.getQueryData(['story', storyId]);
-      const previousProfile = queryClient.getQueryData(['currentUserProfile']);
-
-      queryClient.setQueryData(['story', storyId], (old: Story | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pinCount: old.pinCount > BigInt(0) ? old.pinCount - BigInt(1) : BigInt(0),
-        };
-      });
-
-      queryClient.setQueryData(['currentUserProfile'], (old: UserProfile | null | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pinnedStories: old.pinnedStories.filter(id => id !== storyId),
-        };
-      });
-
-      return { previousStories, previousStory, previousProfile };
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      queryClient.invalidateQueries({ queryKey: ["nearbyStoriesForMap"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      queryClient.invalidateQueries({ queryKey: ["pinnedStories"] });
+      toast.success("Story unpinned");
     },
-    onError: (error: Error, storyId, context) => {
-      if (context?.previousStory) {
-        queryClient.setQueryData(['story', storyId], context.previousStory);
-      }
-      if (context?.previousProfile) {
-        queryClient.setQueryData(['currentUserProfile'], context.previousProfile);
-      }
-
-      const message = error.message || 'Failed to unpin story';
-      if (message.includes('not pinned')) {
-        toast.info('You have not pinned this story');
-      } else if (!message.includes('log in')) {
-        toast.error(message);
-      }
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to unpin story");
     },
-    onSettled: (_, __, storyId) => {
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ queryKey: ['story', storyId] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      queryClient.invalidateQueries({ queryKey: ['pinnedStories'] });
-    },
-  });
-}
-
-// Comment Mutations
-export function useGetComments(storyId: string | null) {
-  const { actor, isFetching } = useActor();
-
-  return useQuery<Comment[]>({
-    queryKey: ['comments', storyId],
-    queryFn: async () => {
-      if (!actor || !storyId) return [];
-      try {
-        return await actor.getComments(storyId);
-      } catch (error) {
-        console.error('Failed to fetch comments:', error);
-        return [];
-      }
-    },
-    enabled: !!actor && !isFetching && !!storyId,
   });
 }
 
 export function useAddComment() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -705,137 +542,110 @@ export function useAddComment() {
       content: string;
       isAnonymous: boolean;
     }) => {
-      if (!identity) {
-        throw new Error('Please log in to comment');
-      }
       const readyActor = await waitForActor(() => actor);
-      const timestamp = BigInt(Date.now() * 1000000);
       return readyActor.addComment(
         params.storyId,
         params.content,
-        timestamp,
-        params.isAnonymous
+        BigInt(Date.now() * 1000000),
+        params.isAnonymous,
       );
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', variables.storyId] });
-      toast.success('Comment added successfully');
+      queryClient.invalidateQueries({
+        queryKey: ["comments", variables.storyId],
+      });
+      toast.success("Comment added!");
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to add comment';
-      if (!message.includes('log in')) {
-        toast.error(message);
-      }
+      toast.error(error.message || "Failed to add comment");
     },
   });
 }
 
-// Report Mutations
 export function useReportStory() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
 
   return useMutation({
-    mutationFn: async (params: {
-      storyId: string;
-      reason: string;
-    }) => {
-      if (!identity) {
-        throw new Error('Please log in to report stories');
-      }
+    mutationFn: async (params: { storyId: string; reason: string }) => {
       const readyActor = await waitForActor(() => actor);
-      const timestamp = BigInt(Date.now() * 1000000);
-      return readyActor.reportStory(params.storyId, params.reason, timestamp);
+      return readyActor.reportStory(
+        params.storyId,
+        params.reason,
+        BigInt(Date.now() * 1000000),
+      );
     },
     onSuccess: () => {
-      toast.success('Story reported successfully');
+      toast.success(
+        "Story reported. Thank you for helping keep our community safe.",
+      );
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to report story';
-      if (!message.includes('log in')) {
-        toast.error(message);
-      }
+      toast.error(error.message || "Failed to report story");
     },
   });
 }
 
 export function useRemoveStory() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (storyId: string) => {
-      if (!identity) {
-        throw new Error('Please log in to remove stories');
-      }
       const readyActor = await waitForActor(() => actor);
       return readyActor.removeStory(storyId);
     },
-    onSuccess: (_, storyId) => {
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ queryKey: ['story', storyId] });
-      queryClient.invalidateQueries({ queryKey: ['postedStories'] });
-      queryClient.invalidateQueries({ queryKey: ['likedStories'] });
-      queryClient.invalidateQueries({ queryKey: ['pinnedStories'] });
-      toast.success('Story removed successfully');
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stories"] });
+      queryClient.invalidateQueries({ queryKey: ["nearbyStoriesForMap"] });
+      queryClient.invalidateQueries({ queryKey: ["postedStories"] });
+      toast.success("Story deleted successfully");
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to remove story';
-      if (message.includes('Unauthorized') || message.includes('author') || message.includes('permission')) {
-        toast.error('You do not have permission to remove this story');
-      } else if (!message.includes('log in')) {
-        toast.error(message);
-      }
+      toast.error(error.message || "Failed to delete story");
     },
   });
 }
 
-// Admin Queries
 export function useGetReports() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
   const { identity, isInitializing } = useInternetIdentity();
 
   return useQuery<Report[]>({
-    queryKey: ['reports'],
+    queryKey: ["reports"],
     queryFn: async () => {
       if (!actor) return [];
       try {
         return await actor.getReports();
-      } catch (error) {
-        console.error('Failed to fetch reports:', error);
-        return [];
+      } catch (error: any) {
+        if (
+          error.message?.includes("Unauthorized") ||
+          error.message?.includes("admin")
+        ) {
+          return [];
+        }
+        throw error;
       }
     },
-    enabled: !!actor && !actorFetching && !!identity && !isInitializing,
+    enabled: !!actor && !isFetching && !!identity && !isInitializing,
     retry: false,
   });
 }
 
 export function useRemoveReport() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (reportId: bigint) => {
-      if (!identity) {
-        throw new Error('Please log in to remove reports');
-      }
       const readyActor = await waitForActor(() => actor);
       return readyActor.removeReport(reportId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reports'] });
-      toast.success('Report dismissed successfully');
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      toast.success("Report dismissed");
     },
     onError: (error: Error) => {
-      const message = error.message || 'Failed to remove report';
-      if (message.includes('Unauthorized') || message.includes('admin')) {
-        toast.error('You do not have permission to remove reports');
-      } else if (!message.includes('log in')) {
-        toast.error(message);
-      }
+      toast.error(error.message || "Failed to dismiss report");
     },
   });
 }

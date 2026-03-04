@@ -1,16 +1,16 @@
-import { LocalCategory } from '../../backend';
-import { getLocalCategoryLabel } from '../../lib/localUpdates';
-import { useLocalUpdateMuting } from '../../hooks/useLocalUpdateMuting';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Bell, BellOff } from 'lucide-react';
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Bell, BellOff } from "lucide-react";
+import { LocalCategory } from "../../backend";
+import { useLocalUpdateMuting } from "../../hooks/useLocalUpdateMuting";
+import { getLocalCategoryLabel } from "../../lib/localUpdates";
 
 interface LocalUpdateSettingsDialogProps {
   open: boolean;
@@ -38,7 +38,8 @@ export default function LocalUpdateSettingsDialog({
         <DialogHeader>
           <DialogTitle>Local Update Settings</DialogTitle>
           <DialogDescription>
-            Manage which categories of local updates you want to receive notifications for.
+            Manage which categories of local updates you want to receive
+            notifications for.
           </DialogDescription>
         </DialogHeader>
 
@@ -75,8 +76,8 @@ export default function LocalUpdateSettingsDialog({
 
         <div className="text-xs text-muted-foreground">
           <p>
-            Muted categories will not trigger notifications, but you can still view them in the
-            list.
+            Muted categories will not trigger notifications, but you can still
+            view them in the list.
           </p>
         </div>
       </DialogContent>

@@ -1,20 +1,31 @@
-import StoryCard from './StoryCard';
-import { Skeleton } from '@/components/ui/skeleton';
-import type { Story } from '../backend';
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Story } from "../backend";
+import StoryCard from "./StoryCard";
 
 interface StoryFeedProps {
   stories: Story[];
   isLoading: boolean;
   userLocation: { latitude: number; longitude: number } | null;
-  onStoryClick: (story: Story) => void;
+  teleportedLocation?: { latitude: number; longitude: number } | null;
+  onStoryClick?: (story: Story) => void;
   isLocationFiltered?: boolean;
+  emptyMessage?: string;
 }
 
-export default function StoryFeed({ stories, isLoading, userLocation, onStoryClick, isLocationFiltered = false }: StoryFeedProps) {
+export default function StoryFeed({
+  stories,
+  isLoading,
+  userLocation,
+  teleportedLocation,
+  onStoryClick,
+  isLocationFiltered = false,
+  emptyMessage,
+}: StoryFeedProps) {
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         {Array.from({ length: 6 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list with no items
           <Skeleton key={i} className="h-64 rounded-lg" />
         ))}
       </div>
@@ -30,6 +41,8 @@ export default function StoryFeed({ stories, isLoading, userLocation, onStoryCli
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            role="img"
+            aria-label="No stories"
           >
             <path
               strokeLinecap="round"
@@ -40,25 +53,29 @@ export default function StoryFeed({ stories, isLoading, userLocation, onStoryCli
           </svg>
         </div>
         <h3 className="text-lg font-semibold mb-2">
-          {isLocationFiltered ? 'No story yet, be the one to write it' : 'No stories found'}
+          {isLocationFiltered
+            ? "No story yet, be the one to write it"
+            : "No stories found"}
         </h3>
         <p className="text-muted-foreground max-w-sm">
-          {isLocationFiltered
-            ? 'There are no stories near this location. Share your experience and be the first!'
-            : 'Be the first to share a story in your area! Click the + button to get started.'}
+          {emptyMessage ||
+            (isLocationFiltered
+              ? "There are no stories near this location. Share your experience and be the first!"
+              : "Be the first to share a story in your area! Click the + button to get started.")}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
       {stories.map((story) => (
         <StoryCard
           key={story.id}
           story={story}
           userLocation={userLocation}
-          onClick={() => onStoryClick(story)}
+          teleportedLocation={teleportedLocation}
+          onClick={() => onStoryClick?.(story)}
         />
       ))}
     </div>

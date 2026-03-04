@@ -1,25 +1,32 @@
-import { useEffect, useRef, useState } from 'react';
-import type { LocalUpdatePublic } from '../../backend';
-import { getLocalCategoryLabel, getLocalCategoryIconColor, formatRadius } from '../../lib/localUpdates';
-import { formatDistanceValue, calculateDistance } from '../../lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MapPin, Clock, AlertCircle } from 'lucide-react';
-import { loadLeaflet, unloadLeaflet } from '../../lib/leafletLoader';
-import { useLeafletMapResize } from '../../hooks/useLeafletMapResize';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { AlertCircle, Clock, MapPin } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { LocalUpdatePublic } from "../../backend";
+import { useLeafletMapResize } from "../../hooks/useLeafletMapResize";
+import { getCurrentLocationMarkerIcon } from "../../lib/currentLocationMarker";
+import { loadLeaflet, unloadLeaflet } from "../../lib/leafletLoader";
+import {
+  formatRadius,
+  getLocalCategoryIconColor,
+  getLocalCategoryLabel,
+} from "../../lib/localUpdates";
+import { calculateDistance, formatDistanceValue } from "../../lib/utils";
 
 interface LocalUpdatesMapViewProps {
   updates: LocalUpdatePublic[];
   userLocation: { latitude: number; longitude: number } | null;
   onUpdateClick: (update: LocalUpdatePublic) => void;
+  isVisible: boolean;
 }
 
 export default function LocalUpdatesMapView({
   updates,
   userLocation,
   onUpdateClick,
+  isVisible,
 }: LocalUpdatesMapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -28,7 +35,8 @@ export default function LocalUpdatesMapView({
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [leafletError, setLeafletError] = useState<string | null>(null);
   const [L, setL] = useState<any>(null);
-  const [selectedUpdate, setSelectedUpdate] = useState<LocalUpdatePublic | null>(null);
+  const [selectedUpdate, setSelectedUpdate] =
+    useState<LocalUpdatePublic | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [isLoadingMap, setIsLoadingMap] = useState(true);
 
@@ -46,9 +54,11 @@ export default function LocalUpdatesMapView({
         }
       })
       .catch((error) => {
-        console.error('Failed to load Leaflet:', error);
+        console.error("Failed to load Leaflet:", error);
         if (mounted) {
-          setLeafletError('Failed to load map library. Please refresh the page.');
+          setLeafletError(
+            "Failed to load map library. Please refresh the page.",
+          );
           setIsLoadingMap(false);
         }
       });
@@ -59,9 +69,16 @@ export default function LocalUpdatesMapView({
     };
   }, []);
 
-  // Initialize map
+  // Initialize map once per mount (independent of userLocation)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: map initialised once on mount; userLocation handled by separate effect
   useEffect(() => {
-    if (!leafletLoaded || !L || !mapContainerRef.current || mapInstanceRef.current) return;
+    if (
+      !leafletLoaded ||
+      !L ||
+      !mapContainerRef.current ||
+      mapInstanceRef.current
+    )
+      return;
 
     try {
       const defaultCenter: [number, number] = userLocation
@@ -74,17 +91,21 @@ export default function LocalUpdatesMapView({
         zoomControl: true,
       });
 
-      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      });
+      const tileLayer = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        },
+      );
 
-      tileLayer.on('load', () => {
+      tileLayer.on("load", () => {
         setIsLoadingMap(false);
       });
 
-      tileLayer.on('tileerror', (error: any) => {
-        console.warn('Tile load error:', error);
+      tileLayer.on("tileerror", (error: any) => {
+        console.warn("Tile load error:", error);
       });
 
       tileLayer.addTo(map);
@@ -98,8 +119,8 @@ export default function LocalUpdatesMapView({
         setIsLoadingMap(false);
       }, 1000);
     } catch (error) {
-      console.error('Failed to initialize map:', error);
-      setLeafletError('Failed to initialize map. Please refresh the page.');
+      console.error("Failed to initialize map:", error);
+      setLeafletError("Failed to initialize map. Please refresh the page.");
       setIsLoadingMap(false);
     }
 
@@ -108,46 +129,70 @@ export default function LocalUpdatesMapView({
         try {
           mapInstanceRef.current.remove();
         } catch (error) {
-          console.error('Error removing map:', error);
+          console.error("Error removing map:", error);
         }
         mapInstanceRef.current = null;
         setMapReady(false);
       }
     };
-  }, [leafletLoaded, L, userLocation]);
+  }, [leafletLoaded, L]);
 
-  // Use resize hook to ensure proper map display
-  useLeafletMapResize(mapReady ? mapInstanceRef.current : null, true);
+  // Use resize hook with actual visibility state
+  useLeafletMapResize(mapReady ? mapInstanceRef.current : null, isVisible);
 
-  // Update markers
+  // Update user location marker separately (without recreating map)
   useEffect(() => {
     if (!mapReady || !L || !mapInstanceRef.current) return;
 
     const map = mapInstanceRef.current;
 
-    // Clear existing markers
-    markersRef.current.forEach((marker) => {
-      try {
-        marker.remove();
-      } catch (error) {
-        console.warn('Error removing marker:', error);
-      }
-    });
-    markersRef.current = [];
-    
+    // Remove existing user marker
     if (userMarkerRef.current) {
       try {
         userMarkerRef.current.remove();
       } catch (error) {
-        console.warn('Error removing user marker:', error);
+        console.warn("Error removing user marker:", error);
       }
       userMarkerRef.current = null;
     }
 
+    // Add user location marker if available
+    if (userLocation) {
+      const userIcon = getCurrentLocationMarkerIcon(L);
+
+      userMarkerRef.current = L.marker(
+        [userLocation.latitude, userLocation.longitude],
+        {
+          icon: userIcon,
+        },
+      ).addTo(map);
+
+      userMarkerRef.current.bindPopup(
+        '<div class="p-2 text-sm font-semibold">Your Location</div>',
+      );
+    }
+  }, [mapReady, L, userLocation]);
+
+  // Update markers when updates change
+  useEffect(() => {
+    if (!mapReady || !L || !mapInstanceRef.current) return;
+
+    const map = mapInstanceRef.current;
+
+    // Clear existing update markers
+    for (const marker of markersRef.current) {
+      try {
+        marker.remove();
+      } catch (error) {
+        console.warn("Error removing marker:", error);
+      }
+    }
+    markersRef.current = [];
+
     const bounds: [number, number][] = [];
 
     // Add update markers
-    updates.forEach((update) => {
+    for (const update of updates) {
       const position: [number, number] = [update.latitude, update.longitude];
       bounds.push(position);
 
@@ -166,7 +211,7 @@ export default function LocalUpdatesMapView({
             </div>
           </div>
         `,
-        className: 'custom-local-update-marker',
+        className: "custom-local-update-marker",
         iconSize: [40, 40],
         iconAnchor: [20, 40],
         popupAnchor: [0, -40],
@@ -180,17 +225,17 @@ export default function LocalUpdatesMapView({
               userLocation.latitude,
               userLocation.longitude,
               update.latitude,
-              update.longitude
-            )
+              update.longitude,
+            ),
           )
-        : '';
+        : "";
 
       const timestamp = new Date(Number(update.timestamp) / 1000000);
       const timeAgo = getTimeAgo(timestamp);
 
       const imageHtml = update.image
         ? `<img src="${update.image.getDirectURL()}" alt="Update" class="w-full h-32 object-cover mb-2 rounded" />`
-        : '';
+        : "";
 
       const popupContent = `
         <div class="p-2 min-w-[200px]">
@@ -202,7 +247,7 @@ export default function LocalUpdatesMapView({
           </div>
           <p class="text-sm font-medium mb-2">${update.content}</p>
           <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
-            ${distance ? `<span>${distance} away</span>` : '<span></span>'}
+            ${distance ? `<span>${distance} away</span>` : "<span></span>"}
             <span>${timeAgo}</span>
           </div>
           <div class="text-xs text-gray-500 mb-2">
@@ -220,10 +265,10 @@ export default function LocalUpdatesMapView({
 
       marker.bindPopup(popupContent, {
         maxWidth: 300,
-        className: 'custom-popup',
+        className: "custom-popup",
       });
 
-      marker.on('click', (e: any) => {
+      marker.on("click", (e: any) => {
         L.DomEvent.stopPropagation(e);
         setSelectedUpdate(update);
       });
@@ -240,29 +285,11 @@ export default function LocalUpdatesMapView({
         weight: 2,
       }).addTo(map);
       markersRef.current.push(circle);
-    });
+    }
 
-    // Add user location marker
+    // Add user location to bounds if available
     if (userLocation) {
       bounds.push([userLocation.latitude, userLocation.longitude]);
-
-      const userIcon = L.divIcon({
-        html: `
-          <div class="relative w-6 h-6">
-            <div class="absolute inset-0 rounded-full bg-blue-500 border-4 border-white shadow-lg animate-pulse"></div>
-            <div class="absolute inset-0 rounded-full bg-blue-400 opacity-50 animate-ping"></div>
-          </div>
-        `,
-        className: 'custom-user-marker',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      });
-
-      userMarkerRef.current = L.marker([userLocation.latitude, userLocation.longitude], {
-        icon: userIcon,
-      }).addTo(map);
-
-      userMarkerRef.current.bindPopup('<div class="p-2 text-sm font-semibold">Your Location</div>');
     }
 
     // Fit bounds
@@ -274,7 +301,7 @@ export default function LocalUpdatesMapView({
           maxZoom: 15,
         });
       } catch (error) {
-        console.warn('Error fitting bounds:', error);
+        console.warn("Error fitting bounds:", error);
       }
     }
   }, [mapReady, L, updates, userLocation]);
@@ -289,9 +316,12 @@ export default function LocalUpdatesMapView({
       }
     };
 
-    window.addEventListener('local-update-marker-click', handleMarkerClick);
+    window.addEventListener("local-update-marker-click", handleMarkerClick);
     return () => {
-      window.removeEventListener('local-update-marker-click', handleMarkerClick);
+      window.removeEventListener(
+        "local-update-marker-click",
+        handleMarkerClick,
+      );
     };
   }, [updates, onUpdateClick]);
 
@@ -301,15 +331,18 @@ export default function LocalUpdatesMapView({
         ref={mapContainerRef}
         className="relative w-full h-[600px] rounded-lg border overflow-hidden shadow-lg"
         style={{
-          background: 'linear-gradient(to bottom right, oklch(var(--muted)), oklch(var(--background)))',
+          background:
+            "linear-gradient(to bottom right, oklch(var(--muted)), oklch(var(--background)))",
         }}
       >
         {/* Loading State */}
         {isLoadingMap && (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 z-10">
             <div className="text-center space-y-3">
-              <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-              <p className="text-sm font-medium text-muted-foreground">Loading map...</p>
+              <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-sm font-medium text-muted-foreground">
+                Loading map...
+              </p>
             </div>
           </div>
         )}
@@ -356,7 +389,11 @@ export default function LocalUpdatesMapView({
             <div className="flex items-center gap-4 text-xs text-muted-foreground mt-3">
               <div className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                <span>{getTimeAgo(new Date(Number(selectedUpdate.timestamp) / 1000000))}</span>
+                <span>
+                  {getTimeAgo(
+                    new Date(Number(selectedUpdate.timestamp) / 1000000),
+                  )}
+                </span>
               </div>
               <div className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
@@ -369,10 +406,6 @@ export default function LocalUpdatesMapView({
 
       <style>{`
         .custom-local-update-marker {
-          background: transparent;
-          border: none;
-        }
-        .custom-user-marker {
           background: transparent;
           border: none;
         }
@@ -395,7 +428,7 @@ function getTimeAgo(date: Date): string {
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffMins < 1) return 'Just now';
+  if (diffMins < 1) return "Just now";
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   return `${diffDays}d ago`;

@@ -40,10 +40,6 @@ export const Category = IDL.Variant({
   'random' : IDL.Null,
   'confession' : IDL.Null,
 });
-export const Location = IDL.Record({
-  'latitude' : IDL.Float64,
-  'longitude' : IDL.Float64,
-});
 export const LocalUpdatePublic = IDL.Record({
   'id' : IDL.Nat,
   'latitude' : IDL.Float64,
@@ -58,17 +54,18 @@ export const LocalUpdatePublic = IDL.Record({
 });
 export const Story = IDL.Record({
   'id' : IDL.Text,
+  'latitude' : IDL.Float64,
   'title' : IDL.Text,
   'likeCount' : IDL.Nat,
   'content' : IDL.Text,
   'isAnonymous' : IDL.Bool,
   'author' : IDL.Principal,
   'viewCount' : IDL.Nat,
+  'longitude' : IDL.Float64,
   'timestamp' : IDL.Int,
   'category' : Category,
   'image' : IDL.Opt(ExternalBlob),
   'locationName' : IDL.Opt(IDL.Text),
-  'location' : Location,
   'pinCount' : IDL.Nat,
 });
 export const UserProfile = IDL.Record({
@@ -89,33 +86,40 @@ export const Comment = IDL.Record({
 });
 export const StoryDraft = IDL.Record({
   'id' : IDL.Text,
+  'latitude' : IDL.Opt(IDL.Float64),
   'title' : IDL.Text,
   'content' : IDL.Text,
   'createdAt' : IDL.Int,
   'isAnonymous' : IDL.Bool,
   'author' : IDL.Principal,
   'updatedAt' : IDL.Int,
+  'longitude' : IDL.Opt(IDL.Float64),
   'timestamp' : IDL.Int,
   'category' : Category,
   'image' : IDL.Opt(ExternalBlob),
   'locationName' : IDL.Opt(IDL.Text),
-  'location' : IDL.Opt(Location),
 });
 export const StoryView = IDL.Record({
   'id' : IDL.Text,
+  'latitude' : IDL.Float64,
   'title' : IDL.Text,
   'likeCount' : IDL.Nat,
   'content' : IDL.Text,
   'isAnonymous' : IDL.Bool,
   'author' : IDL.Principal,
   'viewCount' : IDL.Nat,
+  'longitude' : IDL.Float64,
   'viewers' : IDL.Vec(IDL.Principal),
   'timestamp' : IDL.Int,
   'category' : Category,
   'image' : IDL.Opt(ExternalBlob),
   'locationName' : IDL.Opt(IDL.Text),
-  'location' : Location,
   'pinCount' : IDL.Nat,
+});
+export const MapSearchRequest = IDL.Record({
+  'centerLatitude' : IDL.Float64,
+  'radius' : IDL.Float64,
+  'centerLongitude' : IDL.Float64,
 });
 export const Report = IDL.Record({
   'id' : IDL.Nat,
@@ -125,7 +129,10 @@ export const Report = IDL.Record({
   'reason' : IDL.Text,
 });
 export const SortOption = IDL.Variant({
-  'nearest' : IDL.Record({ 'location' : Location }),
+  'nearest' : IDL.Record({
+    'latitude' : IDL.Float64,
+    'longitude' : IDL.Float64,
+  }),
   'newest' : IDL.Null,
   'mostPinned' : IDL.Null,
   'mostLiked' : IDL.Null,
@@ -136,11 +143,12 @@ export const ProximityQuery = IDL.Record({
   'longitude' : IDL.Float64,
 });
 export const SearchParams = IDL.Record({
+  'latitude' : IDL.Float64,
   'sort' : SortOption,
   'keywords' : IDL.Opt(IDL.Text),
+  'longitude' : IDL.Float64,
   'category' : IDL.Opt(Category),
   'radius' : IDL.Opt(IDL.Float64),
-  'coordinates' : Location,
 });
 
 export const idlService = IDL.Service({
@@ -195,7 +203,8 @@ export const idlService = IDL.Service({
         IDL.Text,
         Category,
         IDL.Opt(IDL.Text),
-        IDL.Opt(Location),
+        IDL.Opt(IDL.Float64),
+        IDL.Opt(IDL.Float64),
         IDL.Bool,
         IDL.Opt(ExternalBlob),
       ],
@@ -208,7 +217,8 @@ export const idlService = IDL.Service({
         IDL.Text,
         Category,
         IDL.Opt(IDL.Text),
-        Location,
+        IDL.Float64,
+        IDL.Float64,
         IDL.Int,
         IDL.Bool,
         IDL.Opt(ExternalBlob),
@@ -218,7 +228,7 @@ export const idlService = IDL.Service({
     ),
   'deleteDraft' : IDL.Func([IDL.Text], [], []),
   'getActiveLocalUpdatesByProximity' : IDL.Func(
-      [Location],
+      [IDL.Float64, IDL.Float64],
       [IDL.Vec(LocalUpdatePublic)],
       ['query'],
     ),
@@ -241,6 +251,11 @@ export const idlService = IDL.Service({
   'getLocalUpdatesByCategory' : IDL.Func(
       [LocalCategory],
       [IDL.Vec(LocalUpdatePublic)],
+      ['query'],
+    ),
+  'getNearbyStoriesForMap' : IDL.Func(
+      [MapSearchRequest],
+      [IDL.Vec(Story)],
       ['query'],
     ),
   'getPinnedStoriesByUser' : IDL.Func(
@@ -294,7 +309,8 @@ export const idlService = IDL.Service({
         IDL.Text,
         Category,
         IDL.Opt(IDL.Text),
-        IDL.Opt(Location),
+        IDL.Opt(IDL.Float64),
+        IDL.Opt(IDL.Float64),
         IDL.Bool,
         IDL.Opt(ExternalBlob),
       ],
@@ -308,7 +324,8 @@ export const idlService = IDL.Service({
         IDL.Text,
         Category,
         IDL.Opt(IDL.Text),
-        Location,
+        IDL.Float64,
+        IDL.Float64,
         IDL.Bool,
         IDL.Opt(ExternalBlob),
       ],
@@ -352,10 +369,6 @@ export const idlFactory = ({ IDL }) => {
     'random' : IDL.Null,
     'confession' : IDL.Null,
   });
-  const Location = IDL.Record({
-    'latitude' : IDL.Float64,
-    'longitude' : IDL.Float64,
-  });
   const LocalUpdatePublic = IDL.Record({
     'id' : IDL.Nat,
     'latitude' : IDL.Float64,
@@ -370,17 +383,18 @@ export const idlFactory = ({ IDL }) => {
   });
   const Story = IDL.Record({
     'id' : IDL.Text,
+    'latitude' : IDL.Float64,
     'title' : IDL.Text,
     'likeCount' : IDL.Nat,
     'content' : IDL.Text,
     'isAnonymous' : IDL.Bool,
     'author' : IDL.Principal,
     'viewCount' : IDL.Nat,
+    'longitude' : IDL.Float64,
     'timestamp' : IDL.Int,
     'category' : Category,
     'image' : IDL.Opt(ExternalBlob),
     'locationName' : IDL.Opt(IDL.Text),
-    'location' : Location,
     'pinCount' : IDL.Nat,
   });
   const UserProfile = IDL.Record({
@@ -401,33 +415,40 @@ export const idlFactory = ({ IDL }) => {
   });
   const StoryDraft = IDL.Record({
     'id' : IDL.Text,
+    'latitude' : IDL.Opt(IDL.Float64),
     'title' : IDL.Text,
     'content' : IDL.Text,
     'createdAt' : IDL.Int,
     'isAnonymous' : IDL.Bool,
     'author' : IDL.Principal,
     'updatedAt' : IDL.Int,
+    'longitude' : IDL.Opt(IDL.Float64),
     'timestamp' : IDL.Int,
     'category' : Category,
     'image' : IDL.Opt(ExternalBlob),
     'locationName' : IDL.Opt(IDL.Text),
-    'location' : IDL.Opt(Location),
   });
   const StoryView = IDL.Record({
     'id' : IDL.Text,
+    'latitude' : IDL.Float64,
     'title' : IDL.Text,
     'likeCount' : IDL.Nat,
     'content' : IDL.Text,
     'isAnonymous' : IDL.Bool,
     'author' : IDL.Principal,
     'viewCount' : IDL.Nat,
+    'longitude' : IDL.Float64,
     'viewers' : IDL.Vec(IDL.Principal),
     'timestamp' : IDL.Int,
     'category' : Category,
     'image' : IDL.Opt(ExternalBlob),
     'locationName' : IDL.Opt(IDL.Text),
-    'location' : Location,
     'pinCount' : IDL.Nat,
+  });
+  const MapSearchRequest = IDL.Record({
+    'centerLatitude' : IDL.Float64,
+    'radius' : IDL.Float64,
+    'centerLongitude' : IDL.Float64,
   });
   const Report = IDL.Record({
     'id' : IDL.Nat,
@@ -437,7 +458,10 @@ export const idlFactory = ({ IDL }) => {
     'reason' : IDL.Text,
   });
   const SortOption = IDL.Variant({
-    'nearest' : IDL.Record({ 'location' : Location }),
+    'nearest' : IDL.Record({
+      'latitude' : IDL.Float64,
+      'longitude' : IDL.Float64,
+    }),
     'newest' : IDL.Null,
     'mostPinned' : IDL.Null,
     'mostLiked' : IDL.Null,
@@ -448,11 +472,12 @@ export const idlFactory = ({ IDL }) => {
     'longitude' : IDL.Float64,
   });
   const SearchParams = IDL.Record({
+    'latitude' : IDL.Float64,
     'sort' : SortOption,
     'keywords' : IDL.Opt(IDL.Text),
+    'longitude' : IDL.Float64,
     'category' : IDL.Opt(Category),
     'radius' : IDL.Opt(IDL.Float64),
-    'coordinates' : Location,
   });
   
   return IDL.Service({
@@ -507,7 +532,8 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           Category,
           IDL.Opt(IDL.Text),
-          IDL.Opt(Location),
+          IDL.Opt(IDL.Float64),
+          IDL.Opt(IDL.Float64),
           IDL.Bool,
           IDL.Opt(ExternalBlob),
         ],
@@ -520,7 +546,8 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           Category,
           IDL.Opt(IDL.Text),
-          Location,
+          IDL.Float64,
+          IDL.Float64,
           IDL.Int,
           IDL.Bool,
           IDL.Opt(ExternalBlob),
@@ -530,7 +557,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'deleteDraft' : IDL.Func([IDL.Text], [], []),
     'getActiveLocalUpdatesByProximity' : IDL.Func(
-        [Location],
+        [IDL.Float64, IDL.Float64],
         [IDL.Vec(LocalUpdatePublic)],
         ['query'],
       ),
@@ -553,6 +580,11 @@ export const idlFactory = ({ IDL }) => {
     'getLocalUpdatesByCategory' : IDL.Func(
         [LocalCategory],
         [IDL.Vec(LocalUpdatePublic)],
+        ['query'],
+      ),
+    'getNearbyStoriesForMap' : IDL.Func(
+        [MapSearchRequest],
+        [IDL.Vec(Story)],
         ['query'],
       ),
     'getPinnedStoriesByUser' : IDL.Func(
@@ -606,7 +638,8 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           Category,
           IDL.Opt(IDL.Text),
-          IDL.Opt(Location),
+          IDL.Opt(IDL.Float64),
+          IDL.Opt(IDL.Float64),
           IDL.Bool,
           IDL.Opt(ExternalBlob),
         ],
@@ -620,7 +653,8 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           Category,
           IDL.Opt(IDL.Text),
-          Location,
+          IDL.Float64,
+          IDL.Float64,
           IDL.Bool,
           IDL.Opt(ExternalBlob),
         ],

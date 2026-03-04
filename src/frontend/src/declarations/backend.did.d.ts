@@ -42,7 +42,11 @@ export interface LocalUpdatePublic {
   'radius' : bigint,
   'image' : [] | [ExternalBlob],
 }
-export interface Location { 'latitude' : number, 'longitude' : number }
+export interface MapSearchRequest {
+  'centerLatitude' : number,
+  'radius' : number,
+  'centerLongitude' : number,
+}
 export interface ProximityQuery { 'latitude' : number, 'longitude' : number }
 export interface Report {
   'id' : bigint,
@@ -52,60 +56,66 @@ export interface Report {
   'reason' : string,
 }
 export interface SearchParams {
+  'latitude' : number,
   'sort' : SortOption,
   'keywords' : [] | [string],
+  'longitude' : number,
   'category' : [] | [Category],
   'radius' : [] | [number],
-  'coordinates' : Location,
 }
-export type SortOption = { 'nearest' : { 'location' : Location } } |
+export type SortOption = {
+    'nearest' : { 'latitude' : number, 'longitude' : number }
+  } |
   { 'newest' : null } |
   { 'mostPinned' : null } |
   { 'mostLiked' : null } |
   { 'mostViewed' : null };
 export interface Story {
   'id' : string,
+  'latitude' : number,
   'title' : string,
   'likeCount' : bigint,
   'content' : string,
   'isAnonymous' : boolean,
   'author' : Principal,
   'viewCount' : bigint,
+  'longitude' : number,
   'timestamp' : bigint,
   'category' : Category,
   'image' : [] | [ExternalBlob],
   'locationName' : [] | [string],
-  'location' : Location,
   'pinCount' : bigint,
 }
 export interface StoryDraft {
   'id' : string,
+  'latitude' : [] | [number],
   'title' : string,
   'content' : string,
   'createdAt' : bigint,
   'isAnonymous' : boolean,
   'author' : Principal,
   'updatedAt' : bigint,
+  'longitude' : [] | [number],
   'timestamp' : bigint,
   'category' : Category,
   'image' : [] | [ExternalBlob],
   'locationName' : [] | [string],
-  'location' : [] | [Location],
 }
 export interface StoryView {
   'id' : string,
+  'latitude' : number,
   'title' : string,
   'likeCount' : bigint,
   'content' : string,
   'isAnonymous' : boolean,
   'author' : Principal,
   'viewCount' : bigint,
+  'longitude' : number,
   'viewers' : Array<Principal>,
   'timestamp' : bigint,
   'category' : Category,
   'image' : [] | [ExternalBlob],
   'locationName' : [] | [string],
-  'location' : Location,
   'pinCount' : bigint,
 }
 export interface UserProfile {
@@ -159,7 +169,8 @@ export interface _SERVICE {
       string,
       Category,
       [] | [string],
-      [] | [Location],
+      [] | [number],
+      [] | [number],
       boolean,
       [] | [ExternalBlob],
     ],
@@ -171,7 +182,8 @@ export interface _SERVICE {
       string,
       Category,
       [] | [string],
-      Location,
+      number,
+      number,
       bigint,
       boolean,
       [] | [ExternalBlob],
@@ -180,7 +192,7 @@ export interface _SERVICE {
   >,
   'deleteDraft' : ActorMethod<[string], undefined>,
   'getActiveLocalUpdatesByProximity' : ActorMethod<
-    [Location],
+    [number, number],
     Array<LocalUpdatePublic>
   >,
   'getAllActiveLocalUpdates' : ActorMethod<[], Array<LocalUpdatePublic>>,
@@ -195,6 +207,7 @@ export interface _SERVICE {
     [LocalCategory],
     Array<LocalUpdatePublic>
   >,
+  'getNearbyStoriesForMap' : ActorMethod<[MapSearchRequest], Array<Story>>,
   'getPinnedStoriesByUser' : ActorMethod<[Principal], Array<StoryView>>,
   'getReports' : ActorMethod<[], Array<Report>>,
   'getStoriesByCategory' : ActorMethod<[Category, SortOption], Array<Story>>,
@@ -226,7 +239,8 @@ export interface _SERVICE {
       string,
       Category,
       [] | [string],
-      [] | [Location],
+      [] | [number],
+      [] | [number],
       boolean,
       [] | [ExternalBlob],
     ],
@@ -239,7 +253,8 @@ export interface _SERVICE {
       string,
       Category,
       [] | [string],
-      Location,
+      number,
+      number,
       boolean,
       [] | [ExternalBlob],
     ],

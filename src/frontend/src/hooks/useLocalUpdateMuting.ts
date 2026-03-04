@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { LocalCategory } from '../backend';
+import { useCallback, useEffect, useState } from "react";
+import { LocalCategory } from "../backend";
 
-const MUTED_CATEGORIES_KEY = 'storymap-muted-local-categories';
+const MUTED_CATEGORIES_KEY = "storymap-muted-local-categories";
 
 export interface MutedCategories {
   [LocalCategory.traffic]: boolean;
@@ -22,23 +22,28 @@ const defaultMutedCategories: MutedCategories = {
 };
 
 export function useLocalUpdateMuting() {
-  const [mutedCategories, setMutedCategories] = useState<MutedCategories>(() => {
-    try {
-      const stored = localStorage.getItem(MUTED_CATEGORIES_KEY);
-      if (stored) {
-        return { ...defaultMutedCategories, ...JSON.parse(stored) };
+  const [mutedCategories, setMutedCategories] = useState<MutedCategories>(
+    () => {
+      try {
+        const stored = localStorage.getItem(MUTED_CATEGORIES_KEY);
+        if (stored) {
+          return { ...defaultMutedCategories, ...JSON.parse(stored) };
+        }
+      } catch (error) {
+        console.error("Failed to load muted categories:", error);
       }
-    } catch (error) {
-      console.error('Failed to load muted categories:', error);
-    }
-    return defaultMutedCategories;
-  });
+      return defaultMutedCategories;
+    },
+  );
 
   useEffect(() => {
     try {
-      localStorage.setItem(MUTED_CATEGORIES_KEY, JSON.stringify(mutedCategories));
+      localStorage.setItem(
+        MUTED_CATEGORIES_KEY,
+        JSON.stringify(mutedCategories),
+      );
     } catch (error) {
-      console.error('Failed to save muted categories:', error);
+      console.error("Failed to save muted categories:", error);
     }
   }, [mutedCategories]);
 
@@ -53,7 +58,7 @@ export function useLocalUpdateMuting() {
     (category: LocalCategory) => {
       return mutedCategories[category] || false;
     },
-    [mutedCategories]
+    [mutedCategories],
   );
 
   return {

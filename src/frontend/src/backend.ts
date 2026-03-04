@@ -89,10 +89,6 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface Location {
-    latitude: number;
-    longitude: number;
-}
 export interface ProximityQuery {
     latitude: number;
     longitude: number;
@@ -105,22 +101,28 @@ export interface Comment {
     author: Principal;
     timestamp: bigint;
 }
+export interface MapSearchRequest {
+    centerLatitude: number;
+    radius: number;
+    centerLongitude: number;
+}
 export interface _CaffeineStorageRefillInformation {
     proposed_top_up_amount?: bigint;
 }
 export interface Story {
     id: string;
+    latitude: number;
     title: string;
     likeCount: bigint;
     content: string;
     isAnonymous: boolean;
     author: Principal;
     viewCount: bigint;
+    longitude: number;
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
     locationName?: string;
-    location: Location;
     pinCount: bigint;
 }
 export interface LocalUpdatePublic {
@@ -147,46 +149,50 @@ export interface Report {
     reason: string;
 }
 export interface SearchParams {
+    latitude: number;
     sort: SortOption;
     keywords?: string;
+    longitude: number;
     category?: Category;
     radius?: number;
-    coordinates: Location;
 }
 export interface StoryDraft {
     id: string;
+    latitude?: number;
     title: string;
     content: string;
     createdAt: bigint;
     isAnonymous: boolean;
     author: Principal;
     updatedAt: bigint;
+    longitude?: number;
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
     locationName?: string;
-    location?: Location;
 }
 export interface StoryView {
     id: string;
+    latitude: number;
     title: string;
     likeCount: bigint;
     content: string;
     isAnonymous: boolean;
     author: Principal;
     viewCount: bigint;
+    longitude: number;
     viewers: Array<Principal>;
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
     locationName?: string;
-    location: Location;
     pinCount: bigint;
 }
 export type SortOption = {
     __kind__: "nearest";
     nearest: {
-        location: Location;
+        latitude: number;
+        longitude: number;
     };
 } | {
     __kind__: "newest";
@@ -244,10 +250,10 @@ export interface backendInterface {
     addComment(storyId: string, content: string, timestamp: bigint, isAnonymous: boolean): Promise<bigint>;
     addLocalUpdate(content: string, latitude: number, longitude: number, radius: bigint, category: LocalCategory, image: ExternalBlob | null): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createDraft(title: string, content: string, category: Category, locationName: string | null, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
-    createStory(title: string, content: string, category: Category, locationName: string | null, location: Location, timestamp: bigint, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
+    createDraft(title: string, content: string, category: Category, locationName: string | null, latitude: number | null, longitude: number | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
+    createStory(title: string, content: string, category: Category, locationName: string | null, latitude: number, longitude: number, timestamp: bigint, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
     deleteDraft(draftId: string): Promise<void>;
-    getActiveLocalUpdatesByProximity(location: Location): Promise<Array<LocalUpdatePublic>>;
+    getActiveLocalUpdatesByProximity(latitude: number, longitude: number): Promise<Array<LocalUpdatePublic>>;
     getAllActiveLocalUpdates(): Promise<Array<LocalUpdatePublic>>;
     getAllStories(): Promise<Array<Story>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -257,6 +263,7 @@ export interface backendInterface {
     getLikedStoriesByUser(user: Principal): Promise<Array<StoryView>>;
     getLocalUpdateById(id: bigint): Promise<LocalUpdatePublic>;
     getLocalUpdatesByCategory(category: LocalCategory): Promise<Array<LocalUpdatePublic>>;
+    getNearbyStoriesForMap(mapRequest: MapSearchRequest): Promise<Array<Story>>;
     getPinnedStoriesByUser(user: Principal): Promise<Array<StoryView>>;
     getReports(): Promise<Array<Report>>;
     getStoriesByCategory(category: Category, sortOption: SortOption): Promise<Array<Story>>;
@@ -281,10 +288,10 @@ export interface backendInterface {
     thumbsUpLocalUpdate(updateId: bigint): Promise<void>;
     unlikeStory(storyId: string): Promise<void>;
     unpinStory(storyId: string): Promise<void>;
-    updateDraft(draftId: string, title: string, content: string, category: Category, locationName: string | null, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
-    updateStory(storyId: string, title: string, content: string, category: Category, locationName: string | null, location: Location, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
+    updateDraft(draftId: string, title: string, content: string, category: Category, locationName: string | null, latitude: number | null, longitude: number | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
+    updateStory(storyId: string, title: string, content: string, category: Category, locationName: string | null, latitude: number, longitude: number, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
 }
-import type { Category as _Category, ExternalBlob as _ExternalBlob, LocalCategory as _LocalCategory, LocalUpdatePublic as _LocalUpdatePublic, Location as _Location, SearchParams as _SearchParams, SortOption as _SortOption, Story as _Story, StoryDraft as _StoryDraft, StoryView as _StoryView, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
+import type { Category as _Category, ExternalBlob as _ExternalBlob, LocalCategory as _LocalCategory, LocalUpdatePublic as _LocalUpdatePublic, SearchParams as _SearchParams, SortOption as _SortOption, Story as _Story, StoryDraft as _StoryDraft, StoryView as _StoryView, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async _caffeineStorageBlobIsLive(arg0: Uint8Array): Promise<boolean> {
@@ -427,31 +434,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async createDraft(arg0: string, arg1: string, arg2: Category, arg3: string | null, arg4: Location | null, arg5: boolean, arg6: ExternalBlob | null): Promise<string> {
+    async createDraft(arg0: string, arg1: string, arg2: Category, arg3: string | null, arg4: number | null, arg5: number | null, arg6: boolean, arg7: ExternalBlob | null): Promise<string> {
         if (this.processError) {
             try {
-                const result = await this.actor.createDraft(arg0, arg1, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg2), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg4), arg5, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg6));
+                const result = await this.actor.createDraft(arg0, arg1, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg2), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg4), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg5), arg6, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg7));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createDraft(arg0, arg1, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg2), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg4), arg5, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg6));
+            const result = await this.actor.createDraft(arg0, arg1, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg2), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg4), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg5), arg6, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg7));
             return result;
         }
     }
-    async createStory(arg0: string, arg1: string, arg2: Category, arg3: string | null, arg4: Location, arg5: bigint, arg6: boolean, arg7: ExternalBlob | null): Promise<string> {
+    async createStory(arg0: string, arg1: string, arg2: Category, arg3: string | null, arg4: number, arg5: number, arg6: bigint, arg7: boolean, arg8: ExternalBlob | null): Promise<string> {
         if (this.processError) {
             try {
-                const result = await this.actor.createStory(arg0, arg1, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg2), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg7));
+                const result = await this.actor.createStory(arg0, arg1, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg2), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6, arg7, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg8));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createStory(arg0, arg1, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg2), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg7));
+            const result = await this.actor.createStory(arg0, arg1, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg2), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6, arg7, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg8));
             return result;
         }
     }
@@ -469,17 +476,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getActiveLocalUpdatesByProximity(arg0: Location): Promise<Array<LocalUpdatePublic>> {
+    async getActiveLocalUpdatesByProximity(arg0: number, arg1: number): Promise<Array<LocalUpdatePublic>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getActiveLocalUpdatesByProximity(arg0);
+                const result = await this.actor.getActiveLocalUpdatesByProximity(arg0, arg1);
                 return from_candid_vec_n18(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getActiveLocalUpdatesByProximity(arg0);
+            const result = await this.actor.getActiveLocalUpdatesByProximity(arg0, arg1);
             return from_candid_vec_n18(this._uploadFile, this._downloadFile, result);
         }
     }
@@ -607,6 +614,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getLocalUpdatesByCategory(to_candid_LocalCategory_n8(this._uploadFile, this._downloadFile, arg0));
             return from_candid_vec_n18(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getNearbyStoriesForMap(arg0: MapSearchRequest): Promise<Array<Story>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getNearbyStoriesForMap(arg0);
+                return from_candid_vec_n25(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getNearbyStoriesForMap(arg0);
+            return from_candid_vec_n25(this._uploadFile, this._downloadFile, result);
         }
     }
     async getPinnedStoriesByUser(arg0: Principal): Promise<Array<StoryView>> {
@@ -945,31 +966,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async updateDraft(arg0: string, arg1: string, arg2: string, arg3: Category, arg4: string | null, arg5: Location | null, arg6: boolean, arg7: ExternalBlob | null): Promise<void> {
+    async updateDraft(arg0: string, arg1: string, arg2: string, arg3: Category, arg4: string | null, arg5: number | null, arg6: number | null, arg7: boolean, arg8: ExternalBlob | null): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateDraft(arg0, arg1, arg2, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg4), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg5), arg6, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg7));
+                const result = await this.actor.updateDraft(arg0, arg1, arg2, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg4), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg5), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg6), arg7, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg8));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateDraft(arg0, arg1, arg2, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg4), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg5), arg6, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg7));
+            const result = await this.actor.updateDraft(arg0, arg1, arg2, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg4), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg5), to_candid_opt_n17(this._uploadFile, this._downloadFile, arg6), arg7, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg8));
             return result;
         }
     }
-    async updateStory(arg0: string, arg1: string, arg2: string, arg3: Category, arg4: string | null, arg5: Location, arg6: boolean, arg7: ExternalBlob | null): Promise<void> {
+    async updateStory(arg0: string, arg1: string, arg2: string, arg3: Category, arg4: string | null, arg5: number, arg6: number, arg7: boolean, arg8: ExternalBlob | null): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateStory(arg0, arg1, arg2, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg4), arg5, arg6, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg7));
+                const result = await this.actor.updateStory(arg0, arg1, arg2, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg8));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateStory(arg0, arg1, arg2, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg4), arg5, arg6, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg7));
+            const result = await this.actor.updateStory(arg0, arg1, arg2, to_candid_Category_n14(this._uploadFile, this._downloadFile, arg3), to_candid_opt_n16(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg8));
             return result;
         }
     }
@@ -1013,7 +1034,7 @@ function from_candid_opt_n31(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
 async function from_candid_opt_n34(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_StoryDraft]): Promise<StoryDraft | null> {
     return value.length === 0 ? null : await from_candid_StoryDraft_n35(_uploadFile, _downloadFile, value[0]);
 }
-function from_candid_opt_n37(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Location]): Location | null {
+function from_candid_opt_n37(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [number]): number | null {
     return value.length === 0 ? null : value[0];
 }
 function from_candid_opt_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [boolean]): boolean | null {
@@ -1060,136 +1081,145 @@ async function from_candid_record_n20(_uploadFile: (file: ExternalBlob) => Promi
 }
 async function from_candid_record_n27(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: string;
+    latitude: number;
     title: string;
     likeCount: bigint;
     content: string;
     isAnonymous: boolean;
     author: Principal;
     viewCount: bigint;
+    longitude: number;
     timestamp: bigint;
     category: _Category;
     image: [] | [_ExternalBlob];
     locationName: [] | [string];
-    location: _Location;
     pinCount: bigint;
 }): Promise<{
     id: string;
+    latitude: number;
     title: string;
     likeCount: bigint;
     content: string;
     isAnonymous: boolean;
     author: Principal;
     viewCount: bigint;
+    longitude: number;
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
     locationName?: string;
-    location: Location;
     pinCount: bigint;
 }> {
     return {
         id: value.id,
+        latitude: value.latitude,
         title: value.title,
         likeCount: value.likeCount,
         content: value.content,
         isAnonymous: value.isAnonymous,
         author: value.author,
         viewCount: value.viewCount,
+        longitude: value.longitude,
         timestamp: value.timestamp,
         category: from_candid_Category_n28(_uploadFile, _downloadFile, value.category),
         image: record_opt_to_undefined(await from_candid_opt_n23(_uploadFile, _downloadFile, value.image)),
         locationName: record_opt_to_undefined(from_candid_opt_n30(_uploadFile, _downloadFile, value.locationName)),
-        location: value.location,
         pinCount: value.pinCount
     };
 }
 async function from_candid_record_n36(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: string;
+    latitude: [] | [number];
     title: string;
     content: string;
     createdAt: bigint;
     isAnonymous: boolean;
     author: Principal;
     updatedAt: bigint;
+    longitude: [] | [number];
     timestamp: bigint;
     category: _Category;
     image: [] | [_ExternalBlob];
     locationName: [] | [string];
-    location: [] | [_Location];
 }): Promise<{
     id: string;
+    latitude?: number;
     title: string;
     content: string;
     createdAt: bigint;
     isAnonymous: boolean;
     author: Principal;
     updatedAt: bigint;
+    longitude?: number;
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
     locationName?: string;
-    location?: Location;
 }> {
     return {
         id: value.id,
+        latitude: record_opt_to_undefined(from_candid_opt_n37(_uploadFile, _downloadFile, value.latitude)),
         title: value.title,
         content: value.content,
         createdAt: value.createdAt,
         isAnonymous: value.isAnonymous,
         author: value.author,
         updatedAt: value.updatedAt,
+        longitude: record_opt_to_undefined(from_candid_opt_n37(_uploadFile, _downloadFile, value.longitude)),
         timestamp: value.timestamp,
         category: from_candid_Category_n28(_uploadFile, _downloadFile, value.category),
         image: record_opt_to_undefined(await from_candid_opt_n23(_uploadFile, _downloadFile, value.image)),
-        locationName: record_opt_to_undefined(from_candid_opt_n30(_uploadFile, _downloadFile, value.locationName)),
-        location: record_opt_to_undefined(from_candid_opt_n37(_uploadFile, _downloadFile, value.location))
+        locationName: record_opt_to_undefined(from_candid_opt_n30(_uploadFile, _downloadFile, value.locationName))
     };
 }
 async function from_candid_record_n40(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: string;
+    latitude: number;
     title: string;
     likeCount: bigint;
     content: string;
     isAnonymous: boolean;
     author: Principal;
     viewCount: bigint;
+    longitude: number;
     viewers: Array<Principal>;
     timestamp: bigint;
     category: _Category;
     image: [] | [_ExternalBlob];
     locationName: [] | [string];
-    location: _Location;
     pinCount: bigint;
 }): Promise<{
     id: string;
+    latitude: number;
     title: string;
     likeCount: bigint;
     content: string;
     isAnonymous: boolean;
     author: Principal;
     viewCount: bigint;
+    longitude: number;
     viewers: Array<Principal>;
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
     locationName?: string;
-    location: Location;
     pinCount: bigint;
 }> {
     return {
         id: value.id,
+        latitude: value.latitude,
         title: value.title,
         likeCount: value.likeCount,
         content: value.content,
         isAnonymous: value.isAnonymous,
         author: value.author,
         viewCount: value.viewCount,
+        longitude: value.longitude,
         viewers: value.viewers,
         timestamp: value.timestamp,
         category: from_candid_Category_n28(_uploadFile, _downloadFile, value.category),
         image: record_opt_to_undefined(await from_candid_opt_n23(_uploadFile, _downloadFile, value.image)),
         locationName: record_opt_to_undefined(from_candid_opt_n30(_uploadFile, _downloadFile, value.locationName)),
-        location: value.location,
         pinCount: value.pinCount
     };
 }
@@ -1284,7 +1314,7 @@ async function to_candid_opt_n10(_uploadFile: (file: ExternalBlob) => Promise<Ui
 function to_candid_opt_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: string | null): [] | [string] {
     return value === null ? candid_none() : candid_some(value);
 }
-function to_candid_opt_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Location | null): [] | [_Location] {
+function to_candid_opt_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: number | null): [] | [number] {
     return value === null ? candid_none() : candid_some(value);
 }
 function to_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
@@ -1297,24 +1327,27 @@ function to_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
     };
 }
 function to_candid_record_n45(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    latitude: number;
     sort: SortOption;
     keywords?: string;
+    longitude: number;
     category?: Category;
     radius?: number;
-    coordinates: Location;
 }): {
+    latitude: number;
     sort: _SortOption;
     keywords: [] | [string];
+    longitude: number;
     category: [] | [_Category];
     radius: [] | [number];
-    coordinates: _Location;
 } {
     return {
+        latitude: value.latitude,
         sort: to_candid_SortOption_n41(_uploadFile, _downloadFile, value.sort),
         keywords: value.keywords ? candid_some(value.keywords) : candid_none(),
+        longitude: value.longitude,
         category: value.category ? candid_some(to_candid_Category_n14(_uploadFile, _downloadFile, value.category)) : candid_none(),
-        radius: value.radius ? candid_some(value.radius) : candid_none(),
-        coordinates: value.coordinates
+        radius: value.radius ? candid_some(value.radius) : candid_none()
     };
 }
 function to_candid_variant_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {
@@ -1358,7 +1391,8 @@ function to_candid_variant_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint
 function to_candid_variant_n42(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     __kind__: "nearest";
     nearest: {
-        location: Location;
+        latitude: number;
+        longitude: number;
     };
 } | {
     __kind__: "newest";
@@ -1374,7 +1408,8 @@ function to_candid_variant_n42(_uploadFile: (file: ExternalBlob) => Promise<Uint
     mostViewed: null;
 }): {
     nearest: {
-        location: _Location;
+        latitude: number;
+        longitude: number;
     };
 } | {
     newest: null;

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { reverseGeocode } from '../lib/reverseGeocode';
+import { useEffect, useState } from "react";
+import { reverseGeocode } from "../lib/reverseGeocode";
 
 interface UseReverseGeocodedPlaceResult {
   placeName: string | null;
@@ -9,7 +9,7 @@ interface UseReverseGeocodedPlaceResult {
 
 export function useReverseGeocodedPlace(
   lat: number,
-  lon: number
+  lon: number,
 ): UseReverseGeocodedPlaceResult {
   const [placeName, setPlaceName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,7 +30,7 @@ export function useReverseGeocodedPlace(
           setIsLoading(false);
         }
       } catch (err: any) {
-        if (err.name !== 'AbortError' && mounted) {
+        if (err.name !== "AbortError" && mounted) {
           setError(err);
           setIsLoading(false);
         }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface LocationState {
   latitude: number;
@@ -14,7 +14,7 @@ interface UseForegroundLocationTrackingResult {
 }
 
 export function useForegroundLocationTracking(
-  enabled: boolean = true
+  enabled = true,
 ): UseForegroundLocationTrackingResult {
   const [location, setLocation] = useState<LocationState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,26 +33,22 @@ export function useForegroundLocationTracking(
   }, []);
 
   const handleError = useCallback((err: GeolocationPositionError) => {
-    console.error('Location tracking error:', err);
+    console.error("Location tracking error:", err);
     setError(err.message);
     setIsTracking(false);
   }, []);
 
   const manualRefresh = useCallback(() => {
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser');
+      setError("Geolocation is not supported by your browser");
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      updateLocation,
-      handleError,
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
+    navigator.geolocation.getCurrentPosition(updateLocation, handleError, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    });
   }, [updateLocation, handleError]);
 
   useEffect(() => {
@@ -67,7 +63,7 @@ export function useForegroundLocationTracking(
       const watchId = navigator.geolocation.watchPosition(
         updateLocation,
         (err) => {
-          console.warn('watchPosition failed, falling back to polling:', err);
+          console.warn("watchPosition failed, falling back to polling:", err);
           // Fallback to periodic polling if watchPosition fails
           if (!intervalIdRef.current) {
             intervalIdRef.current = window.setInterval(() => {
@@ -78,7 +74,7 @@ export function useForegroundLocationTracking(
                   enableHighAccuracy: true,
                   timeout: 10000,
                   maximumAge: 30000, // Accept cached position up to 30s old
-                }
+                },
               );
             }, 30000); // Poll every 30 seconds
           }
@@ -87,13 +83,13 @@ export function useForegroundLocationTracking(
           enableHighAccuracy: true,
           timeout: 10000,
           maximumAge: 0,
-        }
+        },
       );
 
       watchIdRef.current = watchId;
     } catch (err) {
-      console.error('Failed to start location tracking:', err);
-      setError('Failed to start location tracking');
+      console.error("Failed to start location tracking:", err);
+      setError("Failed to start location tracking");
       setIsTracking(false);
     }
 

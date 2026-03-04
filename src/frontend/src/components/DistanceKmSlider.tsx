@@ -1,4 +1,4 @@
-import { Label } from '@/components/ui/label';
+import { Label } from "@/components/ui/label";
 
 interface DistanceKmSliderProps {
   value: number;
@@ -22,13 +22,15 @@ export default function DistanceKmSlider({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Label 
-          htmlFor="distance-slider" 
-          className={`text-sm font-medium ${inactive ? 'text-muted-foreground' : ''}`}
+        <Label
+          htmlFor="distance-slider"
+          className={`text-sm font-medium ${inactive ? "text-muted-foreground" : ""}`}
         >
           Distance (km)
         </Label>
-        <span className={`text-sm font-semibold ${inactive ? 'text-muted-foreground' : 'text-primary'}`}>
+        <span
+          className={`text-sm font-semibold ${inactive ? "text-muted-foreground" : "text-primary"}`}
+        >
           {value} km
         </span>
       </div>
@@ -41,7 +43,7 @@ export default function DistanceKmSlider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className={`w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
-          inactive ? 'opacity-60' : ''
+          inactive ? "opacity-60" : ""
         }`}
       />
       <div className="flex justify-between text-xs text-muted-foreground">
@@ -49,7 +51,9 @@ export default function DistanceKmSlider({
         <span>{max} km</span>
       </div>
       {helperText && (
-        <p className={`text-xs mt-1 ${inactive ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
+        <p
+          className={`text-xs mt-1 ${inactive ? "text-muted-foreground" : "text-muted-foreground"}`}
+        >
           {helperText}
         </p>
       )}

@@ -1,40 +1,51 @@
-import { useState, useEffect } from 'react';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useGeolocationPermission } from '../hooks/useGeolocationPermission';
-import { useForegroundLocationTracking } from '../hooks/useForegroundLocationTracking';
-import { useGetActiveLocalUpdatesByProximity } from '../hooks/useLocalUpdates';
-import { useLocalUpdateMuting } from '../hooks/useLocalUpdateMuting';
-import { useLocalUpdateNotifications } from '../hooks/useLocalUpdateNotifications';
-import CreateLocalUpdateDialog from '../components/local-updates/CreateLocalUpdateDialog';
-import LocalUpdatesFAB from '../components/local-updates/LocalUpdatesFAB';
-import LocalUpdatesList from '../components/local-updates/LocalUpdatesList';
-import LocalUpdateDetailDialog from '../components/local-updates/LocalUpdateDetailDialog';
-import LocalUpdateSettingsDialog from '../components/local-updates/LocalUpdateSettingsDialog';
-import LocalUpdatesMapView from '../components/local-updates/LocalUpdatesMapView';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { List, Map as MapIcon, MapPin, Settings, Info, RefreshCw, ArrowLeft } from 'lucide-react';
-import { getLocationCopy } from '../lib/locationPermissionCopy';
-import type { LocalUpdatePublic } from '../backend';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ArrowLeft,
+  Info,
+  List,
+  Map as MapIcon,
+  MapPin,
+  RefreshCw,
+  Settings,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import type { LocalUpdatePublic } from "../backend";
+import CreateLocalUpdateDialog from "../components/local-updates/CreateLocalUpdateDialog";
+import LocalUpdateDetailDialog from "../components/local-updates/LocalUpdateDetailDialog";
+import LocalUpdateSettingsDialog from "../components/local-updates/LocalUpdateSettingsDialog";
+import LocalUpdatesFAB from "../components/local-updates/LocalUpdatesFAB";
+import LocalUpdatesList from "../components/local-updates/LocalUpdatesList";
+import LocalUpdatesMapView from "../components/local-updates/LocalUpdatesMapView";
+import { useForegroundLocationTracking } from "../hooks/useForegroundLocationTracking";
+import { useGeolocationPermission } from "../hooks/useGeolocationPermission";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useLocalUpdateMuting } from "../hooks/useLocalUpdateMuting";
+import { useLocalUpdateNotifications } from "../hooks/useLocalUpdateNotifications";
+import { useGetActiveLocalUpdatesByProximity } from "../hooks/useLocalUpdates";
+import { getLocationCopy } from "../lib/locationPermissionCopy";
 
 interface LocalUpdatesPageProps {
   onBackHome: () => void;
 }
 
-export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) {
-  const [view, setView] = useState<'list' | 'map'>('list');
+export default function LocalUpdatesPage({
+  onBackHome,
+}: LocalUpdatesPageProps) {
+  const [view, setView] = useState<"list" | "map">("list");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [selectedUpdate, setSelectedUpdate] = useState<LocalUpdatePublic | null>(null);
+  const [selectedUpdate, setSelectedUpdate] =
+    useState<LocalUpdatePublic | null>(null);
 
   const { identity } = useInternetIdentity();
   const {
     permissionState,
     location: permissionLocation,
     isRequesting,
-    lastErrorReason,
-    diagnostics,
+    lastErrorReason: _lastErrorReason,
+    diagnostics: _diagnostics,
     requestLocation,
     autoFetchIfGranted,
   } = useGeolocationPermission();
@@ -45,8 +56,8 @@ export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) 
     error: trackingError,
     isTracking,
     lastUpdated,
-    manualRefresh,
-  } = useForegroundLocationTracking(permissionState === 'granted');
+    manualRefresh: _manualRefresh,
+  } = useForegroundLocationTracking(permissionState === "granted");
 
   // Use tracked location if available, otherwise fall back to permission location
   const userLocation = trackedLocation || permissionLocation;
@@ -57,7 +68,8 @@ export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) 
   }, [autoFetchIfGranted]);
 
   // Fetch local updates by proximity
-  const { data: updates = [], isLoading } = useGetActiveLocalUpdatesByProximity(userLocation);
+  const { data: updates = [], isLoading } =
+    useGetActiveLocalUpdatesByProximity(userLocation);
 
   // Muting preferences
   const { mutedCategories, isMuted } = useLocalUpdateMuting();
@@ -74,20 +86,26 @@ export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) 
   });
 
   const handleCreateClick = async () => {
-    if (!userLocation && permissionState !== 'denied' && permissionState !== 'unsupported' && permissionState !== 'insecure') {
+    if (
+      !userLocation &&
+      permissionState !== "denied" &&
+      permissionState !== "unsupported" &&
+      permissionState !== "insecure"
+    ) {
       try {
         await requestLocation();
-      } catch (error) {
+      } catch (_error) {
         // Continue to open dialog
       }
     }
     setCreateDialogOpen(true);
   };
 
-  const showLocationPrompt = permissionState === 'prompt' || permissionState === 'unknown';
-  const showLocationDenied = permissionState === 'denied';
-  const showLocationInsecure = permissionState === 'insecure';
-  const showLocationUnsupported = permissionState === 'unsupported';
+  const showLocationPrompt =
+    permissionState === "prompt" || permissionState === "unknown";
+  const showLocationDenied = permissionState === "denied";
+  const showLocationInsecure = permissionState === "insecure";
+  const showLocationUnsupported = permissionState === "unsupported";
   const locationCopy = getLocationCopy(permissionState);
 
   return (
@@ -102,11 +120,13 @@ export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) 
                   variant="ghost"
                   size="icon"
                   onClick={onBackHome}
-                  aria-label="Back to Home"
+                  className="shrink-0"
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <h2 className="text-xl font-bold">Local Updates</h2>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+                  Local Updates
+                </h1>
               </div>
               <Button
                 variant="ghost"
@@ -117,30 +137,64 @@ export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) 
               </Button>
             </div>
 
-            {(showLocationPrompt || showLocationDenied) && (
+            {/* View Toggle */}
+            <div className="flex gap-2">
               <Button
-                variant="outline"
+                variant={view === "list" ? "default" : "outline"}
                 size="sm"
-                onClick={requestLocation}
-                disabled={isRequesting}
-                className="w-full gap-2"
+                onClick={() => setView("list")}
+                className="flex-1"
               >
-                <MapPin className="h-4 w-4" />
-                {isRequesting ? 'Requesting...' : 'Enable Location'}
+                <List className="h-4 w-4 mr-2" />
+                List
               </Button>
+              <Button
+                variant={view === "map" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setView("map")}
+                className="flex-1"
+              >
+                <MapIcon className="h-4 w-4 mr-2" />
+                Map
+              </Button>
+            </div>
+
+            {/* Location Status */}
+            {showLocationPrompt && (
+              <Alert>
+                <MapPin className="h-4 w-4" />
+                <AlertDescription>
+                  <p className="text-sm mb-2">{locationCopy.title}</p>
+                  <Button
+                    onClick={requestLocation}
+                    disabled={isRequesting}
+                    size="sm"
+                    className="w-full"
+                  >
+                    {isRequesting ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Requesting...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Enable Location
+                      </>
+                    )}
+                  </Button>
+                </AlertDescription>
+              </Alert>
             )}
 
             {showLocationDenied && (
               <Alert variant="destructive">
                 <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm space-y-2">
-                  <p className="font-medium">{locationCopy.title}</p>
-                  <p>{locationCopy.description}</p>
-                  {diagnostics?.userFriendlyDetail && (
-                    <p className="text-xs opacity-75">
-                      Details: {diagnostics.userFriendlyDetail}
-                    </p>
-                  )}
+                <AlertDescription>
+                  <p className="text-sm font-semibold mb-1">
+                    {locationCopy.title}
+                  </p>
+                  <p className="text-xs">{locationCopy.description}</p>
                 </AlertDescription>
               </Alert>
             )}
@@ -148,9 +202,11 @@ export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) 
             {showLocationInsecure && (
               <Alert variant="destructive">
                 <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm space-y-2">
-                  <p className="font-medium">{locationCopy.title}</p>
-                  <p>{locationCopy.description}</p>
+                <AlertDescription>
+                  <p className="text-sm font-semibold mb-1">
+                    {locationCopy.title}
+                  </p>
+                  <p className="text-xs">{locationCopy.description}</p>
                 </AlertDescription>
               </Alert>
             )}
@@ -158,120 +214,89 @@ export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) 
             {showLocationUnsupported && (
               <Alert variant="destructive">
                 <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm space-y-2">
-                  <p className="font-medium">{locationCopy.title}</p>
-                  <p>{locationCopy.description}</p>
+                <AlertDescription>
+                  <p className="text-sm font-semibold mb-1">
+                    {locationCopy.title}
+                  </p>
+                  <p className="text-xs">{locationCopy.description}</p>
                 </AlertDescription>
               </Alert>
             )}
 
-            {userLocation && (
-              <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <MapPin className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <span className="text-sm font-medium text-green-900 dark:text-green-100">
-                    Location Active
-                  </span>
-                </div>
-                <p className="text-xs text-green-700 dark:text-green-300">
-                  {isTracking ? 'Tracking your location' : 'Location available'}
-                </p>
+            {/* Tracking Status */}
+            {userLocation && isTracking && (
+              <div className="text-xs text-muted-foreground flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span>Location tracking active</span>
                 {lastUpdated && (
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                    Updated {Math.floor((Date.now() - lastUpdated) / 1000)}s ago
-                  </p>
+                  <span className="ml-auto">
+                    {new Date(lastUpdated).toLocaleTimeString()}
+                  </span>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={manualRefresh}
-                  className="mt-2 w-full text-green-700 hover:text-green-900 dark:text-green-300 dark:hover:text-green-100"
-                >
-                  <RefreshCw className="h-3 w-3 mr-2" />
-                  Refresh Location
-                </Button>
               </div>
             )}
 
             {trackingError && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm">
+              <Alert variant="destructive">
+                <AlertDescription className="text-xs">
                   {trackingError}
                 </AlertDescription>
               </Alert>
             )}
 
-            <div className="pt-2">
-              <div className="flex gap-2">
-                <Button
-                  variant={view === 'list' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setView('list')}
-                  className="flex-1"
-                >
-                  <List className="h-4 w-4 mr-2" />
-                  List
-                </Button>
-                <Button
-                  variant={view === 'map' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setView('map')}
-                  className="flex-1"
-                >
-                  <MapIcon className="h-4 w-4 mr-2" />
-                  Map
-                </Button>
+            {/* Info Card */}
+            <div className="p-3 rounded-lg bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5 shrink-0" />
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p className="font-medium text-foreground">
+                    Real-time local alerts
+                  </p>
+                  <p>
+                    Get notified about traffic, events, and more happening near
+                    you.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="container px-4 py-6">
-          <h2 className="text-2xl font-bold mb-4">
-            {view === 'list' ? 'Nearby Updates' : 'Updates Map'}
-          </h2>
-
-          {!userLocation && !isLoading && (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                Enable location access to see local updates near you.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isLoading && (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-24 w-full" />
-              ))}
+      {/* Main Content */}
+      <main className="flex-1 p-4 lg:p-6">
+        {isLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        ) : (
+          <>
+            {/* Keep both views mounted but toggle visibility */}
+            <div style={{ display: view === "list" ? "block" : "none" }}>
+              <LocalUpdatesList
+                updates={visibleUpdates}
+                userLocation={userLocation}
+                onUpdateClick={setSelectedUpdate}
+              />
             </div>
-          )}
-
-          {!isLoading && userLocation && view === 'list' && (
-            <LocalUpdatesList
-              updates={visibleUpdates}
-              userLocation={userLocation}
-              onUpdateClick={setSelectedUpdate}
-            />
-          )}
-
-          {!isLoading && userLocation && view === 'map' && (
-            <LocalUpdatesMapView
-              updates={visibleUpdates}
-              userLocation={userLocation}
-              onUpdateClick={setSelectedUpdate}
-            />
-          )}
-        </div>
+            <div style={{ display: view === "map" ? "block" : "none" }}>
+              <LocalUpdatesMapView
+                updates={visibleUpdates}
+                userLocation={userLocation}
+                onUpdateClick={setSelectedUpdate}
+                isVisible={view === "map"}
+              />
+            </div>
+          </>
+        )}
       </main>
 
+      {/* FAB - Only show when authenticated */}
       {identity && <LocalUpdatesFAB onClick={handleCreateClick} />}
 
+      {/* Dialogs */}
       <CreateLocalUpdateDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
@@ -279,17 +304,19 @@ export default function LocalUpdatesPage({ onBackHome }: LocalUpdatesPageProps) 
         permissionState={permissionState}
       />
 
-      <LocalUpdateDetailDialog
-        update={selectedUpdate}
-        open={!!selectedUpdate}
-        onOpenChange={(open) => !open && setSelectedUpdate(null)}
-        userLocation={userLocation}
-      />
-
       <LocalUpdateSettingsDialog
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
       />
+
+      {selectedUpdate && (
+        <LocalUpdateDetailDialog
+          update={selectedUpdate}
+          userLocation={userLocation}
+          open={!!selectedUpdate}
+          onOpenChange={(open) => !open && setSelectedUpdate(null)}
+        />
+      )}
     </div>
   );
 }

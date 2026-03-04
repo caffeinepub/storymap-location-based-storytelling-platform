@@ -1,19 +1,19 @@
-import { useState } from 'react';
-import { useSaveCallerUserProfile } from '../hooks/useQueries';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useSaveCallerUserProfile } from "../hooks/useQueries";
 
 export default function ProfileSetupModal() {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState("");
   const { identity } = useInternetIdentity();
   const saveMutation = useSaveCallerUserProfile();
 
@@ -33,15 +33,16 @@ export default function ProfileSetupModal() {
 
   return (
     <Dialog open={true}>
-      <DialogContent 
-        className="sm:max-w-md pointer-events-auto" 
+      <DialogContent
+        className="sm:max-w-md pointer-events-auto"
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle>Welcome to StoryMap!</DialogTitle>
           <DialogDescription>
-            Please choose a username to get started with sharing and discovering stories.
+            Please choose a username to get started with sharing and discovering
+            stories.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -62,7 +63,7 @@ export default function ProfileSetupModal() {
             className="w-full"
             disabled={!username.trim() || saveMutation.isPending}
           >
-            {saveMutation.isPending ? 'Saving...' : 'Continue'}
+            {saveMutation.isPending ? "Saving..." : "Continue"}
           </Button>
         </form>
       </DialogContent>

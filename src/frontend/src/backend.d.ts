@@ -14,10 +14,6 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
-export interface Location {
-    latitude: number;
-    longitude: number;
-}
 export interface ProximityQuery {
     latitude: number;
     longitude: number;
@@ -30,19 +26,25 @@ export interface Comment {
     author: Principal;
     timestamp: bigint;
 }
+export interface MapSearchRequest {
+    centerLatitude: number;
+    radius: number;
+    centerLongitude: number;
+}
 export interface Story {
     id: string;
+    latitude: number;
     title: string;
     likeCount: bigint;
     content: string;
     isAnonymous: boolean;
     author: Principal;
     viewCount: bigint;
+    longitude: number;
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
     locationName?: string;
-    location: Location;
     pinCount: bigint;
 }
 export interface LocalUpdatePublic {
@@ -65,46 +67,50 @@ export interface Report {
     reason: string;
 }
 export interface SearchParams {
+    latitude: number;
     sort: SortOption;
     keywords?: string;
+    longitude: number;
     category?: Category;
     radius?: number;
-    coordinates: Location;
 }
 export interface StoryDraft {
     id: string;
+    latitude?: number;
     title: string;
     content: string;
     createdAt: bigint;
     isAnonymous: boolean;
     author: Principal;
     updatedAt: bigint;
+    longitude?: number;
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
     locationName?: string;
-    location?: Location;
 }
 export interface StoryView {
     id: string;
+    latitude: number;
     title: string;
     likeCount: bigint;
     content: string;
     isAnonymous: boolean;
     author: Principal;
     viewCount: bigint;
+    longitude: number;
     viewers: Array<Principal>;
     timestamp: bigint;
     category: Category;
     image?: ExternalBlob;
     locationName?: string;
-    location: Location;
     pinCount: bigint;
 }
 export type SortOption = {
     __kind__: "nearest";
     nearest: {
-        location: Location;
+        latitude: number;
+        longitude: number;
     };
 } | {
     __kind__: "newest";
@@ -151,10 +157,10 @@ export interface backendInterface {
     addComment(storyId: string, content: string, timestamp: bigint, isAnonymous: boolean): Promise<bigint>;
     addLocalUpdate(content: string, latitude: number, longitude: number, radius: bigint, category: LocalCategory, image: ExternalBlob | null): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createDraft(title: string, content: string, category: Category, locationName: string | null, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
-    createStory(title: string, content: string, category: Category, locationName: string | null, location: Location, timestamp: bigint, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
+    createDraft(title: string, content: string, category: Category, locationName: string | null, latitude: number | null, longitude: number | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
+    createStory(title: string, content: string, category: Category, locationName: string | null, latitude: number, longitude: number, timestamp: bigint, isAnonymous: boolean, image: ExternalBlob | null): Promise<string>;
     deleteDraft(draftId: string): Promise<void>;
-    getActiveLocalUpdatesByProximity(location: Location): Promise<Array<LocalUpdatePublic>>;
+    getActiveLocalUpdatesByProximity(latitude: number, longitude: number): Promise<Array<LocalUpdatePublic>>;
     getAllActiveLocalUpdates(): Promise<Array<LocalUpdatePublic>>;
     getAllStories(): Promise<Array<Story>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -164,6 +170,7 @@ export interface backendInterface {
     getLikedStoriesByUser(user: Principal): Promise<Array<StoryView>>;
     getLocalUpdateById(id: bigint): Promise<LocalUpdatePublic>;
     getLocalUpdatesByCategory(category: LocalCategory): Promise<Array<LocalUpdatePublic>>;
+    getNearbyStoriesForMap(mapRequest: MapSearchRequest): Promise<Array<Story>>;
     getPinnedStoriesByUser(user: Principal): Promise<Array<StoryView>>;
     getReports(): Promise<Array<Report>>;
     getStoriesByCategory(category: Category, sortOption: SortOption): Promise<Array<Story>>;
@@ -188,6 +195,6 @@ export interface backendInterface {
     thumbsUpLocalUpdate(updateId: bigint): Promise<void>;
     unlikeStory(storyId: string): Promise<void>;
     unpinStory(storyId: string): Promise<void>;
-    updateDraft(draftId: string, title: string, content: string, category: Category, locationName: string | null, location: Location | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
-    updateStory(storyId: string, title: string, content: string, category: Category, locationName: string | null, location: Location, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
+    updateDraft(draftId: string, title: string, content: string, category: Category, locationName: string | null, latitude: number | null, longitude: number | null, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
+    updateStory(storyId: string, title: string, content: string, category: Category, locationName: string | null, latitude: number, longitude: number, isAnonymous: boolean, image: ExternalBlob | null): Promise<void>;
 }

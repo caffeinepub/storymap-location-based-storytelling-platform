@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -6,17 +6,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
-import { useWallpaper } from '../hooks/useWallpaper';
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Image as ImageIcon, Upload, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import { useWallpaper } from "../hooks/useWallpaper";
 import {
-  validateWallpaperFile,
-  getMaxFileSizeLabel,
   getAllowedTypesLabel,
-} from '../lib/wallpaperValidation';
+  getMaxFileSizeLabel,
+  validateWallpaperFile,
+} from "../lib/wallpaperValidation";
 
 interface WallpaperSettingsDialogProps {
   open: boolean;
@@ -40,7 +40,7 @@ export function WallpaperSettingsDialog({
     // Validate file
     const validation = validateWallpaperFile(file);
     if (!validation.ok) {
-      toast.error('Invalid file', {
+      toast.error("Invalid file", {
         description: validation.error.message,
       });
       return;
@@ -54,8 +54,8 @@ export function WallpaperSettingsDialog({
 
   const handleApply = async () => {
     if (!selectedFile) {
-      toast.error('No file selected', {
-        description: 'Please select an image file first',
+      toast.error("No file selected", {
+        description: "Please select an image file first",
       });
       return;
     }
@@ -63,8 +63,8 @@ export function WallpaperSettingsDialog({
     setIsApplying(true);
     try {
       await applyWallpaper(selectedFile);
-      toast.success('Wallpaper applied', {
-        description: 'Your wallpaper has been updated',
+      toast.success("Wallpaper applied", {
+        description: "Your wallpaper has been updated",
       });
 
       // Clean up preview
@@ -75,9 +75,9 @@ export function WallpaperSettingsDialog({
       setSelectedFile(null);
 
       onOpenChange(false);
-    } catch (error) {
-      toast.error('Failed to apply wallpaper', {
-        description: 'Please try again with a different image',
+    } catch (_error) {
+      toast.error("Failed to apply wallpaper", {
+        description: "Please try again with a different image",
       });
     } finally {
       setIsApplying(false);
@@ -86,8 +86,8 @@ export function WallpaperSettingsDialog({
 
   const handleRemove = () => {
     removeWallpaper();
-    toast.success('Wallpaper removed', {
-      description: 'Your wallpaper has been cleared',
+    toast.success("Wallpaper removed", {
+      description: "Your wallpaper has been cleared",
     });
 
     // Clean up preview
@@ -123,7 +123,8 @@ export function WallpaperSettingsDialog({
         <DialogHeader>
           <DialogTitle>Wallpaper Settings</DialogTitle>
           <DialogDescription>
-            Choose a background image for your app. Max {getMaxFileSizeLabel()}, supported formats: {getAllowedTypesLabel()}.
+            Choose a background image for your app. Max {getMaxFileSizeLabel()},
+            supported formats: {getAllowedTypesLabel()}.
           </DialogDescription>
         </DialogHeader>
 
@@ -210,7 +211,7 @@ export function WallpaperSettingsDialog({
               disabled={!selectedFile || isApplying}
               className="flex-1"
             >
-              {isApplying ? 'Applying...' : 'Apply'}
+              {isApplying ? "Applying..." : "Apply"}
             </Button>
           </div>
         </DialogFooter>

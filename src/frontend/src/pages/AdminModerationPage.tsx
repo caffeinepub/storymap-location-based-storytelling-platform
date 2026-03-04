@@ -1,19 +1,30 @@
-import { useState } from 'react';
-import { useGetReports, useRemoveReport, useRemoveStory, useIsCallerAdmin, useGetStoryById } from '../hooks/useQueries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Trash2, Eye, XCircle } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import StoryDetailDialog from '../components/StoryDetailDialog';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, Eye, Trash2, XCircle } from "lucide-react";
+import { useState } from "react";
+import StoryDetailDialog from "../components/StoryDetailDialog";
+import {
+  useGetReports,
+  useGetStoryById,
+  useIsCallerAdmin,
+  useRemoveReport,
+  useRemoveStory,
+} from "../hooks/useQueries";
 
 export default function AdminModerationPage() {
   const { data: isAdmin, isLoading: adminCheckLoading } = useIsCallerAdmin();
-  const { data: reports = [], isLoading: reportsLoading, error: reportsError, refetch } = useGetReports();
+  const {
+    data: reports = [],
+    isLoading: reportsLoading,
+    error: reportsError,
+    refetch,
+  } = useGetReports();
   const removeReportMutation = useRemoveReport();
   const removeStoryMutation = useRemoveStory();
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
-  
+
   // Fetch the selected story data
   const { data: selectedStory } = useGetStoryById(selectedStoryId);
 
@@ -23,7 +34,7 @@ export default function AdminModerationPage() {
       <div className="container px-4 py-16">
         <div className="flex items-center justify-center">
           <div className="text-center space-y-4">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
             <p className="text-muted-foreground">Loading...</p>
           </div>
         </div>
@@ -39,7 +50,8 @@ export default function AdminModerationPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Access Denied</AlertTitle>
           <AlertDescription>
-            You do not have permission to access the admin moderation dashboard. Only administrators can view and manage reports.
+            You do not have permission to access the admin moderation dashboard.
+            Only administrators can view and manage reports.
           </AlertDescription>
         </Alert>
       </div>
@@ -49,13 +61,17 @@ export default function AdminModerationPage() {
   const handleDismissReport = async (reportId: bigint) => {
     try {
       await removeReportMutation.mutateAsync(reportId);
-    } catch (error) {
+    } catch (_error) {
       // Error is handled by the mutation's onError
     }
   };
 
   const handleDeleteStory = async (storyId: string, reportId: bigint) => {
-    if (!confirm('Are you sure you want to delete this story? This action cannot be undone.')) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this story? This action cannot be undone.",
+      )
+    ) {
       return;
     }
 
@@ -63,7 +79,7 @@ export default function AdminModerationPage() {
       await removeStoryMutation.mutateAsync(storyId);
       // After deleting the story, also dismiss the report
       await removeReportMutation.mutateAsync(reportId);
-    } catch (error) {
+    } catch (_error) {
       // Errors are handled by the mutations' onError
     }
   };
@@ -76,13 +92,15 @@ export default function AdminModerationPage() {
     <div className="container px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Admin Moderation Dashboard</h1>
-        <p className="text-muted-foreground">Review and manage reported stories</p>
+        <p className="text-muted-foreground">
+          Review and manage reported stories
+        </p>
       </div>
 
       {reportsLoading && (
         <div className="flex items-center justify-center py-16">
           <div className="text-center space-y-4">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
             <p className="text-muted-foreground">Loading reports...</p>
           </div>
         </div>
@@ -94,7 +112,12 @@ export default function AdminModerationPage() {
           <AlertTitle>Error Loading Reports</AlertTitle>
           <AlertDescription>
             Failed to load reports. Please try again.
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="ml-4"
+            >
               Retry
             </Button>
           </AlertDescription>
@@ -110,7 +133,10 @@ export default function AdminModerationPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold mb-2">No Reports</h3>
-                <p className="text-muted-foreground">There are currently no reports to review. Great job keeping the community safe!</p>
+                <p className="text-muted-foreground">
+                  There are currently no reports to review. Great job keeping
+                  the community safe!
+                </p>
               </div>
             </div>
           </CardContent>
@@ -124,11 +150,17 @@ export default function AdminModerationPage() {
               <CardHeader className="bg-muted/50">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <CardTitle className="text-lg mb-2">Report #{Number(report.id)}</CardTitle>
+                    <CardTitle className="text-lg mb-2">
+                      Report #{Number(report.id)}
+                    </CardTitle>
                     <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                      <Badge variant="outline">Story ID: {report.storyId}</Badge>
                       <Badge variant="outline">
-                        {new Date(Number(report.timestamp) / 1000000).toLocaleString()}
+                        Story ID: {report.storyId}
+                      </Badge>
+                      <Badge variant="outline">
+                        {new Date(
+                          Number(report.timestamp) / 1000000,
+                        ).toLocaleString()}
                       </Badge>
                     </div>
                   </div>
@@ -138,7 +170,9 @@ export default function AdminModerationPage() {
                 <div className="space-y-4">
                   <div>
                     <h4 className="font-semibold mb-2">Reason:</h4>
-                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">{report.reason}</p>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+                      {report.reason}
+                    </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -156,7 +190,10 @@ export default function AdminModerationPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDismissReport(report.id)}
-                      disabled={removeReportMutation.isPending || removeStoryMutation.isPending}
+                      disabled={
+                        removeReportMutation.isPending ||
+                        removeStoryMutation.isPending
+                      }
                     >
                       {removeReportMutation.isPending ? (
                         <>
@@ -174,8 +211,13 @@ export default function AdminModerationPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDeleteStory(report.storyId, report.id)}
-                      disabled={removeReportMutation.isPending || removeStoryMutation.isPending}
+                      onClick={() =>
+                        handleDeleteStory(report.storyId, report.id)
+                      }
+                      disabled={
+                        removeReportMutation.isPending ||
+                        removeStoryMutation.isPending
+                      }
                     >
                       {removeStoryMutation.isPending ? (
                         <>

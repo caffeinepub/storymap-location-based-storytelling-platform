@@ -1,829 +1,544 @@
-import { useState, useEffect } from 'react';
-import { useCreateStory } from '../hooks/useQueries';
-import { useSaveDraft, useListDrafts, useDeleteDraft, usePublishDraft } from '../hooks/useDrafts';
-import { useActor } from '../hooks/useActor';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { FileText, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Category, type StoryDraft } from "../backend";
+import { ExternalBlob } from "../backend";
+import {
+  useCreateDraft,
+  useDeleteDraft,
+  useListDrafts,
+  usePublishDraft,
+  useUpdateDraft,
+} from "../hooks/useDrafts";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useCreateStory } from "../hooks/useQueries";
+import LocationPickerDialog from "./LocationPickerDialog";
+import { Button } from "./ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Info, MapPin, Upload, X, Navigation, Loader2, Save, FileText, Trash2, Map, AlertCircle } from 'lucide-react';
-import { Category, ExternalBlob } from '../backend';
-import { getCategoryLabel } from '../lib/categories';
-import { toast } from 'sonner';
-import { getLocationCopy } from '../lib/locationPermissionCopy';
-import type { PermissionState, GeolocationDiagnostics } from '../hooks/useGeolocationPermission';
-import type { StoryDraft } from '../backend';
-import LocationPickerDialog from './LocationPickerDialog';
+} from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Textarea } from "./ui/textarea";
+
+// Internal shape using { lat, lng } for convenience
+interface PickedLocation {
+  lat: number;
+  lng: number;
+}
 
 interface CreateStoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  userLocation: { latitude: number; longitude: number } | null;
-  permissionState: PermissionState;
-  onRequestLocation: () => Promise<void>;
-  diagnostics: GeolocationDiagnostics | null;
+  initialDraftId?: string;
 }
 
-const categories: Category[] = [Category.love, Category.confession, Category.funny, Category.random, Category.other];
+const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
+  { value: Category.love, label: "Love" },
+  { value: Category.confession, label: "Confession" },
+  { value: Category.funny, label: "Funny" },
+  { value: Category.random, label: "Random" },
+  { value: Category.other, label: "Other" },
+];
 
-export default function CreateStoryDialog({ 
-  open, 
-  onOpenChange, 
-  userLocation: initialUserLocation,
-  permissionState,
-  onRequestLocation,
-  diagnostics,
+export default function CreateStoryDialog({
+  open,
+  onOpenChange,
+  initialDraftId,
 }: CreateStoryDialogProps) {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [category, setCategory] = useState<Category>(Category.other);
-  const [locationName, setLocationName] = useState('');
+  const { identity } = useInternetIdentity();
+  const isAuthenticated = !!identity;
+
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [category, setCategory] = useState<Category>(Category.random);
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [showGuidelines, setShowGuidelines] = useState(true);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(initialUserLocation);
-  const [manualLatitude, setManualLatitude] = useState('');
-  const [manualLongitude, setManualLongitude] = useState('');
-  const [useManualLocation, setUseManualLocation] = useState(false);
+  const [locationName, setLocationName] = useState("");
+  // pickedLocation holds the map-picker coordinates — these are the story's lat/lng.
+  // The user's live device geolocation is NEVER used as the story's coordinates.
+  const [pickedLocation, setPickedLocation] = useState<PickedLocation | null>(
+    null,
+  );
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
-  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
-  const [showDraftsList, setShowDraftsList] = useState(false);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(
+    initialDraftId ?? null,
+  );
+  const [showDraftList, setShowDraftList] = useState(false);
 
-  const createMutation = useCreateStory();
-  const saveDraftMutation = useSaveDraft();
-  const deleteDraftMutation = useDeleteDraft();
-  const publishDraftMutation = usePublishDraft();
-  const { data: drafts = [], isLoading: draftsLoading } = useListDrafts();
-  const { actor, isFetching: actorFetching } = useActor();
-  const { identity, loginStatus, isInitializing } = useInternetIdentity();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const createStory = useCreateStory();
+  const createDraft = useCreateDraft();
+  const updateDraft = useUpdateDraft();
+  const deleteDraft = useDeleteDraft();
+  const publishDraft = usePublishDraft();
+  const { data: drafts = [] } = useListDrafts();
+
+  // Reset form when dialog closes
   useEffect(() => {
-    if (initialUserLocation) {
-      setUserLocation(initialUserLocation);
+    if (!open) {
+      setTitle("");
+      setContent("");
+      setCategory(Category.random);
+      setIsAnonymous(false);
+      setLocationName("");
+      setPickedLocation(null);
+      setImageFile(null);
+      setImagePreviewUrl(null);
+      setActiveDraftId(initialDraftId ?? null);
+      setShowDraftList(false);
     }
-  }, [initialUserLocation]);
+  }, [open, initialDraftId]);
 
-  const handleRequestLocation = async () => {
-    setIsRequestingLocation(true);
-    try {
-      await onRequestLocation();
-    } catch (error) {
-      // Error already handled by parent
-    } finally {
-      setIsRequestingLocation(false);
+  // Load draft data when initialDraftId changes or dialog opens
+  useEffect(() => {
+    if (open && initialDraftId && drafts.length > 0) {
+      const draft = drafts.find((d) => d.id === initialDraftId);
+      if (draft) {
+        loadDraftIntoForm(draft);
+      }
     }
-  };
+  }, [open, initialDraftId, drafts]);
 
-  const handleOpenLocationPicker = () => {
-    setShowLocationPicker(true);
-  };
-
-  const handleLocationPickerConfirm = (location: { latitude: number; longitude: number }) => {
-    setUserLocation(location);
-    setShowLocationPicker(false);
-    toast.success('Location set from map');
-  };
-
-  const handleLocationPickerCancel = () => {
-    setShowLocationPicker(false);
-  };
-
-  const handleManualLocationSubmit = () => {
-    const lat = parseFloat(manualLatitude);
-    const lng = parseFloat(manualLongitude);
-
-    if (isNaN(lat) || isNaN(lng)) {
-      toast.error('Please enter valid coordinates');
-      return;
-    }
-
-    if (lat < -90 || lat > 90) {
-      toast.error('Latitude must be between -90 and 90');
-      return;
-    }
-
-    if (lng < -180 || lng > 180) {
-      toast.error('Longitude must be between -180 and 180');
-      return;
-    }
-
-    setUserLocation({ latitude: lat, longitude: lng });
-    toast.success('Manual location set');
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB');
-      return;
-    }
-
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    setUploadProgress(0);
-  };
-
-  const resetForm = () => {
-    setTitle('');
-    setContent('');
-    setCategory(Category.other);
-    setLocationName('');
-    setIsAnonymous(false);
-    removeImage();
-    setUploadProgress(0);
-    setManualLatitude('');
-    setManualLongitude('');
-    setUseManualLocation(false);
-    setSelectedDraftId(null);
-    setShowDraftsList(false);
-  };
-
-  const loadDraft = async (draft: StoryDraft) => {
+  function loadDraftIntoForm(draft: StoryDraft) {
     setTitle(draft.title);
     setContent(draft.content);
     setCategory(draft.category);
-    setLocationName(draft.locationName || '');
     setIsAnonymous(draft.isAnonymous);
-    setSelectedDraftId(draft.id);
-    setShowDraftsList(false);
+    setLocationName(draft.locationName ?? "");
+    setActiveDraftId(draft.id);
 
-    // Load location if present
-    if (draft.location) {
-      setUserLocation(draft.location);
-      setUseManualLocation(true);
+    // Load draft's map-picker coordinates (draft.latitude / draft.longitude)
+    // These are the story's pinned coordinates, not device geolocation
+    if (draft.latitude != null && draft.longitude != null) {
+      setPickedLocation({ lat: draft.latitude, lng: draft.longitude });
+    } else {
+      setPickedLocation(null);
     }
 
-    // Load image if present
     if (draft.image) {
-      try {
-        const imageUrl = draft.image.getDirectURL();
-        setImagePreview(imageUrl);
-        // Note: We keep the ExternalBlob reference for re-saving
-      } catch (error) {
-        console.error('Failed to load draft image:', error);
-      }
+      setImagePreviewUrl(draft.image.getDirectURL());
     }
+  }
 
-    toast.success('Draft loaded');
-  };
+  async function buildImageBlob(): Promise<ExternalBlob | null> {
+    if (!imageFile) return null;
+    const arrayBuffer = await imageFile.arrayBuffer();
+    return ExternalBlob.fromBytes(new Uint8Array(arrayBuffer));
+  }
 
-  const handleSaveDraft = async () => {
-    if (!identity) {
-      toast.error('Please log in to save drafts');
+  async function handleSubmit() {
+    if (!isAuthenticated) {
+      toast.error("Please log in to post a story.");
       return;
     }
 
-    if (!title.trim() || !content.trim()) {
-      toast.error('Title and content are required to save a draft');
+    // Require a map-picked location — device geolocation is NOT used as story coordinates
+    if (!pickedLocation) {
+      toast.error("Please pick a location on the map before posting.");
       return;
     }
 
-    // Process image if new file selected
-    let imageBlob: ExternalBlob | null = null;
-    if (imageFile) {
-      try {
-        const arrayBuffer = await imageFile.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        imageBlob = ExternalBlob.fromBytes(uint8Array);
-      } catch (error) {
-        console.error('Failed to process image:', error);
-        toast.error('Failed to process image');
-        return;
-      }
-    }
-
-    saveDraftMutation.mutate({
-      draftId: selectedDraftId || undefined,
-      title: title.trim(),
-      content: content.trim(),
-      category,
-      locationName: locationName.trim() || null,
-      location: userLocation,
-      isAnonymous,
-      image: imageBlob,
-    });
-  };
-
-  const handleDeleteDraft = () => {
-    if (!selectedDraftId) return;
-
-    if (confirm('Are you sure you want to delete this draft?')) {
-      deleteDraftMutation.mutate(selectedDraftId, {
-        onSuccess: () => {
-          resetForm();
-        },
-      });
-    }
-  };
-
-  const handlePublishDraft = () => {
-    if (!selectedDraftId) return;
-
-    if (!userLocation) {
-      toast.error('Please add a location before publishing');
+    if (!title.trim()) {
+      toast.error("Please enter a title.");
       return;
     }
 
-    publishDraftMutation.mutate(selectedDraftId, {
-      onSuccess: () => {
-        resetForm();
-        onOpenChange(false);
-      },
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!identity) {
-      toast.error('Please log in to post a story');
+    if (!content.trim()) {
+      toast.error("Please enter some content.");
       return;
     }
 
-    if (!userLocation) {
-      toast.error('Location is required to post a story');
-      return;
-    }
+    setIsSubmitting(true);
+    try {
+      const imageBlob = await buildImageBlob();
 
-    // Image is optional - only process if file exists
-    let imageBlob: ExternalBlob | null = null;
-    if (imageFile) {
-      try {
-        const arrayBuffer = await imageFile.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        imageBlob = ExternalBlob.fromBytes(uint8Array).withUploadProgress((percentage) => {
-          setUploadProgress(percentage);
+      if (activeDraftId) {
+        // Publish from draft — uses draft's map-picker coordinates
+        await publishDraft.mutateAsync(activeDraftId);
+      } else {
+        // Create story directly — uses pickedLocation (map-picker coordinates only)
+        await createStory.mutateAsync({
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          locationName: locationName.trim() || null,
+          latitude: pickedLocation.lat,
+          longitude: pickedLocation.lng,
+          isAnonymous,
+          image: imageBlob,
         });
-      } catch (error) {
-        console.error('Failed to process image:', error);
-        toast.error('Failed to process image');
-        return;
       }
+
+      toast.success("Story posted!");
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to post story.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSaveDraft() {
+    if (!isAuthenticated) {
+      toast.error("Please log in to save a draft.");
+      return;
     }
 
-    // Submit with or without image
-    createMutation.mutate(
-      {
-        title: title.trim(),
-        content: content.trim(),
-        category,
-        locationName: locationName.trim() || null,
-        location: userLocation,
-        isAnonymous,
-        image: imageBlob,
-      },
-      {
-        onSuccess: () => {
-          resetForm();
-          onOpenChange(false);
-        },
+    setIsSavingDraft(true);
+    try {
+      const imageBlob = await buildImageBlob();
+
+      if (activeDraftId) {
+        await updateDraft.mutateAsync({
+          draftId: activeDraftId,
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          locationName: locationName.trim() || null,
+          latitude: pickedLocation?.lat ?? null,
+          longitude: pickedLocation?.lng ?? null,
+          isAnonymous,
+          image: imageBlob,
+        });
+        toast.success("Draft updated.");
+      } else {
+        const newDraftId = await createDraft.mutateAsync({
+          title: title.trim(),
+          content: content.trim(),
+          category,
+          locationName: locationName.trim() || null,
+          latitude: pickedLocation?.lat ?? null,
+          longitude: pickedLocation?.lng ?? null,
+          isAnonymous,
+          image: imageBlob,
+        });
+        setActiveDraftId(newDraftId);
+        toast.success("Draft saved.");
       }
-    );
-  };
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to save draft.");
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }
 
-  const isAuthenticating = isInitializing || loginStatus === 'logging-in';
-  const isAuthenticated = !!identity && !isInitializing;
-  const isActorInitializing = actorFetching && !actor;
-  const isActorReady = !!actor && !actorFetching;
-  const isUploading = createMutation.isPending && uploadProgress > 0 && uploadProgress < 100;
+  async function handleDeleteDraft() {
+    if (!activeDraftId) return;
+    try {
+      await deleteDraft.mutateAsync(activeDraftId);
+      setActiveDraftId(null);
+      setTitle("");
+      setContent("");
+      setCategory(Category.random);
+      setIsAnonymous(false);
+      setLocationName("");
+      setPickedLocation(null);
+      setImageFile(null);
+      setImagePreviewUrl(null);
+      toast.success("Draft deleted.");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to delete draft.");
+    }
+  }
 
-  const showLoginRequired = !isAuthenticating && !isAuthenticated;
-  const showActorLoading = isAuthenticated && isActorInitializing;
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    const url = URL.createObjectURL(file);
+    setImagePreviewUrl(url);
+  }
 
-  const canDraft = isAuthenticated;
-  const canSaveDraft = isAuthenticated && isActorReady && title.trim() && content.trim() && !saveDraftMutation.isPending;
-  const canSubmit = isAuthenticated && isActorReady && !!userLocation && title.trim() && content.trim() && !createMutation.isPending;
-  const canPublish = isAuthenticated && isActorReady && !!selectedDraftId && !!userLocation && !publishDraftMutation.isPending;
+  function handleRemoveImage() {
+    setImageFile(null);
+    setImagePreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
-  const locationCopy = getLocationCopy(permissionState);
-  const showLocationDenied = !userLocation && permissionState === 'denied';
-  const showLocationUnsupported = !userLocation && permissionState === 'unsupported';
-  const showLocationInsecure = !userLocation && permissionState === 'insecure';
+  // Convert internal { lat, lng } to { latitude, longitude } for LocationPickerDialog
+  const pickedLocationForPicker = pickedLocation
+    ? { latitude: pickedLocation.lat, longitude: pickedLocation.lng }
+    : undefined;
+
+  const canSubmit =
+    isAuthenticated &&
+    title.trim().length > 0 &&
+    content.trim().length > 0 &&
+    pickedLocation != null &&
+    !isSubmitting;
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          resetForm();
-        }
-        onOpenChange(isOpen);
-      }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto pointer-events-auto">
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Share Your Story</DialogTitle>
+            <DialogTitle>
+              {activeDraftId ? "Edit Draft" : "Share a Story"}
+            </DialogTitle>
             <DialogDescription>
-              Pin your story to a location and share it with the community.
+              Pin your story to a location on the map.
             </DialogDescription>
           </DialogHeader>
 
-          {showLoginRequired && (
-            <Alert variant="destructive">
-              <Info className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                Please log in to post a story or save drafts.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {showActorLoading && (
-            <Alert>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <AlertDescription className="text-sm">
-                Connecting to backend, please wait...
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isAuthenticating && (
-            <Alert>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <AlertDescription className="text-sm">
-                Authenticating...
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Drafts Section */}
-          {isAuthenticated && !showDraftsList && drafts.length > 0 && (
-            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  You have {drafts.length} saved draft{drafts.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDraftsList(true)}
-              >
-                Load Draft
-              </Button>
-            </div>
-          )}
-
-          {showDraftsList && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Your Drafts</Label>
+          <div className="flex flex-col gap-4 mt-2">
+            {/* Draft list toggle */}
+            {isAuthenticated && drafts.length > 0 && (
+              <div>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={() => setShowDraftsList(false)}
+                  className="gap-1.5"
+                  onClick={() => setShowDraftList((v) => !v)}
                 >
-                  <X className="h-4 w-4" />
+                  <FileText className="w-3.5 h-3.5" />
+                  {showDraftList ? "Hide Drafts" : `Drafts (${drafts.length})`}
                 </Button>
-              </div>
-              <ScrollArea className="h-48 rounded-md border">
-                <div className="p-2 space-y-2">
-                  {draftsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : drafts.length === 0 ? (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
-                      No drafts saved yet
-                    </div>
-                  ) : (
-                    drafts.map((draft) => (
-                      <div
+
+                {showDraftList && (
+                  <div className="mt-2 border border-border rounded-lg divide-y divide-border">
+                    {drafts.map((draft) => (
+                      <button
+                        type="button"
                         key={draft.id}
-                        className="p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => loadDraft(draft)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
+                        onClick={() => {
+                          loadDraftIntoForm(draft);
+                          setShowDraftList(false);
+                        }}
                       >
-                        <div className="font-medium text-sm truncate">{draft.title}</div>
-                        <div className="text-xs text-muted-foreground truncate mt-1">
-                          {draft.content.substring(0, 60)}...
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {getCategoryLabel(draft.category)} • Updated {new Date(Number(draft.updatedAt) / 1000000).toLocaleDateString()}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          )}
+                        <span className="font-medium">
+                          {draft.title || "(Untitled)"}
+                        </span>
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          {draft.category}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-          {selectedDraftId && (
-            <Alert>
-              <FileText className="h-4 w-4" />
-              <AlertDescription className="text-sm flex items-center justify-between">
-                <span>Editing draft</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDeleteDraft}
-                  disabled={deleteDraftMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete Draft
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="story-title">Title</Label>
               <Input
-                id="title"
-                placeholder="Give your story a title..."
+                id="story-title"
+                placeholder="Give your story a title…"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={100}
-                disabled={!isAuthenticated}
               />
             </div>
 
             {/* Content */}
-            <div className="space-y-2">
-              <Label htmlFor="content">Your Story</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="story-content">Story</Label>
               <Textarea
-                id="content"
-                placeholder="Share your story..."
+                id="story-content"
+                placeholder="Tell your story…"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                rows={6}
+                rows={5}
                 maxLength={2000}
-                disabled={!isAuthenticated}
               />
-              <p className="text-xs text-muted-foreground text-right">
-                {content.length}/2000 characters
-              </p>
             </div>
 
             {/* Category */}
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label>Category</Label>
               <Select
                 value={category}
-                onValueChange={(value) => setCategory(value as Category)}
-                disabled={!isAuthenticated}
+                onValueChange={(v) => setCategory(v as Category)}
               >
-                <SelectTrigger id="category">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {getCategoryLabel(cat)}
+                  {CATEGORY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Location Name (Optional) */}
-            <div className="space-y-2">
-              <Label htmlFor="locationName">Location Name (Optional)</Label>
-              <Input
-                id="locationName"
-                placeholder="e.g., Central Park"
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                maxLength={100}
-                disabled={!isAuthenticated}
-              />
-              <p className="text-xs text-muted-foreground">
-                Add a custom name for this location
-              </p>
-            </div>
-
-            {/* Image Upload */}
-            <div className="space-y-2">
-              <Label htmlFor="image">Image (Optional)</Label>
-              {!imagePreview ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    disabled={!isAuthenticated}
-                    className="flex-1"
-                  />
-                  <Upload className="h-4 w-4 text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="relative">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
-                  <Button
+            {/* Location picker — map-picker coordinates are the story's lat/lng */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Location (required)</Label>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant={pickedLocation ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => setIsLocationPickerOpen(true)}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  {pickedLocation
+                    ? `${pickedLocation.lat.toFixed(4)}, ${pickedLocation.lng.toFixed(4)}`
+                    : "Pick on Map"}
+                </Button>
+                {pickedLocation && (
+                  <button
                     type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2"
-                    onClick={removeImage}
+                    onClick={() => setPickedLocation(null)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    aria-label="Clear location"
                   >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  {isUploading && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
-                      <div className="text-white text-sm">
-                        Uploading: {uploadProgress}%
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              {!pickedLocation && (
+                <p className="text-xs text-muted-foreground">
+                  You must pick a location on the map to post your story.
+                </p>
               )}
             </div>
 
-            <Separator />
+            {/* Location name */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="location-name">Location Name (optional)</Label>
+              <Input
+                id="location-name"
+                placeholder="e.g. Central Park, Mumbai…"
+                value={locationName}
+                onChange={(e) => setLocationName(e.target.value)}
+                maxLength={80}
+              />
+            </div>
 
-            {/* Location Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  Location
-                </Label>
-                {userLocation && (
-                  <span className="text-xs text-muted-foreground">
-                    {userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}
-                  </span>
-                )}
-              </div>
-
-              {/* Location Status */}
-              {userLocation ? (
-                <Alert>
-                  <MapPin className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
-                    Location set successfully
-                  </AlertDescription>
-                </Alert>
+            {/* Image upload */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Image (optional)</Label>
+              {imagePreviewUrl ? (
+                <div className="relative">
+                  <img
+                    src={imagePreviewUrl}
+                    alt="Preview"
+                    className="w-full h-auto block rounded-lg max-h-48 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 bg-background/80 rounded-full p-1 hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                    aria-label="Remove image"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 border border-dashed border-border rounded-lg px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  Add an image
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageChange}
+              />
+            </div>
+
+            {/* Anonymous toggle */}
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isAnonymous}
+                onChange={(e) => setIsAnonymous(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm text-muted-foreground">
+                Post anonymously
+              </span>
+            </label>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 pt-2">
+              {isAuthenticated && (
                 <>
-                  {showLocationDenied && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-sm">
-                        <div className="font-medium">{locationCopy.title}</div>
-                        <div className="mt-1">{locationCopy.description}</div>
-                        {diagnostics?.userFriendlyDetail && (
-                          <div className="mt-1 text-xs opacity-80">
-                            {diagnostics.userFriendlyDetail}
-                          </div>
-                        )}
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveDraft}
+                    disabled={isSavingDraft}
+                    className="gap-1.5"
+                  >
+                    {isSavingDraft && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
+                    {activeDraftId ? "Update Draft" : "Save Draft"}
+                  </Button>
 
-                  {showLocationUnsupported && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-sm">
-                        <div className="font-medium">{locationCopy.title}</div>
-                        <div className="mt-1">{locationCopy.description}</div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {showLocationInsecure && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-sm">
-                        <div className="font-medium">{locationCopy.title}</div>
-                        <div className="mt-1">{locationCopy.description}</div>
-                      </AlertDescription>
-                    </Alert>
+                  {activeDraftId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDeleteDraft}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      Delete Draft
+                    </Button>
                   )}
                 </>
               )}
 
-              {/* Location Actions */}
-              <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleRequestLocation}
-                  disabled={isRequestingLocation || !isAuthenticated}
-                  className="w-full"
-                >
-                  {isRequestingLocation ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Getting location...
-                    </>
-                  ) : (
-                    <>
-                      <Navigation className="mr-2 h-4 w-4" />
-                      Use My Location
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleOpenLocationPicker}
-                  disabled={!isAuthenticated}
-                  className="w-full"
-                >
-                  <Map className="mr-2 h-4 w-4" />
-                  Pick Location on Map
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="manual-location"
-                    checked={useManualLocation}
-                    onCheckedChange={setUseManualLocation}
-                    disabled={!isAuthenticated}
-                  />
-                  <Label htmlFor="manual-location" className="text-sm cursor-pointer">
-                    Enter coordinates manually
-                  </Label>
-                </div>
-
-                {useManualLocation && (
-                  <div className="space-y-2 p-3 border rounded-lg">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label htmlFor="latitude" className="text-xs">
-                          Latitude
-                        </Label>
-                        <Input
-                          id="latitude"
-                          type="number"
-                          step="any"
-                          placeholder="e.g., 40.7128"
-                          value={manualLatitude}
-                          onChange={(e) => setManualLatitude(e.target.value)}
-                          disabled={!isAuthenticated}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="longitude" className="text-xs">
-                          Longitude
-                        </Label>
-                        <Input
-                          id="longitude"
-                          type="number"
-                          step="any"
-                          placeholder="e.g., -74.0060"
-                          value={manualLongitude}
-                          onChange={(e) => setManualLongitude(e.target.value)}
-                          disabled={!isAuthenticated}
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleManualLocationSubmit}
-                      disabled={!isAuthenticated}
-                      className="w-full"
-                    >
-                      Set Manual Location
-                    </Button>
-                  </div>
+              <Button
+                className="ml-auto gap-1.5"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+              >
+                {isSubmitting && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 )}
-              </div>
+                Post Story
+              </Button>
             </div>
 
-            <Separator />
-
-            {/* Anonymous Toggle */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="anonymous">Post Anonymously</Label>
-                <p className="text-xs text-muted-foreground">
-                  Your identity will be hidden from other users
-                </p>
-              </div>
-              <Switch
-                id="anonymous"
-                checked={isAnonymous}
-                onCheckedChange={setIsAnonymous}
-                disabled={!isAuthenticated}
-              />
-            </div>
-
-            {/* Guidelines */}
-            {showGuidelines && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1">
-                      <p className="font-medium">Community Guidelines</p>
-                      <ul className="text-xs space-y-1 list-disc list-inside">
-                        <li>Be respectful and kind</li>
-                        <li>No hate speech or harassment</li>
-                        <li>Keep content appropriate for all ages</li>
-                      </ul>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowGuidelines(false)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
+            {!isAuthenticated && (
+              <p className="text-xs text-muted-foreground text-center">
+                Please log in to post or save stories.
+              </p>
             )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              {canDraft && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSaveDraft}
-                  disabled={!canSaveDraft}
-                  className="flex-1"
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  {saveDraftMutation.isPending ? 'Saving...' : 'Save Draft'}
-                </Button>
-              )}
-
-              {selectedDraftId && canPublish ? (
-                <Button
-                  type="button"
-                  onClick={handlePublishDraft}
-                  disabled={!canPublish}
-                  className="flex-1"
-                >
-                  {publishDraftMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Publishing...
-                    </>
-                  ) : (
-                    'Publish Draft'
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  disabled={!canSubmit}
-                  className="flex-1"
-                >
-                  {createMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Posting...
-                    </>
-                  ) : (
-                    'Post Story'
-                  )}
-                </Button>
-              )}
-            </div>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
 
+      {/* Location picker dialog — uses { latitude, longitude } shape */}
       <LocationPickerDialog
-        open={showLocationPicker}
-        onOpenChange={setShowLocationPicker}
-        onConfirm={handleLocationPickerConfirm}
-        onCancel={handleLocationPickerCancel}
-        initialLocation={userLocation}
+        open={isLocationPickerOpen}
+        onOpenChange={setIsLocationPickerOpen}
+        initialLocation={pickedLocationForPicker}
+        onConfirm={(loc) => {
+          setPickedLocation({ lat: loc.latitude, lng: loc.longitude });
+          setIsLocationPickerOpen(false);
+        }}
+        onCancel={() => setIsLocationPickerOpen(false)}
       />
     </>
   );

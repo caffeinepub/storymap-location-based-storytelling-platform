@@ -1,32 +1,47 @@
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useQueryClient } from '@tanstack/react-query';
-import { useIsCallerAdmin } from '../hooks/useQueries';
-import { Button } from '@/components/ui/button';
-import { MapPin, Moon, Sun, User, Shield, Radio } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  Map as MapIcon,
+  MapPin,
+  Moon,
+  Radio,
+  Shield,
+  Sun,
+  User,
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useIsCallerAdmin } from "../hooks/useQueries";
 
 interface HeaderProps {
   onNavigateProfile: () => void;
   onNavigateHome: () => void;
   onNavigateAdmin?: () => void;
   onNavigateLocalUpdates?: () => void;
+  onNavigateQissaMap?: () => void;
 }
 
-export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAdmin, onNavigateLocalUpdates }: HeaderProps) {
+export default function Header({
+  onNavigateProfile,
+  onNavigateHome,
+  onNavigateAdmin,
+  onNavigateLocalUpdates,
+  onNavigateQissaMap,
+}: HeaderProps) {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
   const { data: isAdmin } = useIsCallerAdmin();
 
   const isAuthenticated = !!identity;
-  const disabled = loginStatus === 'logging-in';
+  const disabled = loginStatus === "logging-in";
 
   const handleAuth = async () => {
     if (isAuthenticated) {
@@ -36,8 +51,8 @@ export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAd
       try {
         await login();
       } catch (error: any) {
-        console.error('Login error:', error);
-        if (error.message === 'User is already authenticated') {
+        console.error("Login error:", error);
+        if (error.message === "User is already authenticated") {
           await clear();
           setTimeout(() => login(), 300);
         }
@@ -49,6 +64,7 @@ export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAd
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
         <button
+          type="button"
           onClick={onNavigateHome}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
@@ -64,6 +80,18 @@ export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAd
         </button>
 
         <div className="flex items-center gap-2">
+          {onNavigateQissaMap && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onNavigateQissaMap}
+              className="gap-2"
+            >
+              <MapIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">QissaMap</span>
+            </Button>
+          )}
+
           {onNavigateLocalUpdates && (
             <Button
               variant="ghost"
@@ -79,7 +107,7 @@ export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAd
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
             <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -110,16 +138,14 @@ export default function Header({ onNavigateProfile, onNavigateHome, onNavigateAd
                   </>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleAuth}>
-                  Logout
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleAuth}>Logout</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
 
           {!isAuthenticated && (
             <Button onClick={handleAuth} disabled={disabled} size="sm">
-              {loginStatus === 'logging-in' ? 'Logging in...' : 'Login'}
+              {loginStatus === "logging-in" ? "Logging in..." : "Login"}
             </Button>
           )}
         </div>

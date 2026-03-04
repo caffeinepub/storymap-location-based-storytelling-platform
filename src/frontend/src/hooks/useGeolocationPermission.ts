@@ -1,6 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from "react";
 
-export type PermissionState = 'granted' | 'prompt' | 'denied' | 'unknown' | 'unsupported' | 'requesting' | 'insecure';
+export type PermissionState =
+  | "granted"
+  | "prompt"
+  | "denied"
+  | "unknown"
+  | "unsupported"
+  | "requesting"
+  | "insecure";
 
 export interface GeolocationDiagnostics {
   errorCode?: number;
@@ -22,82 +29,90 @@ export interface GeolocationPermissionHook {
 function isBlockedByPermissionsPolicy(): boolean {
   try {
     // Check if document.featurePolicy or document.permissionsPolicy exists
-    if ('permissionsPolicy' in document) {
+    if ("permissionsPolicy" in document) {
       const policy = (document as any).permissionsPolicy;
-      if (policy && typeof policy.allowsFeature === 'function') {
-        return !policy.allowsFeature('geolocation');
+      if (policy && typeof policy.allowsFeature === "function") {
+        return !policy.allowsFeature("geolocation");
       }
-    } else if ('featurePolicy' in document) {
+    } else if ("featurePolicy" in document) {
       const policy = (document as any).featurePolicy;
-      if (policy && typeof policy.allowsFeature === 'function') {
-        return !policy.allowsFeature('geolocation');
+      if (policy && typeof policy.allowsFeature === "function") {
+        return !policy.allowsFeature("geolocation");
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // API not available or error checking
   }
   return false;
 }
 
 export function useGeolocationPermission(): GeolocationPermissionHook {
-  const [permissionState, setPermissionState] = useState<PermissionState>('unknown');
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [permissionState, setPermissionState] =
+    useState<PermissionState>("unknown");
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
   const [lastErrorReason, setLastErrorReason] = useState<string | null>(null);
-  const [diagnostics, setDiagnostics] = useState<GeolocationDiagnostics | null>(null);
+  const [diagnostics, setDiagnostics] = useState<GeolocationDiagnostics | null>(
+    null,
+  );
 
   // Check environment prerequisites
   useEffect(() => {
     // Check secure context first
-    if (typeof window !== 'undefined' && window.isSecureContext === false) {
-      setPermissionState('insecure');
-      setLastErrorReason('Location requires HTTPS or localhost');
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      setPermissionState("insecure");
+      setLastErrorReason("Location requires HTTPS or localhost");
       setDiagnostics({
-        userFriendlyDetail: 'Requires HTTPS',
+        userFriendlyDetail: "Requires HTTPS",
       });
       return;
     }
 
     // Check geolocation availability
-    if (!('geolocation' in navigator)) {
-      setPermissionState('unsupported');
-      setLastErrorReason('Geolocation is not supported by your browser');
+    if (!("geolocation" in navigator)) {
+      setPermissionState("unsupported");
+      setLastErrorReason("Geolocation is not supported by your browser");
       setDiagnostics({
-        userFriendlyDetail: 'Browser not supported',
+        userFriendlyDetail: "Browser not supported",
       });
       return;
     }
 
     // Check if Permissions API is available
-    if ('permissions' in navigator && 'query' in navigator.permissions) {
+    if ("permissions" in navigator && "query" in navigator.permissions) {
       navigator.permissions
-        .query({ name: 'geolocation' as PermissionName })
+        .query({ name: "geolocation" as PermissionName })
         .then((result) => {
           setPermissionState(result.state as PermissionState);
 
           // Listen for permission changes
-          result.addEventListener('change', () => {
+          result.addEventListener("change", () => {
             setPermissionState(result.state as PermissionState);
           });
         })
         .catch(() => {
           // Permissions API not fully supported, fallback to unknown
-          setPermissionState('unknown');
+          setPermissionState("unknown");
         });
     } else {
-      setPermissionState('unknown');
+      setPermissionState("unknown");
     }
   }, []);
 
   // Re-query permission state after failure
   const recheckPermissionState = useCallback(async () => {
-    if ('permissions' in navigator && 'query' in navigator.permissions) {
+    if ("permissions" in navigator && "query" in navigator.permissions) {
       try {
-        const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-        console.log('Re-checked permission state:', result.state);
+        const result = await navigator.permissions.query({
+          name: "geolocation" as PermissionName,
+        });
+        console.log("Re-checked permission state:", result.state);
         return result.state;
-      } catch (error) {
-        console.log('Permissions API unavailable, cannot verify state');
+      } catch (_error) {
+        console.log("Permissions API unavailable, cannot verify state");
         return null;
       }
     }
@@ -106,27 +121,27 @@ export function useGeolocationPermission(): GeolocationPermissionHook {
 
   const requestLocation = useCallback(async () => {
     // Check secure context
-    if (typeof window !== 'undefined' && window.isSecureContext === false) {
-      setPermissionState('insecure');
-      setLastErrorReason('Location requires HTTPS or localhost');
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      setPermissionState("insecure");
+      setLastErrorReason("Location requires HTTPS or localhost");
       setDiagnostics({
-        userFriendlyDetail: 'Requires HTTPS',
+        userFriendlyDetail: "Requires HTTPS",
       });
       return;
     }
 
     // Check geolocation availability
-    if (!('geolocation' in navigator)) {
-      setPermissionState('unsupported');
-      setLastErrorReason('Geolocation is not supported by your browser');
+    if (!("geolocation" in navigator)) {
+      setPermissionState("unsupported");
+      setLastErrorReason("Geolocation is not supported by your browser");
       setDiagnostics({
-        userFriendlyDetail: 'Browser not supported',
+        userFriendlyDetail: "Browser not supported",
       });
       return;
     }
 
     setIsRequesting(true);
-    setPermissionState('requesting');
+    setPermissionState("requesting");
     setLastErrorReason(null);
     setDiagnostics(null);
 
@@ -138,62 +153,64 @@ export function useGeolocationPermission(): GeolocationPermissionHook {
             longitude: position.coords.longitude,
           };
           setLocation(newLocation);
-          setPermissionState('granted');
+          setPermissionState("granted");
           setIsRequesting(false);
           setLastErrorReason(null);
           setDiagnostics(null);
-          console.log('Location acquired successfully:', newLocation);
+          console.log("Location acquired successfully:", newLocation);
           resolve();
         },
         async (error) => {
-          console.error('Geolocation error:', {
+          console.error("Geolocation error:", {
             code: error.code,
             message: error.message,
           });
           setIsRequesting(false);
 
-          let errorReason = 'Failed to get location';
-          let userFriendlyDetail = '';
+          let errorReason = "Failed to get location";
+          let userFriendlyDetail = "";
 
           if (error.code === error.PERMISSION_DENIED) {
             // Check if blocked by Permissions Policy
             const isPolicyBlocked = isBlockedByPermissionsPolicy();
-            
+
             if (isPolicyBlocked) {
               // Blocked by site policy
-              setPermissionState('prompt');
-              errorReason = 'Location blocked by site policy';
-              userFriendlyDetail = 'Blocked by site policy or browser settings (code: 1)';
+              setPermissionState("prompt");
+              errorReason = "Location blocked by site policy";
+              userFriendlyDetail =
+                "Blocked by site policy or browser settings (code: 1)";
             } else {
               // Re-check actual permission state via Permissions API
               const actualState = await recheckPermissionState();
-              
-              if (actualState === 'denied') {
+
+              if (actualState === "denied") {
                 // User explicitly denied
-                setPermissionState('denied');
-                errorReason = 'Location access denied';
-                userFriendlyDetail = 'Permission denied by user';
-              } else if (actualState === 'prompt') {
+                setPermissionState("denied");
+                errorReason = "Location access denied";
+                userFriendlyDetail = "Permission denied by user";
+              } else if (actualState === "prompt") {
                 // User dismissed the prompt without choosing
-                setPermissionState('prompt');
-                errorReason = 'Location prompt dismissed';
-                userFriendlyDetail = 'Permission prompt dismissed';
+                setPermissionState("prompt");
+                errorReason = "Location prompt dismissed";
+                userFriendlyDetail = "Permission prompt dismissed";
               } else {
                 // Permissions API unavailable or returned something else
                 // Don't hard-set to 'denied', keep it as 'prompt' to allow retry
-                setPermissionState('prompt');
-                errorReason = 'Location access blocked';
-                userFriendlyDetail = 'Blocked by browser settings or site policy (code: 1)';
+                setPermissionState("prompt");
+                errorReason = "Location access blocked";
+                userFriendlyDetail =
+                  "Blocked by browser settings or site policy (code: 1)";
               }
             }
           } else if (error.code === error.TIMEOUT) {
-            setPermissionState('prompt');
-            errorReason = 'Location request timed out';
-            userFriendlyDetail = 'Request timed out (code: 3)';
+            setPermissionState("prompt");
+            errorReason = "Location request timed out";
+            userFriendlyDetail = "Request timed out (code: 3)";
           } else if (error.code === error.POSITION_UNAVAILABLE) {
-            setPermissionState('prompt');
-            errorReason = 'Location information unavailable';
-            userFriendlyDetail = 'Position unavailable (code: 2)';
+            setPermissionState("prompt");
+            errorReason = "Location information unavailable";
+            userFriendlyDetail = "Position unavailable (code: 2)";
           }
 
           const newDiagnostics: GeolocationDiagnostics = {
@@ -205,7 +222,7 @@ export function useGeolocationPermission(): GeolocationPermissionHook {
           setDiagnostics(newDiagnostics);
           setLastErrorReason(errorReason);
 
-          console.log('Geolocation diagnostics:', {
+          console.log("Geolocation diagnostics:", {
             errorCode: error.code,
             errorMessage: error.message,
             permissionState,
@@ -218,14 +235,14 @@ export function useGeolocationPermission(): GeolocationPermissionHook {
           enableHighAccuracy: true,
           timeout: 10000,
           maximumAge: 0,
-        }
+        },
       );
     });
   }, [recheckPermissionState, permissionState]);
 
   const autoFetchIfGranted = useCallback(() => {
     // Only auto-fetch if permission is already granted
-    if (permissionState === 'granted' && !location && !isRequesting) {
+    if (permissionState === "granted" && !location && !isRequesting) {
       requestLocation().catch(() => {
         // Silent fail for auto-fetch
       });

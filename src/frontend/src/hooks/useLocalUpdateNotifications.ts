@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import type { LocalCategory, LocalUpdatePublic } from "../backend";
+import { formatDistanceValue } from "../lib/distanceUtils";
 import { computeRelevance } from "../lib/localUpdates";
-import { formatDistanceValue } from "../lib/utils";
 
 interface UseLocalUpdateNotificationsParams {
   updates: LocalUpdatePublic[];

@@ -4,13 +4,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Clock, Eye, Loader2, MapPin, Radio, ThumbsUp } from "lucide-react";
 import type { LocalUpdatePublic } from "../../backend";
 import { useThumbsUpLocalUpdate } from "../../hooks/useLocalUpdates";
+import { formatDistanceValue } from "../../lib/distanceUtils";
 import {
   computeRelevance,
   formatRadius,
   getLocalCategoryColor,
   getLocalCategoryLabel,
 } from "../../lib/localUpdates";
-import { formatDistanceValue } from "../../lib/utils";
 
 // Extended type to include viewCount (backend updated but interface not yet regenerated)
 type LocalUpdateWithViews = LocalUpdatePublic & { viewCount?: bigint };

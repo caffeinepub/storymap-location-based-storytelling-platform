@@ -7,13 +7,16 @@ import { useEffect, useRef, useState } from "react";
 import type { LocalUpdatePublic } from "../../backend";
 import { useLeafletMapResize } from "../../hooks/useLeafletMapResize";
 import { getCurrentLocationMarkerIcon } from "../../lib/currentLocationMarker";
+import {
+  calculateDistance,
+  formatDistanceValue,
+} from "../../lib/distanceUtils";
 import { loadLeaflet, unloadLeaflet } from "../../lib/leafletLoader";
 import {
   formatRadius,
   getLocalCategoryIconColor,
   getLocalCategoryLabel,
 } from "../../lib/localUpdates";
-import { calculateDistance, formatDistanceValue } from "../../lib/utils";
 
 interface LocalUpdatesMapViewProps {
   updates: LocalUpdatePublic[];

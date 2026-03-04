@@ -1,5 +1,5 @@
 import { LocalCategory } from "../backend";
-import { calculateDistance } from "./utils";
+import { calculateDistance } from "./distanceUtils";
 
 // Category label mapping
 export function getLocalCategoryLabel(category: LocalCategory): string {

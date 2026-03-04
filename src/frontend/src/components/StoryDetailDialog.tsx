@@ -61,7 +61,7 @@ import {
   useUpdateStory,
 } from "../hooks/useQueries";
 import { getCategoryColor, getCategoryLabel } from "../lib/categories";
-import { calculateDistance, formatDistance } from "../lib/utils";
+import { calculateDistance, formatDistance } from "../lib/distanceUtils";
 
 interface StoryDetailDialogProps {
   story: Story | null;

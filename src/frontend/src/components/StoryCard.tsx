@@ -27,7 +27,7 @@ import {
   useUnpinStory,
 } from "../hooks/useQueries";
 import { getCategoryColor, getCategoryLabel } from "../lib/categories";
-import { calculateDistance, formatDistance } from "../lib/utils";
+import { calculateDistance, formatDistance } from "../lib/distanceUtils";
 
 interface StoryCardProps {
   story: Story;

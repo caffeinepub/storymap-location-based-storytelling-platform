@@ -6,13 +6,13 @@ import type { Story } from "../backend";
 import { useLeafletMapResize } from "../hooks/useLeafletMapResize";
 import { getCategoryLabel } from "../lib/categories";
 import { getCurrentLocationMarkerIcon } from "../lib/currentLocationMarker";
+import { calculateDistance, formatDistance } from "../lib/distanceUtils";
 import {
   loadLeaflet,
   loadMarkerCluster,
   unloadLeaflet,
   unloadMarkerCluster,
 } from "../lib/leafletLoader";
-import { calculateDistance, formatDistance } from "../lib/utils";
 
 interface MapViewProps {
   stories: Story[];

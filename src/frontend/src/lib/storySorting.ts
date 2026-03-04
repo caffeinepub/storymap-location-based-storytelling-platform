@@ -1,5 +1,5 @@
 import type { Story } from "../backend";
-import { calculateDistance } from "./utils";
+import { calculateDistance } from "./distanceUtils";
 
 export type SortOption =
   | "newest"

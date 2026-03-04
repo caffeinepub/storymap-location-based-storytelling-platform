@@ -36,13 +36,13 @@ import {
   useThumbsUpLocalUpdate,
 } from "../../hooks/useLocalUpdates";
 import { useIsCallerAdmin } from "../../hooks/useQueries";
+import { formatDistanceValue } from "../../lib/distanceUtils";
 import {
   computeRelevance,
   formatRadius,
   getLocalCategoryColor,
   getLocalCategoryLabel,
 } from "../../lib/localUpdates";
-import { formatDistanceValue } from "../../lib/utils";
 
 // Extended type to include viewCount (backend updated but interface not yet regenerated)
 type LocalUpdateWithViews = LocalUpdatePublic & { viewCount?: bigint };

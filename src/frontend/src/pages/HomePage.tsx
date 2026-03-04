@@ -196,6 +196,7 @@ export default function HomePage({
             isLoading={isLoading}
             userLocation={currentLocation}
             teleportedLocation={teleportedLocation}
+            onStoryClick={(story) => setSelectedStory(story)}
             emptyMessage="No stories found near this location."
           />
         </div>
@@ -205,6 +206,17 @@ export default function HomePage({
 
         {/* Create story dialog */}
         <CreateStoryDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+
+        {/* Story detail dialog */}
+        <StoryDetailDialog
+          story={selectedStory}
+          open={!!selectedStory}
+          onOpenChange={(open) => {
+            if (!open) setSelectedStory(null);
+          }}
+          userLocation={currentLocation}
+          onStoryDeleted={() => setSelectedStory(null)}
+        />
       </div>
     );
   }
@@ -340,6 +352,7 @@ export default function HomePage({
               isLoading={isLoading}
               userLocation={currentLocation}
               teleportedLocation={null}
+              onStoryClick={(story) => setSelectedStory(story)}
               emptyMessage={
                 locationAvailable
                   ? `No stories found within ${distanceKm} km${selectedCategory ? " in this category" : ""}.`
@@ -367,17 +380,16 @@ export default function HomePage({
       {/* Create story dialog */}
       <CreateStoryDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
 
-      {/* Story detail dialog (for map view clicks) */}
-      {selectedStory && (
-        <StoryDetailDialog
-          story={selectedStory}
-          open={!!selectedStory}
-          onOpenChange={(open) => {
-            if (!open) setSelectedStory(null);
-          }}
-          userLocation={currentLocation}
-        />
-      )}
+      {/* Story detail dialog — opened by feed card clicks AND map marker clicks */}
+      <StoryDetailDialog
+        story={selectedStory}
+        open={!!selectedStory}
+        onOpenChange={(open) => {
+          if (!open) setSelectedStory(null);
+        }}
+        userLocation={currentLocation}
+        onStoryDeleted={() => setSelectedStory(null)}
+      />
     </div>
   );
 }

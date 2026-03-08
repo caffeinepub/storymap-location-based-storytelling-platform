@@ -17,6 +17,7 @@ import {
   getLocalCategoryIconColor,
   getLocalCategoryLabel,
 } from "../../lib/localUpdates";
+import QissaMapSearchBar, { type SearchedLocation } from "../QissaMapSearchBar";
 
 interface LocalUpdatesMapViewProps {
   updates: LocalUpdatePublic[];
@@ -35,6 +36,7 @@ export default function LocalUpdatesMapView({
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const userMarkerRef = useRef<any>(null);
+  const searchMarkerRef = useRef<any>(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [leafletError, setLeafletError] = useState<string | null>(null);
   const [L, setL] = useState<any>(null);
@@ -42,6 +44,8 @@ export default function LocalUpdatesMapView({
     useState<LocalUpdatePublic | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [isLoadingMap, setIsLoadingMap] = useState(true);
+  const [searchedLocation, setSearchedLocation] =
+    useState<SearchedLocation | null>(null);
 
   // Load Leaflet using shared loader
   useEffect(() => {
@@ -175,6 +179,58 @@ export default function LocalUpdatesMapView({
       );
     }
   }, [mapReady, L, userLocation]);
+
+  // Handle searched location: fly to + place marker
+  useEffect(() => {
+    if (!mapReady || !L || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    // Remove previous search marker
+    if (searchMarkerRef.current) {
+      try {
+        searchMarkerRef.current.remove();
+      } catch (_e) {}
+      searchMarkerRef.current = null;
+    }
+
+    if (searchedLocation) {
+      const { latitude, longitude, displayName } = searchedLocation;
+
+      map.flyTo([latitude, longitude], 14, {
+        animate: true,
+        duration: 1.2,
+      });
+
+      const shortName = displayName.split(",")[0];
+      const icon = L.divIcon({
+        className: "",
+        html: `
+          <div style="
+            display:flex;flex-direction:column;align-items:center;gap:2px;
+          ">
+            <div style="
+              background:#ef4444;color:#fff;padding:3px 8px;border-radius:999px;
+              font-size:11px;font-weight:600;white-space:nowrap;
+              box-shadow:0 2px 6px rgba(0,0,0,0.3);max-width:140px;
+              overflow:hidden;text-overflow:ellipsis;
+            ">${shortName}</div>
+            <div style="
+              width:14px;height:14px;background:#ef4444;
+              border:2px solid #fff;border-radius:50%;
+              box-shadow:0 2px 4px rgba(0,0,0,0.3);
+            "></div>
+          </div>
+        `,
+        iconSize: [140, 44],
+        iconAnchor: [70, 44],
+      });
+
+      searchMarkerRef.current = L.marker([latitude, longitude], {
+        icon,
+        zIndexOffset: 2000,
+      }).addTo(map);
+    }
+  }, [mapReady, L, searchedLocation]);
 
   // Update markers when updates change
   useEffect(() => {
@@ -331,13 +387,37 @@ export default function LocalUpdatesMapView({
   return (
     <div className="space-y-4">
       <div
-        ref={mapContainerRef}
         className="relative w-full h-[600px] rounded-lg border overflow-hidden shadow-lg"
         style={{
           background:
             "linear-gradient(to bottom right, oklch(var(--muted)), oklch(var(--background)))",
         }}
       >
+        {/* Map container */}
+        <div ref={mapContainerRef} className="w-full h-full" />
+
+        {/* Search bar overlay */}
+        {mapReady && !isLoadingMap && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-sm px-3 pointer-events-auto">
+            <QissaMapSearchBar
+              onLocationFound={(loc) => setSearchedLocation(loc)}
+              onClear={() => setSearchedLocation(null)}
+            />
+          </div>
+        )}
+
+        {/* "Viewing near" label */}
+        {searchedLocation && (
+          <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+            <div className="bg-card/90 backdrop-blur-sm border border-border rounded-full px-3 py-1.5 text-xs text-muted-foreground shadow whitespace-nowrap">
+              Viewing updates near:{" "}
+              <span className="font-semibold text-foreground">
+                {searchedLocation.displayName.split(",")[0]}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Loading State */}
         {isLoadingMap && (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 z-10">

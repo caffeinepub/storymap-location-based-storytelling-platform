@@ -7,15 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Map as MapIcon,
-  MapPin,
-  Moon,
-  Radio,
-  Shield,
-  Sun,
-  User,
-} from "lucide-react";
+import { MapPin, Moon, Radio, Shield, Sun, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useIsCallerAdmin } from "../hooks/useQueries";
@@ -25,7 +17,6 @@ interface HeaderProps {
   onNavigateHome: () => void;
   onNavigateAdmin?: () => void;
   onNavigateLocalUpdates?: () => void;
-  onNavigateQissaMap?: () => void;
 }
 
 export default function Header({
@@ -33,7 +24,6 @@ export default function Header({
   onNavigateHome,
   onNavigateAdmin,
   onNavigateLocalUpdates,
-  onNavigateQissaMap,
 }: HeaderProps) {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
@@ -80,18 +70,6 @@ export default function Header({
         </button>
 
         <div className="flex items-center gap-2">
-          {onNavigateQissaMap && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onNavigateQissaMap}
-              className="gap-2"
-            >
-              <MapIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">QissaMap</span>
-            </Button>
-          )}
-
           {onNavigateLocalUpdates && (
             <Button
               variant="ghost"

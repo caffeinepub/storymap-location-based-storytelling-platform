@@ -1,7 +1,5 @@
-import { Input } from "@/components/ui/input";
-import { Loader2, Search, X } from "lucide-react";
-import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { Story } from "../backend";
 import { useLeafletMapResize } from "../hooks/useLeafletMapResize";
 import { getCategoryLabel } from "../lib/categories";
@@ -13,6 +11,8 @@ import {
   unloadLeaflet,
   unloadMarkerCluster,
 } from "../lib/leafletLoader";
+import { getPopularStoryMarkerIcon } from "../lib/popularStoryMarker";
+import { getSearchLocationMarkerIcon } from "../lib/searchLocationMarker";
 
 interface MapViewProps {
   stories: Story[];
@@ -22,6 +22,8 @@ interface MapViewProps {
   selectedLocation?: { latitude: number; longitude: number } | null;
   isVisible?: boolean;
   centerCoordinate?: { latitude: number; longitude: number } | null;
+  searchPin?: { latitude: number; longitude: number; label: string } | null;
+  highlightedStoryIds?: Set<string> | null;
 }
 
 export default function MapView({
@@ -32,22 +34,20 @@ export default function MapView({
   selectedLocation,
   isVisible = true,
   centerCoordinate,
+  searchPin,
+  highlightedStoryIds,
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const clusterGroupRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
   const tempMarkerRef = useRef<any>(null);
-  const teleportMarkerRef = useRef<any>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const searchPinMarkerRef = useRef<any>(null);
   const hasAutoFittedRef = useRef(false);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [leafletError, setLeafletError] = useState<string | null>(null);
   const [clusterPluginLoaded, setClusterPluginLoaded] = useState(false);
   const [L, setL] = useState<any>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [isLoadingMap, setIsLoadingMap] = useState(true);
 
@@ -249,6 +249,41 @@ export default function MapView({
     }
   }, [mapReady, L, selectedLocation]);
 
+  // Handle search pin marker
+  useEffect(() => {
+    if (!mapReady || !L || !mapInstanceRef.current) return;
+
+    const map = mapInstanceRef.current;
+
+    // Remove old search pin if present
+    if (searchPinMarkerRef.current) {
+      map.removeLayer(searchPinMarkerRef.current);
+      searchPinMarkerRef.current = null;
+    }
+
+    if (!searchPin) return;
+
+    const icon = getSearchLocationMarkerIcon(
+      L,
+      searchPin.label.length > 40
+        ? `${searchPin.label.slice(0, 40)}…`
+        : searchPin.label,
+    );
+
+    const marker = L.marker([searchPin.latitude, searchPin.longitude], {
+      icon,
+    });
+    const shortLabel =
+      searchPin.label.length > 60
+        ? `${searchPin.label.slice(0, 60)}…`
+        : searchPin.label;
+    marker.bindPopup(
+      `<div class="p-2 text-sm font-semibold">${shortLabel}</div>`,
+    );
+    marker.addTo(map);
+    searchPinMarkerRef.current = marker;
+  }, [mapReady, L, searchPin]);
+
   // Update story markers and user location marker
   useEffect(() => {
     if (!mapReady || !L || !mapInstanceRef.current) return;
@@ -293,12 +328,33 @@ export default function MapView({
         popupAnchor: [0, -48],
       });
 
+      // Pre-sort stories to determine rank for highlighted icons
+      const highlightedList = highlightedStoryIds
+        ? stories
+            .filter((s) => highlightedStoryIds.has(s.id))
+            .sort(
+              (a, b) =>
+                Number(b.likeCount) +
+                Number(b.pinCount) -
+                (Number(a.likeCount) + Number(a.pinCount)),
+            )
+        : [];
+      const highlightedRankMap = new Map<string, number>(
+        highlightedList.map((s, i) => [s.id, i]),
+      );
+
       const bounds: [number, number][] = [];
       for (const story of stories) {
         const position: [number, number] = [story.latitude, story.longitude];
         bounds.push(position);
 
-        const marker = L.marker(position, { icon: storyIcon });
+        const isHighlighted = highlightedStoryIds?.has(story.id);
+        const rank = highlightedRankMap.get(story.id) ?? 0;
+        const icon = isHighlighted
+          ? getPopularStoryMarkerIcon(L, story.category, rank)
+          : storyIcon;
+
+        const marker = L.marker(position, { icon });
 
         const distance = userLocation
           ? formatDistance(
@@ -367,7 +423,14 @@ export default function MapView({
         '<div class="p-2 text-sm font-semibold">Your Location</div>',
       );
     }
-  }, [mapReady, clusterPluginLoaded, L, stories, userLocation]);
+  }, [
+    mapReady,
+    clusterPluginLoaded,
+    L,
+    stories,
+    userLocation,
+    highlightedStoryIds,
+  ]);
 
   // Handle story marker clicks via custom event
   useEffect(() => {
@@ -382,204 +445,32 @@ export default function MapView({
       window.removeEventListener("story-marker-click", handleMarkerClick);
   }, [stories, onStoryClick]);
 
-  // Geocode location name and teleport map
-  const handleSearch = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      const query = searchQuery.trim();
-      if (!query || !mapInstanceRef.current || !L) return;
-
-      // Clear previous error and abort any in-flight request
-      setSearchError(null);
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      abortControllerRef.current = new AbortController();
-
-      setIsSearching(true);
-
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
-          {
-            signal: abortControllerRef.current.signal,
-            headers: { Accept: "application/json" },
-          },
-        );
-
-        if (!response.ok) throw new Error("Search request failed");
-
-        const data = await response.json();
-
-        if (!data || data.length === 0) {
-          setSearchError("Location not found");
-          setIsSearching(false);
-          return;
-        }
-
-        const result = data[0];
-        const lat = Number.parseFloat(result.lat);
-        const lng = Number.parseFloat(result.lon);
-
-        if (Number.isNaN(lat) || Number.isNaN(lng)) {
-          setSearchError("Location not found");
-          setIsSearching(false);
-          return;
-        }
-
-        const map = mapInstanceRef.current;
-
-        // Remove previous teleport marker
-        if (teleportMarkerRef.current) {
-          map.removeLayer(teleportMarkerRef.current);
-          teleportMarkerRef.current = null;
-        }
-
-        // Fly to the geocoded location at zoom 15
-        map.flyTo([lat, lng], 15, { animate: true, duration: 1.2 });
-
-        // Place a distinct teleport pin marker
-        const teleportIcon = L.divIcon({
-          className: "",
-          html: `
-          <div style="
-            width: 28px;
-            height: 28px;
-            background: #ef4444;
-            border: 3px solid white;
-            border-radius: 50% 50% 50% 0;
-            transform: rotate(-45deg);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-            position: relative;
-          ">
-            <div style="
-              width: 8px;
-              height: 8px;
-              background: white;
-              border-radius: 50%;
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-            "></div>
-          </div>
-        `,
-          iconSize: [28, 28],
-          iconAnchor: [14, 28],
-          popupAnchor: [0, -32],
-        });
-
-        const locationLabel = result.display_name
-          ? result.display_name.split(",").slice(0, 2).join(", ")
-          : query;
-
-        const marker = L.marker([lat, lng], {
-          icon: teleportIcon,
-          zIndexOffset: 900,
-        }).addTo(map);
-        marker.bindPopup(
-          `<div class="p-2 text-sm font-semibold">${locationLabel}</div>`,
-        );
-        teleportMarkerRef.current = marker;
-
-        setIsSearching(false);
-      } catch (err: any) {
-        if (err.name !== "AbortError") {
-          setSearchError("Location not found");
-          setIsSearching(false);
-        }
-      }
-    },
-    [searchQuery, L],
-  );
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    if (searchError) setSearchError(null);
-  };
-
-  const clearSearch = () => {
-    setSearchQuery("");
-    setSearchError(null);
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      {/* Search Bar — only shown when map is used as a location picker */}
-      {onMapBackgroundClick && (
-        <form onSubmit={handleSearch} className="relative">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input
-              type="text"
-              placeholder="Search for a location..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="pl-10 pr-20"
-            />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="text-muted-foreground hover:text-foreground p-1"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={isSearching || !searchQuery.trim()}
-                className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-              >
-                {isSearching ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Search className="h-3 w-3" />
-                )}
-                Go
-              </button>
-            </div>
+    <div className="relative">
+      {isLoadingMap && !leafletError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10 rounded-lg">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground">Loading map…</span>
           </div>
-          {searchError && (
-            <p className="text-xs text-destructive mt-1 ml-1">{searchError}</p>
-          )}
-        </form>
+        </div>
       )}
 
-      {/* Map Container */}
-      <div className="relative">
-        {isLoadingMap && !leafletError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10 rounded-lg">
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <span className="text-sm text-muted-foreground">
-                Loading map…
-              </span>
-            </div>
+      {leafletError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10 rounded-lg">
+          <div className="text-center p-4">
+            <p className="text-sm text-destructive font-medium">
+              {leafletError}
+            </p>
           </div>
-        )}
+        </div>
+      )}
 
-        {leafletError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-10 rounded-lg">
-            <div className="text-center p-4">
-              <p className="text-sm text-destructive font-medium">
-                {leafletError}
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div
-          ref={mapContainerRef}
-          className="w-full rounded-lg"
-          style={{ height: "400px" }}
-        />
-      </div>
+      <div
+        ref={mapContainerRef}
+        className="w-full rounded-lg"
+        style={{ height: "400px" }}
+      />
     </div>
   );
 }

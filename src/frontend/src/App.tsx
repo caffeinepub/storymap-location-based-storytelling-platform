@@ -10,9 +10,8 @@ import AdminModerationPage from "./pages/AdminModerationPage";
 import HomePage from "./pages/HomePage";
 import LocalUpdatesPage from "./pages/LocalUpdatesPage";
 import ProfilePage from "./pages/ProfilePage";
-import QissaMapPage from "./pages/QissaMapPage";
 
-type View = "home" | "profile" | "admin" | "localUpdates" | "qissamap";
+type View = "home" | "profile" | "admin" | "localUpdates";
 
 export default function App() {
   const { identity, isInitializing } = useInternetIdentity();
@@ -104,7 +103,6 @@ export default function App() {
             onNavigateHome={() => setCurrentView("home")}
             onNavigateAdmin={() => setCurrentView("admin")}
             onNavigateLocalUpdates={() => setCurrentView("localUpdates")}
-            onNavigateQissaMap={() => setCurrentView("qissamap")}
           />
           <main className="flex-1">
             {currentView === "home" && <HomePage />}
@@ -125,7 +123,6 @@ export default function App() {
             {currentView === "localUpdates" && (
               <LocalUpdatesPage onBackHome={() => setCurrentView("home")} />
             )}
-            {currentView === "qissamap" && <QissaMapPage />}
           </main>
           <Footer />
           {showProfileSetup && <ProfileSetupModal />}

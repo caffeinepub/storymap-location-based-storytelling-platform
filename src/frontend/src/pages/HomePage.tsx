@@ -1,4 +1,4 @@
-import { LayoutGrid, Map as MapIcon, MapPin } from "lucide-react";
+import { LayoutGrid, Map as MapIcon, MapPin, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import type { Category, Story } from "../backend";
 import CreateStoryDialog from "../components/CreateStoryDialog";
@@ -46,6 +46,11 @@ export default function HomePage() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [mapTeleportLocation, setMapTeleportLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    label: string;
+  } | null>(null);
 
   // Foreground location tracking — returns { latitude, longitude }
   const { location: currentLocation } = useForegroundLocationTracking();
@@ -56,6 +61,29 @@ export default function HomePage() {
       setMapCenter(currentLocation);
     }
   }, [currentLocation, mapCenter]);
+
+  // Listen for story-location-jump events dispatched from map marker popups
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      const data = JSON.parse(customEvent.detail) as {
+        id: string;
+        latitude: number;
+        longitude: number;
+        locationName: string;
+      };
+      setMapTeleportLocation({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        label:
+          data.locationName ||
+          `${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`,
+      });
+      setViewMode("feed");
+    };
+    window.addEventListener("story-location-jump", handler);
+    return () => window.removeEventListener("story-location-jump", handler);
+  }, []);
 
   // Use user's current geolocation as the base location for filtering
   const baseLat = currentLocation?.latitude ?? null;
@@ -107,6 +135,29 @@ export default function HomePage() {
   }, [filteredStories, sortOption, baseLat, baseLng]);
 
   const locationAvailable = baseLat != null && baseLng != null;
+
+  // Derive stories near a map-clicked location (sorted by likes + pins)
+  const teleportFilteredStories = useMemo(() => {
+    if (!mapTeleportLocation) return null;
+    return sortedStories
+      .filter(
+        (s: Story) =>
+          typeof s.latitude === "number" &&
+          typeof s.longitude === "number" &&
+          calculateDistance(
+            mapTeleportLocation.latitude,
+            mapTeleportLocation.longitude,
+            s.latitude,
+            s.longitude,
+          ) <= 5,
+      )
+      .sort(
+        (a: Story, b: Story) =>
+          Number(b.likeCount) +
+          Number(b.pinCount) -
+          (Number(a.likeCount) + Number(a.pinCount)),
+      );
+  }, [mapTeleportLocation, sortedStories]);
 
   // Derive top nearby popular stories when a search pin is active
   const highlightedStoryIds = useMemo(() => {
@@ -245,18 +296,38 @@ export default function HomePage() {
         {/* Content area */}
         <div className="flex-1 px-4 lg:px-6 py-5">
           {viewMode === "feed" ? (
-            <StoryFeed
-              stories={sortedStories}
-              isLoading={isLoading}
-              userLocation={currentLocation}
-              teleportedLocation={null}
-              onStoryClick={(story) => setSelectedStory(story)}
-              emptyMessage={
-                locationAvailable
-                  ? `No stories found within ${distanceKm} km${selectedCategory ? " in this category" : ""}.`
-                  : "No stories found. Enable location to see nearby stories."
-              }
-            />
+            <>
+              {mapTeleportLocation && (
+                <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-primary/10 border border-primary/20 rounded-lg text-sm">
+                  <MapPin className="w-4 h-4 text-primary shrink-0" />
+                  <span className="flex-1 text-primary font-medium">
+                    Showing popular stories near: {mapTeleportLocation.label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setMapTeleportLocation(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Clear location filter"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              <StoryFeed
+                stories={teleportFilteredStories ?? sortedStories}
+                isLoading={isLoading}
+                userLocation={currentLocation}
+                teleportedLocation={null}
+                onStoryClick={(story) => setSelectedStory(story)}
+                emptyMessage={
+                  teleportFilteredStories
+                    ? "No stories found near this location yet. Be the first to write one!"
+                    : locationAvailable
+                      ? `No stories found within ${distanceKm} km${selectedCategory ? " in this category" : ""}.`
+                      : "No stories found. Enable location to see nearby stories."
+                }
+              />
+            </>
           ) : (
             <div className="flex flex-col">
               <MapSearchBar

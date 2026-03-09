@@ -1,16 +1,30 @@
-# Specification
+# StoryMap
 
-## Summary
-**Goal:** Add a working location search feature to the QissaMap page that lets users find a location, pin it on the map, and see popular stories nearby.
+## Current State
+- Map view shows story markers; clicking "View Full Story" opens a StoryDetailDialog popup
+- When a location is searched, a red search pin is placed and nearby popular stories are highlighted in gold
+- Feed view is separate from map view; toggled via sidebar buttons
+- `highlightedStoryIds` already computed from searchPin + stories sorted by likes+pins
 
-**Planned changes:**
-- Add a visible search input bar (top-center overlay) on the QissaMap page with Enter key and button submission support
-- Integrate the Nominatim geocoding API to resolve typed location names to coordinates
-- Show a "No location found" message when the search yields no results
-- Pan/fly the map smoothly to the searched location's coordinates upon a successful search
-- Place a distinct marker (visually different from story markers) at the searched location; remove it when the search input is cleared
-- After a successful search, query for stories near the searched coordinates and rank them by popularity (likes/pins)
-- Display up to 5–10 popular nearby stories as floating cards or enriched markers on the map, each showing the story title and category badge/excerpt
-- Clicking a floating story card/marker opens the existing StoryDetailDialog for that story
+## Requested Changes (Diff)
 
-**User-visible outcome:** Users can type a location name into a search bar on the QissaMap page, have the map fly to that location with a pin, and immediately see the most popular stories near that location displayed as floating cards on the map.
+### Add
+- When user clicks "View Full Story" on a map marker, instead of (or in addition to) opening StoryDetailDialog, switch to Feed view and filter to stories within 5 km of that story's location
+- Show a "Viewing stories near [location name or coords]" label above the feed when teleported via map marker click
+- A "Clear" / "Back to all stories" button to reset the map-teleport filter
+
+### Modify
+- `HomePage.tsx`: add `mapTeleportLocation` state; when a story marker is clicked in Map view, set `mapTeleportLocation` to that story's coordinates, switch viewMode to "feed", and filter the feed to stories within 5 km of that point sorted by most liked + most pinned
+- `MapView.tsx`: change the "View Full Story" button popup to dispatch a new `story-location-jump` custom event (with story id + lat/lng) instead of only `story-marker-click`, so HomePage can handle the view switch
+- Feed display: when `mapTeleportLocation` is active, show a location banner and apply proximity+popularity sort
+
+### Remove
+- Nothing removed
+
+## Implementation Plan
+1. In `MapView.tsx`, update the popup button to dispatch both `story-marker-click` (for detail dialog) AND a new `story-location-jump` event carrying `{ id, latitude, longitude, locationName }`
+2. In `HomePage.tsx`, add `mapTeleportLocation` state `{ latitude, longitude, label } | null`
+3. Listen for `story-location-jump` event in HomePage; on fire: set `mapTeleportLocation`, switch to feed view
+4. When `mapTeleportLocation` is set, filter `sortedStories` to within 5 km radius of that point, then sort by likeCount + pinCount desc
+5. Show a dismissible banner above the feed: "Showing stories near [label]" with an X to clear `mapTeleportLocation`
+6. When `mapTeleportLocation` is cleared, revert to normal feed filtering logic

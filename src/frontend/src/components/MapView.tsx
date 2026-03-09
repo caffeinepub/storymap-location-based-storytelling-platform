@@ -367,6 +367,7 @@ export default function MapView({
             )
           : "";
 
+        const safeLocationName = (story.locationName ?? "").replace(/'/g, "");
         const popupContent = `
           <div class="p-2 min-w-[200px]">
             <div class="flex items-start justify-between gap-2 mb-2">
@@ -388,7 +389,7 @@ export default function MapView({
             </div>
             <button
               class="mt-2 w-full px-3 py-1 text-xs bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-md hover:opacity-90 transition-opacity"
-              onclick="window.dispatchEvent(new CustomEvent('story-marker-click', { detail: '${story.id}' }))"
+              onclick="window.dispatchEvent(new CustomEvent('story-marker-click', { detail: '${story.id}' })); window.dispatchEvent(new CustomEvent('story-location-jump', { detail: JSON.stringify({ id: '${story.id}', latitude: ${story.latitude}, longitude: ${story.longitude}, locationName: '${safeLocationName}' }) }));"
             >
               View Full Story
             </button>

@@ -11,6 +11,7 @@ import {
 import { AlertCircle, Check, MapPin, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import MapView from "./MapView";
+import QissaMapSearchBar from "./QissaMapSearchBar";
 
 interface LocationPickerDialogProps {
   open: boolean;
@@ -145,8 +146,8 @@ export default function LocationPickerDialog({
             Pick Location on Map
           </DialogTitle>
           <DialogDescription>
-            Click anywhere on the map to set your story's location. You can also
-            search for a place using the search box.
+            Search for a location or click anywhere on the map to set your
+            story's location.
           </DialogDescription>
         </DialogHeader>
 
@@ -157,17 +158,31 @@ export default function LocationPickerDialog({
           </Alert>
         )}
 
-        <div className="flex-1 min-h-[400px] rounded-lg overflow-hidden border">
+        <div className="flex-1 min-h-[400px] rounded-lg overflow-hidden border relative">
           {open && (
-            <MapView
-              stories={[]}
-              userLocation={null}
-              onStoryClick={() => {}}
-              onMapBackgroundClick={handleMapClick}
-              selectedLocation={selectedLocation}
-              isVisible={open}
-              centerCoordinate={centerCoordinate}
-            />
+            <>
+              <MapView
+                stories={[]}
+                userLocation={null}
+                onStoryClick={() => {}}
+                onMapBackgroundClick={handleMapClick}
+                selectedLocation={selectedLocation}
+                isVisible={open}
+                centerCoordinate={centerCoordinate}
+              />
+              <QissaMapSearchBar
+                onLocationFound={(loc) => {
+                  const coords = {
+                    latitude: loc.latitude,
+                    longitude: loc.longitude,
+                  };
+                  setSelectedLocation(coords);
+                  setCenterCoordinate(coords);
+                  if (geolocationMessage) setGeolocationMessage(null);
+                }}
+                onClear={() => {}}
+              />
+            </>
           )}
         </div>
 

@@ -170,6 +170,16 @@ export default function QissaMapView({
         .on("click", () => {
           setSelectedStory(story);
           onStoryClick?.(story);
+          window.dispatchEvent(
+            new CustomEvent("story-location-jump", {
+              detail: JSON.stringify({
+                id: story.id,
+                latitude: story.latitude,
+                longitude: story.longitude,
+                locationName: story.locationName ?? "",
+              }),
+            }),
+          );
         });
 
       storyMarkersRef.current.push(marker);
@@ -200,6 +210,16 @@ export default function QissaMapView({
         .on("click", () => {
           setSelectedStory(story);
           onStoryClick?.(story);
+          window.dispatchEvent(
+            new CustomEvent("story-location-jump", {
+              detail: JSON.stringify({
+                id: story.id,
+                latitude: story.latitude,
+                longitude: story.longitude,
+                locationName: story.locationName ?? "",
+              }),
+            }),
+          );
         });
       popularMarkersRef.current.push(marker);
       index++;
@@ -269,6 +289,27 @@ export default function QissaMapView({
               <span>📌 {Number(selectedStory.pinCount)}</span>
               <span>👁 {Number(selectedStory.viewCount)}</span>
             </div>
+            <button
+              type="button"
+              data-ocid="map.story.primary_button"
+              className="mt-2 w-full px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("story-location-jump", {
+                    detail: JSON.stringify({
+                      id: selectedStory.id,
+                      latitude: selectedStory.latitude,
+                      longitude: selectedStory.longitude,
+                      locationName: selectedStory.locationName ?? "",
+                    }),
+                  }),
+                );
+                onNavigateHome?.();
+                setSelectedStory(null);
+              }}
+            >
+              View Stories Near This Location
+            </button>
           </div>
         </div>
       )}

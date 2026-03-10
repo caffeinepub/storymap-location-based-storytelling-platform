@@ -61,8 +61,21 @@ export default function QissaMapPage({
     setSearchedLocation(null);
   };
 
-  const handleStoryClick = (_story: Story) => {
-    // Story click handled inside QissaMapView via popup
+  const handleStoryClick = (story: Story) => {
+    // Dispatch story-location-jump so HomePage switches to feed view
+    // filtered to stories near this story's location
+    window.dispatchEvent(
+      new CustomEvent("story-location-jump", {
+        detail: JSON.stringify({
+          id: story.id,
+          latitude: story.latitude,
+          longitude: story.longitude,
+          locationName: story.locationName ?? "",
+        }),
+      }),
+    );
+    // Navigate back to home (feed) after dispatching the event
+    onNavigateHome?.();
   };
 
   return (

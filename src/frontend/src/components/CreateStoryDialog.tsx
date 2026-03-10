@@ -281,7 +281,6 @@ export default function CreateStoryDialog({
     isAuthenticated &&
     title.trim().length > 0 &&
     content.trim().length > 0 &&
-    pickedLocation != null &&
     !isSubmitting;
 
   return (
@@ -383,7 +382,7 @@ export default function CreateStoryDialog({
 
             {/* Location picker — map-picker coordinates are the story's lat/lng */}
             <div className="flex flex-col gap-1.5">
-              <Label>Location (required)</Label>
+              <Label>Location (optional)</Label>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
@@ -391,6 +390,7 @@ export default function CreateStoryDialog({
                   size="sm"
                   className="gap-1.5"
                   onClick={() => setIsLocationPickerOpen(true)}
+                  data-ocid="story.location.button"
                 >
                   <MapPin className="w-3.5 h-3.5" />
                   {pickedLocation
@@ -408,11 +408,9 @@ export default function CreateStoryDialog({
                   </button>
                 )}
               </div>
-              {!pickedLocation && (
-                <p className="text-xs text-muted-foreground">
-                  You must pick a location on the map to post your story.
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                Pick a location on the map to pin your story (recommended).
+              </p>
             </div>
 
             {/* Location name */}
@@ -451,6 +449,7 @@ export default function CreateStoryDialog({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2 border border-dashed border-border rounded-lg px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                  data-ocid="story.upload_button"
                 >
                   <ImageIcon className="w-4 h-4" />
                   Add an image
@@ -512,6 +511,7 @@ export default function CreateStoryDialog({
                 className="ml-auto gap-1.5"
                 onClick={handleSubmit}
                 disabled={!canSubmit}
+                data-ocid="story.submit_button"
               >
                 {isSubmitting && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />

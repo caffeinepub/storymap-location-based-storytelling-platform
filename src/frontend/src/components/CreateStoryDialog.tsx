@@ -66,8 +66,6 @@ export default function CreateStoryDialog({
   const [category, setCategory] = useState<Category>(Category.random);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [locationName, setLocationName] = useState("");
-  // pickedLocation holds the map-picker coordinates — these are the story's lat/lng.
-  // The user's live device geolocation is NEVER used as the story's coordinates.
   const [pickedLocation, setPickedLocation] = useState<PickedLocation | null>(
     null,
   );
@@ -124,8 +122,6 @@ export default function CreateStoryDialog({
     setLocationName(draft.locationName ?? "");
     setActiveDraftId(draft.id);
 
-    // Load draft's map-picker coordinates (draft.latitude / draft.longitude)
-    // These are the story's pinned coordinates, not device geolocation
     if (draft.latitude != null && draft.longitude != null) {
       setPickedLocation({ lat: draft.latitude, lng: draft.longitude });
     } else {
@@ -149,12 +145,6 @@ export default function CreateStoryDialog({
       return;
     }
 
-    // Require a map-picked location — device geolocation is NOT used as story coordinates
-    if (!pickedLocation) {
-      toast.error("Please pick a location on the map before posting.");
-      return;
-    }
-
     if (!title.trim()) {
       toast.error("Please enter a title.");
       return;
@@ -169,18 +159,20 @@ export default function CreateStoryDialog({
     try {
       const imageBlob = await buildImageBlob();
 
+      // Use picked location if available, otherwise default to 0,0
+      const lat = pickedLocation?.lat ?? 0;
+      const lng = pickedLocation?.lng ?? 0;
+
       if (activeDraftId) {
-        // Publish from draft — uses draft's map-picker coordinates
         await publishDraft.mutateAsync(activeDraftId);
       } else {
-        // Create story directly — uses pickedLocation (map-picker coordinates only)
         await createStory.mutateAsync({
           title: title.trim(),
           content: content.trim(),
           category,
           locationName: locationName.trim() || null,
-          latitude: pickedLocation.lat,
-          longitude: pickedLocation.lng,
+          latitude: lat,
+          longitude: lng,
           isAnonymous,
           image: imageBlob,
         });
@@ -277,6 +269,7 @@ export default function CreateStoryDialog({
     ? { latitude: pickedLocation.lat, longitude: pickedLocation.lng }
     : undefined;
 
+  // Only title and content are required to post
   const canSubmit =
     isAuthenticated &&
     title.trim().length > 0 &&
@@ -292,7 +285,7 @@ export default function CreateStoryDialog({
               {activeDraftId ? "Edit Draft" : "Share a Story"}
             </DialogTitle>
             <DialogDescription>
-              Pin your story to a location on the map.
+              Share your story — location and image are optional.
             </DialogDescription>
           </DialogHeader>
 
@@ -344,6 +337,7 @@ export default function CreateStoryDialog({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={100}
+                data-ocid="story.title.input"
               />
             </div>
 
@@ -357,6 +351,7 @@ export default function CreateStoryDialog({
                 onChange={(e) => setContent(e.target.value)}
                 rows={5}
                 maxLength={2000}
+                data-ocid="story.content.textarea"
               />
             </div>
 
@@ -367,7 +362,7 @@ export default function CreateStoryDialog({
                 value={category}
                 onValueChange={(v) => setCategory(v as Category)}
               >
-                <SelectTrigger>
+                <SelectTrigger data-ocid="story.category.select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -380,7 +375,7 @@ export default function CreateStoryDialog({
               </Select>
             </div>
 
-            {/* Location picker — map-picker coordinates are the story's lat/lng */}
+            {/* Location picker */}
             <div className="flex flex-col gap-1.5">
               <Label>Location (optional)</Label>
               <div className="flex items-center gap-2">
@@ -409,7 +404,7 @@ export default function CreateStoryDialog({
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Pick a location on the map to pin your story (recommended).
+                Pick a location on the map to pin your story (optional).
               </p>
             </div>
 
@@ -422,6 +417,7 @@ export default function CreateStoryDialog({
                 value={locationName}
                 onChange={(e) => setLocationName(e.target.value)}
                 maxLength={80}
+                data-ocid="story.locationname.input"
               />
             </div>
 
@@ -433,7 +429,8 @@ export default function CreateStoryDialog({
                   <img
                     src={imagePreviewUrl}
                     alt="Preview"
-                    className="w-full h-auto block rounded-lg max-h-48 object-cover"
+                    className="w-full h-auto block rounded-lg"
+                    style={{ maxHeight: "none", objectFit: "contain" }}
                   />
                   <button
                     type="button"
@@ -529,7 +526,7 @@ export default function CreateStoryDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Location picker dialog — uses { latitude, longitude } shape */}
+      {/* Location picker dialog */}
       <LocationPickerDialog
         open={isLocationPickerOpen}
         onOpenChange={setIsLocationPickerOpen}

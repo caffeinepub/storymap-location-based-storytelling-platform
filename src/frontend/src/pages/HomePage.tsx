@@ -1,4 +1,4 @@
-import { LayoutGrid, Map as MapIcon, MapPin, X } from "lucide-react";
+import { LayoutGrid, Map as MapIcon, MapPin, X, Zap } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import type { Category, Story } from "../backend";
 import CreateStoryDialog from "../components/CreateStoryDialog";
@@ -22,6 +22,42 @@ import {
 import { type LatLng, type SortOption, sortStories } from "../lib/storySorting";
 
 type ViewMode = "feed" | "map";
+
+const TELEPORT_CITIES = [
+  { name: "CG Road, Ahmedabad", latitude: 23.0258, longitude: 72.5703 },
+  { name: "Manek Chowk, Ahmedabad", latitude: 23.0258, longitude: 72.5873 },
+  {
+    name: "Sabarmati Riverfront, Ahmedabad",
+    latitude: 23.0395,
+    longitude: 72.5811,
+  },
+  { name: "Navrangpura, Ahmedabad", latitude: 23.0331, longitude: 72.5609 },
+  { name: "Vastrapur Lake, Ahmedabad", latitude: 23.0386, longitude: 72.5268 },
+  { name: "Prahlad Nagar, Ahmedabad", latitude: 23.0153, longitude: 72.5073 },
+  { name: "Satellite, Ahmedabad", latitude: 23.0258, longitude: 72.5073 },
+  { name: "Bodakdev, Ahmedabad", latitude: 23.0467, longitude: 72.5124 },
+  { name: "Thaltej, Ahmedabad", latitude: 23.0572, longitude: 72.4994 },
+  { name: "SG Highway, Ahmedabad", latitude: 23.0395, longitude: 72.5009 },
+  { name: "Ambawadi, Ahmedabad", latitude: 23.0258, longitude: 72.5521 },
+  { name: "Paldi, Ahmedabad", latitude: 23.0015, longitude: 72.5703 },
+  { name: "Maninagar, Ahmedabad", latitude: 22.9938, longitude: 72.6097 },
+  { name: "Naroda, Ahmedabad", latitude: 23.09, longitude: 72.658 },
+  { name: "Chandkheda, Ahmedabad", latitude: 23.1089, longitude: 72.5936 },
+  { name: "Gota, Ahmedabad", latitude: 23.0942, longitude: 72.5521 },
+  { name: "Motera, Ahmedabad", latitude: 23.0942, longitude: 72.601 },
+  { name: "Old City, Ahmedabad", latitude: 23.0258, longitude: 72.5873 },
+  { name: "Vejalpur, Ahmedabad", latitude: 22.9938, longitude: 72.5521 },
+  { name: "Bopal, Ahmedabad", latitude: 23.0015, longitude: 72.4667 },
+  { name: "Ghatlodiya, Ahmedabad", latitude: 23.0724, longitude: 72.5521 },
+  { name: "Naranpura, Ahmedabad", latitude: 23.0572, longitude: 72.5703 },
+  {
+    name: "Iskon Cross Road, Ahmedabad",
+    latitude: 23.0258,
+    longitude: 72.5073,
+  },
+  { name: "Sughad, Ahmedabad", latitude: 23.1089, longitude: 72.6228 },
+  { name: "Nikol, Ahmedabad", latitude: 23.0572, longitude: 72.658 },
+];
 
 export default function HomePage() {
   const { identity: _identity } = useInternetIdentity();
@@ -184,11 +220,35 @@ export default function HomePage() {
     return nearby.length > 0 ? new Set(nearby.map((s: Story) => s.id)) : null;
   }, [searchPin, sortedStories]);
 
+  function handleTeleport() {
+    const city =
+      TELEPORT_CITIES[Math.floor(Math.random() * TELEPORT_CITIES.length)];
+    setMapTeleportLocation({
+      latitude: city.latitude,
+      longitude: city.longitude,
+      label: city.name,
+    });
+    setViewMode("feed");
+  }
+
   // ── Normal home view ──
   return (
     <div className="flex min-h-0 flex-1">
       {/* ── Left Sidebar ── */}
       <aside className="hidden lg:flex flex-col gap-5 w-72 xl:w-80 shrink-0 border-r border-border bg-card px-5 py-6 overflow-y-auto">
+        {/* Teleport Button */}
+        <Button
+          variant="secondary"
+          className="w-full gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900 dark:border-indigo-800"
+          onClick={handleTeleport}
+          data-ocid="sidebar.teleport_button"
+        >
+          <Zap className="w-4 h-4" />
+          Teleport in Ahmedabad
+        </Button>
+
+        <div className="border-t border-border" />
+
         {/* Category Filters */}
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
@@ -266,6 +326,15 @@ export default function HomePage() {
             onCategoryChange={setSelectedCategory}
           />
           <div className="flex gap-2 ml-auto">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900 dark:border-indigo-800"
+              onClick={handleTeleport}
+            >
+              <Zap className="w-4 h-4" />
+              Teleport
+            </Button>
             <Button
               variant={viewMode === "feed" ? "default" : "outline"}
               size="sm"

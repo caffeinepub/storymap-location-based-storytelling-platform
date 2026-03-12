@@ -19,15 +19,17 @@ import { useInternetIdentity } from "./useInternetIdentity";
 // Helper function to wait for actor with timeout
 async function waitForActor(
   getActor: () => any,
-  maxAttempts = 10,
-  delayMs = 300,
+  maxAttempts = 30,
+  delayMs = 500,
 ): Promise<any> {
   for (let i = 0; i < maxAttempts; i++) {
     const actor = getActor();
     if (actor) return actor;
     await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
-  throw new Error("Backend connection not available. Please try again.");
+  throw new Error(
+    "Backend connection not available. Please refresh the page and try again.",
+  );
 }
 
 // User Profile Queries

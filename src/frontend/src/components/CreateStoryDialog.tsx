@@ -1,4 +1,11 @@
-import { FileText, Image as ImageIcon, Loader2, MapPin, X } from "lucide-react";
+import {
+  AlertTriangle,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  MapPin,
+  X,
+} from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -53,6 +60,88 @@ const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
   { value: Category.other, label: "Other" },
 ];
 
+// Privacy check: returns true if personal info is detected
+function containsPersonalInfo(text: string): boolean {
+  if (/\b\d[\d\s\-]{8,11}\d\b/.test(text)) return true;
+  if (/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/.test(text))
+    return true;
+  if (/@[a-zA-Z0-9_]{1,}/.test(text)) return true;
+  if (/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/.test(text)) return true;
+  if (
+    /\b(flat|room\s*no|room\s*number|apartment|house\s*no|house\s*number|block\s*no|block\s*number)\b/i.test(
+      text,
+    )
+  )
+    return true;
+  return false;
+}
+
+// Harmful content check: returns true if hate speech, abuse, harassment, or threats are detected
+function containsHarmfulContent(text: string): boolean {
+  const lower = text.toLowerCase();
+
+  // Hate speech — slurs and dehumanising language targeting groups
+  const hateSpeechPatterns = [
+    /\bn[i*][g*]{2}[e*]r\b/,
+    /\bfagg[o0]t\b/,
+    /\bk[i*]ke\b/,
+    /\bsp[i*]c\b/,
+    /\bch[i*]nk\b/,
+    /\bwetback\b/,
+    /\btr[a@]nny\b/,
+    /\bretard(ed)?\b/,
+    /\bsubhuman\b/,
+    /\bvermin\b.*\b(people|community|group|race|religion)\b/,
+    /\b(people|community|group|race|religion)\b.*\bvermin\b/,
+  ];
+
+  // Abusive / profane insults directed at a person
+  const abusePatterns = [
+    /\bf[u*][c*][k*]\s*(you|off|your)\b/,
+    /\bgo\s+to\s+hell\b/,
+    /\byou\s+(stupid|dumb|idiot|moron|imbecile|worthless|useless|piece\s+of\s+shit)\b/,
+    /\bpiece\s+of\s+shit\b/,
+    /\bbastard\b/,
+    /\bbitc[h*]\b/,
+    /\bwhore\b/,
+    /\bslu[t*]\b/,
+    /\bc[u*]nt\b/,
+    /\bdouchebag\b/,
+    /\bscumbag\b/,
+  ];
+
+  // Harassment toward individuals or communities
+  const harassmentPatterns = [
+    /\b(i\s+will|i'm\s+going\s+to|i\s+am\s+going\s+to)\s+(expose|destroy|ruin|humiliate|embarrass)\s+(you|them|him|her)\b/,
+    /\b(everyone\s+should\s+hate|people\s+should\s+hate|\bboycott)\b/,
+    /\bdie\s+(alone|in\s+a\s+fire|already|slowly)\b/,
+    /\byou\s+don'?t\s+deserve\s+to\s+(live|exist|breathe)\b/,
+    /\bkill\s+yourself\b/,
+    /\bkys\b/,
+    /\bgo\s+kill\s+yourself\b/,
+  ];
+
+  // Threats or violence
+  const threatPatterns = [
+    /\b(i\s+will|i'm\s+going\s+to|i\s+am\s+going\s+to|gonna)\s+(kill|hurt|beat|attack|stab|shoot|rape|harm|destroy)\s+(you|them|him|her|everyone)\b/,
+    /\b(kill|murder|slaughter|exterminate)\s+(all|every|those)\b/,
+    /\bthreat(en(ing)?)?\b.*\b(violence|harm|death)\b/,
+    /\bbomb(ing)?\b/,
+    /\bterror(ist|ism)?\b/,
+    /\bmass\s+shooting\b/,
+    /\bwipe\s+(out|them|you)\b/,
+  ];
+
+  const allPatterns = [
+    ...hateSpeechPatterns,
+    ...abusePatterns,
+    ...harassmentPatterns,
+    ...threatPatterns,
+  ];
+
+  return allPatterns.some((pattern) => pattern.test(lower));
+}
+
 export default function CreateStoryDialog({
   open,
   onOpenChange,
@@ -78,6 +167,8 @@ export default function CreateStoryDialog({
     initialDraftId ?? null,
   );
   const [showDraftList, setShowDraftList] = useState(false);
+  const [privacyError, setPrivacyError] = useState(false);
+  const [harmfulError, setHarmfulError] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,6 +192,8 @@ export default function CreateStoryDialog({
       setImagePreviewUrl(null);
       setActiveDraftId(initialDraftId ?? null);
       setShowDraftList(false);
+      setPrivacyError(false);
+      setHarmfulError(false);
     }
   }, [open, initialDraftId]);
 
@@ -121,6 +214,8 @@ export default function CreateStoryDialog({
     setIsAnonymous(draft.isAnonymous);
     setLocationName(draft.locationName ?? "");
     setActiveDraftId(draft.id);
+    setPrivacyError(false);
+    setHarmfulError(false);
 
     if (draft.latitude != null && draft.longitude != null) {
       setPickedLocation({ lat: draft.latitude, lng: draft.longitude });
@@ -139,6 +234,11 @@ export default function CreateStoryDialog({
     return ExternalBlob.fromBytes(new Uint8Array(arrayBuffer));
   }
 
+  function clearErrors() {
+    setPrivacyError(false);
+    setHarmfulError(false);
+  }
+
   async function handleSubmit() {
     if (!isAuthenticated) {
       toast.error("Please log in to post a story.");
@@ -155,6 +255,23 @@ export default function CreateStoryDialog({
       return;
     }
 
+    const combined = `${title} ${content}`;
+
+    // Harmful content check (hate speech, abuse, harassment, threats)
+    if (containsHarmfulContent(combined)) {
+      setHarmfulError(true);
+      setPrivacyError(false);
+      return;
+    }
+
+    // Privacy check on title + content combined
+    if (containsPersonalInfo(combined)) {
+      setPrivacyError(true);
+      setHarmfulError(false);
+      return;
+    }
+
+    clearErrors();
     setIsSubmitting(true);
     try {
       const imageBlob = await buildImageBlob();
@@ -244,6 +361,7 @@ export default function CreateStoryDialog({
       setPickedLocation(null);
       setImageFile(null);
       setImagePreviewUrl(null);
+      clearErrors();
       toast.success("Draft deleted.");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to delete draft.");
@@ -335,7 +453,10 @@ export default function CreateStoryDialog({
                 id="story-title"
                 placeholder="Give your story a title…"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  clearErrors();
+                }}
                 maxLength={100}
                 data-ocid="story.title.input"
               />
@@ -344,16 +465,58 @@ export default function CreateStoryDialog({
             {/* Content */}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="story-content">Story</Label>
+              {/* Privacy hint above text box */}
+              <div
+                className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2"
+                data-ocid="story.privacy.hint"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>
+                  Do not include real names, phone numbers, or personal
+                  information.
+                </span>
+              </div>
               <Textarea
                 id="story-content"
                 placeholder="Tell your story…"
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => {
+                  setContent(e.target.value);
+                  clearErrors();
+                }}
                 rows={5}
                 maxLength={2000}
                 data-ocid="story.content.textarea"
               />
             </div>
+
+            {/* Harmful content error */}
+            {harmfulError && (
+              <div
+                className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-md px-3 py-2.5 text-sm"
+                data-ocid="story.harmful.error_state"
+              >
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  Your story contains abusive or harmful language. Please edit
+                  and try again.
+                </span>
+              </div>
+            )}
+
+            {/* Privacy error warning */}
+            {privacyError && (
+              <div
+                className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-md px-3 py-2.5 text-sm"
+                data-ocid="story.privacy.error_state"
+              >
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  Please do not include names, phone numbers, addresses, or
+                  personal information. Stories must remain anonymous.
+                </span>
+              </div>
+            )}
 
             {/* Category */}
             <div className="flex flex-col gap-1.5">

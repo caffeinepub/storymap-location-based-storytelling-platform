@@ -231,6 +231,16 @@ export default function HomePage() {
     setViewMode("feed");
   }
 
+  function handleSeeAllStoriesNear() {
+    if (!searchPin) return;
+    setMapTeleportLocation({
+      latitude: searchPin.latitude,
+      longitude: searchPin.longitude,
+      label: searchPin.label,
+    });
+    setViewMode("feed");
+  }
+
   // ── Normal home view ──
   return (
     <div className="flex min-h-0 flex-1">
@@ -398,7 +408,7 @@ export default function HomePage() {
               />
             </>
           ) : (
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-3">
               <MapSearchBar
                 onResult={(result) => {
                   setSearchPin(result);
@@ -413,6 +423,17 @@ export default function HomePage() {
                 }}
                 activeLabel={searchPin?.label ?? null}
               />
+              {searchPin && (
+                <Button
+                  variant="secondary"
+                  className="w-full gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900 dark:border-indigo-800"
+                  onClick={handleSeeAllStoriesNear}
+                  data-ocid="map.see_all_stories.button"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  See all stories near this location
+                </Button>
+              )}
               <div className="h-[calc(100vh-270px)] min-h-[400px] rounded-lg overflow-hidden border border-border">
                 <MapView
                   stories={sortedStories}

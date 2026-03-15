@@ -20,6 +20,7 @@ import {
 } from "../hooks/useDrafts";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCreateStory } from "../hooks/useQueries";
+import { applyLocationPrivacy } from "../lib/locationPrivacy";
 import LocationPickerDialog from "./LocationPickerDialog";
 import { Button } from "./ui/button";
 import {
@@ -277,8 +278,15 @@ export default function CreateStoryDialog({
       const imageBlob = await buildImageBlob();
 
       // Use picked location if available, otherwise default to 0,0
-      const lat = pickedLocation?.lat ?? 0;
-      const lng = pickedLocation?.lng ?? 0;
+      let lat = pickedLocation?.lat ?? 0;
+      let lng = pickedLocation?.lng ?? 0;
+
+      // Apply location privacy (fuzzing + area snapping) only when user picked a location
+      if (pickedLocation) {
+        const privLoc = applyLocationPrivacy(lat, lng);
+        lat = privLoc.lat;
+        lng = privLoc.lng;
+      }
 
       if (activeDraftId) {
         await publishDraft.mutateAsync(activeDraftId);

@@ -1,5 +1,5 @@
 import { LayoutGrid, Map as MapIcon, MapPin, X, Zap } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { Category, Story } from "../backend";
 import CreateStoryDialog from "../components/CreateStoryDialog";
 import CreateStoryFAB from "../components/CreateStoryFAB";
@@ -10,6 +10,7 @@ import MapView from "../components/MapView";
 import SortControl from "../components/SortControl";
 import StoryDetailDialog from "../components/StoryDetailDialog";
 import StoryFeed from "../components/StoryFeed";
+import WalkDiscoverCard from "../components/WalkDiscoverCard";
 import { Button } from "../components/ui/button";
 import { useForegroundLocationTracking } from "../hooks/useForegroundLocationTracking";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
@@ -87,6 +88,10 @@ export default function HomePage() {
     longitude: number;
     label: string;
   } | null>(null);
+
+  // Walk & Discover Mode state
+  const [walkModeActive, setWalkModeActive] = useState(false);
+  const [walkModeStories, setWalkModeStories] = useState<Story[]>([]);
 
   // Foreground location tracking — returns { latitude, longitude }
   const { location: currentLocation } = useForegroundLocationTracking();
@@ -241,6 +246,26 @@ export default function HomePage() {
     setViewMode("feed");
   }
 
+  // Walk & Discover handlers
+  const handleWalkActivate = useCallback((nearby: Story[]) => {
+    setWalkModeActive(true);
+    setWalkModeStories(nearby);
+    // Dismiss teleport banner when walk mode is active
+    setMapTeleportLocation(null);
+  }, []);
+
+  const handleWalkDismiss = useCallback(() => {
+    setWalkModeActive(false);
+    setWalkModeStories([]);
+  }, []);
+
+  // Determine which stories to show in the feed
+  const feedStories = useMemo(() => {
+    if (walkModeActive) return walkModeStories;
+    if (teleportFilteredStories) return teleportFilteredStories;
+    return sortedStories;
+  }, [walkModeActive, walkModeStories, teleportFilteredStories, sortedStories]);
+
   // ── Normal home view ──
   return (
     <div className="flex min-h-0 flex-1">
@@ -376,7 +401,19 @@ export default function HomePage() {
         <div className="flex-1 px-4 lg:px-6 py-5">
           {viewMode === "feed" ? (
             <>
-              {mapTeleportLocation && (
+              {/* Walk & Discover Card — shown at top of feed when location is available */}
+              {locationAvailable && (
+                <WalkDiscoverCard
+                  stories={sortedStories}
+                  userLocation={currentLocation}
+                  onActivate={handleWalkActivate}
+                  onDismiss={handleWalkDismiss}
+                  isActive={walkModeActive}
+                />
+              )}
+
+              {/* Teleport location banner — hidden when walk mode is active */}
+              {mapTeleportLocation && !walkModeActive && (
                 <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-primary/10 border border-primary/20 rounded-lg text-sm">
                   <MapPin className="w-4 h-4 text-primary shrink-0" />
                   <span className="flex-1 text-primary font-medium">
@@ -392,18 +429,21 @@ export default function HomePage() {
                   </button>
                 </div>
               )}
+
               <StoryFeed
-                stories={teleportFilteredStories ?? sortedStories}
+                stories={feedStories}
                 isLoading={isLoading}
                 userLocation={currentLocation}
                 teleportedLocation={null}
                 onStoryClick={(story) => setSelectedStory(story)}
                 emptyMessage={
-                  teleportFilteredStories
-                    ? "No stories found near this location yet. Be the first to write one!"
-                    : locationAvailable
-                      ? `No stories found within ${distanceKm} km${selectedCategory ? " in this category" : ""}.`
-                      : "No stories found. Enable location to see nearby stories."
+                  walkModeActive
+                    ? "No stories nearby yet. Be the first to share one."
+                    : teleportFilteredStories
+                      ? "No stories found near this location yet. Be the first to write one!"
+                      : locationAvailable
+                        ? `No stories found within ${distanceKm} km${selectedCategory ? " in this category" : ""}.`
+                        : "No stories found. Enable location to see nearby stories."
                 }
               />
             </>

@@ -1,30 +1,26 @@
 # StoryMap
 
 ## Current State
-- Map view shows story markers; clicking "View Full Story" opens a StoryDetailDialog popup
-- When a location is searched, a red search pin is placed and nearby popular stories are highlighted in gold
-- Feed view is separate from map view; toggled via sidebar buttons
-- `highlightedStoryIds` already computed from searchPin + stories sorted by likes+pins
+Stories are stored with the exact latitude and longitude the author picks on the map. These precise coordinates are used for map markers and feed filtering. There is no location privacy layer — readers could potentially identify an author by the exact pin location of a sensitive story.
 
 ## Requested Changes (Diff)
 
 ### Add
-- When user clicks "View Full Story" on a map marker, instead of (or in addition to) opening StoryDetailDialog, switch to Feed view and filter to stories within 5 km of that story's location
-- Show a "Viewing stories near [location name or coords]" label above the feed when teleported via map marker click
-- A "Clear" / "Back to all stories" button to reset the map-teleport filter
+- `fuzzCoordinates(lat, lng)` utility function that applies a random offset of 200–500 meters in a random direction to the given coordinates. Returns fuzzed `{ lat, lng }`.
+- `snapToAreaCenter(lat, lng)` utility function that rounds coordinates to the nearest ~500m grid cell, effectively snapping the pin to a coarse area center.
+- Both functions are composed: the final stored coordinates = snapToAreaCenter(fuzzCoordinates(originalLat, originalLng)).
 
 ### Modify
-- `HomePage.tsx`: add `mapTeleportLocation` state; when a story marker is clicked in Map view, set `mapTeleportLocation` to that story's coordinates, switch viewMode to "feed", and filter the feed to stories within 5 km of that point sorted by most liked + most pinned
-- `MapView.tsx`: change the "View Full Story" button popup to dispatch a new `story-location-jump` custom event (with story id + lat/lng) instead of only `story-marker-click`, so HomePage can handle the view switch
-- Feed display: when `mapTeleportLocation` is active, show a location banner and apply proximity+popularity sort
+- In `CreateStoryDialog.tsx`, before calling `createStory.mutateAsync(...)`, apply the combined privacy transform to `lat` and `lng`. The story is stored and displayed with the fuzzed+snapped coordinates instead of the exact user-picked location.
+- The `locationName` field is unaffected — it still shows the user-entered name (e.g. "CG Road").
+- Draft save/load is unaffected — drafts store the original picked coordinates (fuzzing is applied only on final publish).
 
 ### Remove
-- Nothing removed
+- Nothing removed.
 
 ## Implementation Plan
-1. In `MapView.tsx`, update the popup button to dispatch both `story-marker-click` (for detail dialog) AND a new `story-location-jump` event carrying `{ id, latitude, longitude, locationName }`
-2. In `HomePage.tsx`, add `mapTeleportLocation` state `{ latitude, longitude, label } | null`
-3. Listen for `story-location-jump` event in HomePage; on fire: set `mapTeleportLocation`, switch to feed view
-4. When `mapTeleportLocation` is set, filter `sortedStories` to within 5 km radius of that point, then sort by likeCount + pinCount desc
-5. Show a dismissible banner above the feed: "Showing stories near [label]" with an X to clear `mapTeleportLocation`
-6. When `mapTeleportLocation` is cleared, revert to normal feed filtering logic
+1. Create `src/frontend/src/lib/locationPrivacy.ts` with:
+   - `fuzzCoordinates(lat, lng, minMeters = 200, maxMeters = 500)`: adds a random bearing offset in the given meter range.
+   - `snapToAreaCenter(lat, lng, gridMeters = 500)`: snaps to a 500m grid cell center.
+   - `applyLocationPrivacy(lat, lng)`: composes both — returns fuzzed then snapped coordinates.
+2. In `CreateStoryDialog.tsx` `handleSubmit`, wrap the final `lat` and `lng` with `applyLocationPrivacy(lat, lng)` before passing to `createStory.mutateAsync`. Apply only when a location was actually picked (skip for 0,0 default).
